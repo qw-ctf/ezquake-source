@@ -32,11 +32,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        language: [ 'cpp', 'python' ]
+        language: [ 'cpp' ]
         # CodeQL supports [ 'cpp', 'csharp', 'go', 'java', 'javascript', 'python', 'ruby' ]
         # Learn more about CodeQL language support at https://git.io/codeql-language-support
 
     steps:
+    - run: sudo apt-get -qq update && sudo apt-get -qq install --no-install-recommends gcc make libsdl2-dev libsndfile-dev libjansson-dev libspeex-dev libexpat1-dev libspeexdsp-dev libcurl4-openssl-dev libjpeg-dev libpng-dev
+
     - name: Checkout repository
       uses: actions/checkout@v3
 
