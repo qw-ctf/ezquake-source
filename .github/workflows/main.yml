@@ -1,0 +1,48 @@
+name: ezquake
+
+on: [push]
+
+jobs:
+  windows-build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 1
+
+      - run: git checkout HEAD
+
+      - uses: microsoft/setup-msbuild@v1.1
+        
+      - run: msbuild -m -p:Configuration=rls-modern,Platform=x64
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: ezquake-latest-windows
+          path: |
+            ezquake.exe
+
+  linux-build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Get number of CPU cores
+        uses: SimenB/github-actions-cpu-cores@v1
+        id: cpu-cores
+
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 1
+
+      - run: git checkout HEAD
+
+      - run: sudo apt-get -qq update && sudo apt-get -qq install --no-install-recommends gcc make libsdl2-dev libsndfile-dev libjansson-dev libspeex-dev libexpat1-dev libspeexdsp-dev libcurl4-openssl-dev libjpeg-dev libpng-dev
+        
+      - run: make -j${{ steps.cpu-cores.outputs.count }} && strip ezquake-linux-x86_64
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: ezquake-latest-linux
+          path: |
+            ezquake-linux-x86_64
