@@ -486,6 +486,17 @@ static int SCR_HudDrawTeamInfoPlayer(ti_player_t *ti_cl, float x, int y, int max
 						x += (Player_GetTrackId(cl.players[ti_cl->client].userid) >= 10 ? 2 : 1) * font_width;
 						break;
 
+					case 'c':
+						if (!width_only) {
+							if (ti_cl->items & IT_KEY1) {
+								Draw_SString(x, y, "&cf00R", scale, proportional);
+							} else if (ti_cl->items & IT_KEY2) {
+								Draw_SString(x, y, "&c00fB", scale, proportional);
+							}
+						}
+						x += font_width;
+						break;
+
 					case '%': // wow, %% result in one %, how smart
 						if (!width_only) {
 							Draw_SString(x, y, "%", scale, proportional);
@@ -607,6 +618,13 @@ void SCR_Draw_TeamInfo(void)
 	}
 }
 
+#define FLAGS_RUNES_MASK (IT_SIGIL1 | IT_SIGIL2 | IT_SIGIL3 | IT_SIGIL4 | IT_KEY1 | IT_KEY2)
+
+static inline int Filter_FlagsAndRunes(int client, int stats)
+{
+  return (ti_clients[client].items & FLAGS_RUNES_MASK) | (stats & ~FLAGS_RUNES_MASK);
+}
+
 void Parse_TeamInfo(char *s)
 {
 	int		client;
@@ -629,8 +647,24 @@ void Parse_TeamInfo(char *s)
 	ti_clients[client].org[2] = atoi(Cmd_Argv(4));
 	ti_clients[client].health = atoi(Cmd_Argv(5));
 	ti_clients[client].armor = atoi(Cmd_Argv(6));
-	ti_clients[client].items = atoi(Cmd_Argv(7));
+	ti_clients[client].items = Filter_FlagsAndRunes(client, atoi(Cmd_Argv(7)));
 	strlcpy(ti_clients[client].nick, Cmd_Argv(8), TEAMINFO_NICKLEN); // nick is optional
+}
+
+void Update_FlagStatus(int player_num, char *team, qbool got_flag)
+{
+	int flag = IT_KEY1 | IT_KEY2;
+	if (!strcmp(team, "blue")) {
+		flag = IT_KEY1;
+	} else if (!strcmp(team, "red")) {
+		flag = IT_KEY2;
+	}
+
+	if (got_flag) {
+		ti_clients[player_num].items |= flag;
+	} else {
+		ti_clients[player_num].items &= ~flag;
+	}
 }
 
 static void Update_TeamInfo(void)
@@ -664,7 +698,7 @@ static void Update_TeamInfo(void)
 
 		ti_clients[i].health = bound(0, st[STAT_HEALTH], 999);
 		ti_clients[i].armor = bound(0, st[STAT_ARMOR], 999);
-		ti_clients[i].items = st[STAT_ITEMS];
+		ti_clients[i].items = Filter_FlagsAndRunes(i, st[STAT_ITEMS]);
 		ti_clients[i].nick[0] = 0; // sad, we don't have nick, will use name
 	}
 }
