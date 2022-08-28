@@ -303,8 +303,8 @@ typedef struct {
 	char	map[MAX_STYLESTRING];
 } lightstyle_t;
 
-#define	MAX_EFRAGS			512
-#define	MAX_STATIC_ENTITIES	512		// torches, etc
+#define	MAX_EFRAGS			1024
+#define	MAX_STATIC_ENTITIES	1024		// torches, etc
 #define	MAX_DEMOS			8
 #define	MAX_DEMONAME		16
 

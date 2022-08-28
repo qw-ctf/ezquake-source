@@ -556,7 +556,7 @@ static void R_Upload32(gltexture_t* glt, unsigned *data, int width, int height, 
 
 static void R_Upload8(gltexture_t* glt, byte *data, int width, int height, int mode)
 {
-	static unsigned trans[640 * 480];
+	static unsigned trans[1024 * 1024];
 	int	i, image_size, p;
 	unsigned *table;
 
