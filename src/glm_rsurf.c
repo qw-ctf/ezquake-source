@@ -807,18 +807,22 @@ void GLM_DrawWorldModelBatch(glm_brushmodel_drawcall_type type)
 	}
 }
 
-void GLM_DrawBrushModel(entity_t* ent, qbool polygonOffset, qbool caustics)
+void GLM_DrawBrushModel(entity_t* ent, qbool polygonOffset, qbool caustics, qbool alpha)
 {
 	int i;
 	glm_worldmodel_req_t* req = NULL;
 	model_t* model = ent->model;
 
-	if (GLM_DuplicatePreviousRequest(model, 1.0f, model->last_texture_chained - model->first_texture_chained + 1, model->first_texture_chained, polygonOffset, caustics)) {
+	if (alpha) {
+		GL_StartWaterSurfaceBatch();
+	}
+
+	if (GLM_DuplicatePreviousRequest(model, ent->alpha, model->last_texture_chained - model->first_texture_chained + 1, model->first_texture_chained, polygonOffset, caustics)) {
 		return;
 	}
 
 	if (model->drawflat_chain) {
-		req = GLM_NextBatchRequest(model, 1.0f, 0, 0, false, false, false, false);
+		req = GLM_NextBatchRequest(model, ent->alpha, 0, 0, false, false, false, false);
 
 		req = GLM_DrawFlatChain(req, model->drawflat_chain);
 
@@ -836,10 +840,10 @@ void GLM_DrawBrushModel(entity_t* ent, qbool polygonOffset, qbool caustics)
 			continue;
 		}
 
-		req = GLM_NextBatchRequest(model, 1.0f, 1, i, polygonOffset, caustics, false, tex->isAlphaTested);
+		req = GLM_NextBatchRequest(model, ent->alpha, 1, i, polygonOffset, caustics, false, tex->isAlphaTested);
 		tex = R_TextureAnimation(ent, tex);
 		if (!GLM_AssignTexture(i, tex)) {
-			req = GLM_NextBatchRequest(model, 1.0f, 1, i, polygonOffset, caustics, false, tex->isAlphaTested);
+			req = GLM_NextBatchRequest(model, ent->alpha, 1, i, polygonOffset, caustics, false, tex->isAlphaTested);
 			GLM_AssignTexture(i, tex);
 		}
 
@@ -911,7 +915,7 @@ void GLM_DrawWorld(void)
 	ent.model = cl.worldmodel;
 
 	GLM_EnterBatchedWorldRegion();
-	GLM_DrawBrushModel(&ent, false, false);
+	GLM_DrawBrushModel(&ent, false, false, false);
 }
 
 #endif // #ifdef RENDERER_OPTION_MODERN_OPENGL

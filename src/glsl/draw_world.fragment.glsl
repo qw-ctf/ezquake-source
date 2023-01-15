@@ -45,6 +45,7 @@ in vec4 UnClipped;
 
 in float mix_floor;
 in float mix_wall;
+in float alpha;
 
 layout(location=0) out vec4 frag_colour;
 #ifdef DRAW_GEOMETRY
@@ -126,7 +127,7 @@ void main()
 	tex.s = mix(TextureCoord.s, TextureCoord.s + (sin((TextureCoord.t + time) * 1.5) * 0.125), min(1, Flags & EZQ_SURFACE_TYPE));
 	tex.t = mix(TextureCoord.t, TextureCoord.t + (sin((TextureCoord.s + time) * 1.5) * 0.125), min(1, Flags & EZQ_SURFACE_TYPE));
 
-	lmColor = texture(lightmapTex, TexCoordLightmap);
+	lmColor = texture(lightmapTex, TexCoordLightmap) * alpha;
 	texColor = texture(materialTex[SamplerNumber], tex);
 
 #ifdef DRAW_ALPHATEST_ENABLED
@@ -215,7 +216,7 @@ void main()
 		texColor = vec4(mix(texColor.rgb, texColor.rgb + lumaColor.rgb, min(1, Flags & EZQ_SURFACE_HAS_LUMA)), texColor.a);
 #endif
 		texColor = applyColorTinting(texColor);
-		frag_colour = vec4(lmColor.rgb, 1) * texColor;
+		frag_colour = vec4(lmColor.rgb * texColor.rgb, alpha);
 #if defined(DRAW_LUMA_TEXTURES) && defined(DRAW_LUMA_TEXTURES_FB)
 		lumaColor = applyColorTinting(lumaColor);
 		frag_colour = vec4(mix(frag_colour.rgb, frag_colour.rgb + lumaColor.rgb, min(1, Flags & EZQ_SURFACE_HAS_LUMA)), frag_colour.a);

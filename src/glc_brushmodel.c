@@ -1214,7 +1214,7 @@ void GLC_DrawWorld(void)
 	R_TraceLeaveFunctionRegion;
 }
 
-void GLC_DrawBrushModel(entity_t* e, qbool polygonOffset, qbool caustics)
+void GLC_DrawBrushModel(entity_t* e, qbool polygonOffset, qbool caustics, qbool alpha)
 {
 	GLC_DrawTextureChains(e, e->model, caustics, polygonOffset, false);
 	GLC_DrawFlat(e->model, polygonOffset);

@@ -108,7 +108,7 @@ void GLM_SetupGL(void);
 
 void GLM_InitialiseAliasModelBatches(void);
 void GLM_PrepareAliasModelBatches(void);
-void GLM_DrawAliasModelBatches(void);
+void GLM_DrawAliasModelBatches(qbool alpha_pass);
 void GLM_DrawAliasModelPostSceneBatches(void);
 
 void GLM_StateBeginPolyBlend(void);

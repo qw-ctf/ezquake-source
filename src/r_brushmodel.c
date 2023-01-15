@@ -230,7 +230,7 @@ void R_BrushModelFreeMemory(void)
 	Q_free(modelIndexes);
 }
 
-void R_BrushModelDrawEntity(entity_t *e)
+void R_BrushModelDrawEntity(entity_t *e, qbool alpha)
 {
 	int k;
 	unsigned int li;
@@ -332,7 +332,7 @@ void R_BrushModelDrawEntity(entity_t *e)
 			}
 		}
 
-		renderer.DrawBrushModel(e, polygonOffset, caustics);
+		renderer.DrawBrushModel(e, polygonOffset, caustics, alpha);
 		// } END shaman FIX for no simple textures on world brush models
 
 		R_PopModelviewMatrix(oldMatrix);

@@ -103,13 +103,15 @@ void GLM_RenderView(void)
 		GLM_DrawWorldModelBatch(opaque_world);
 	}
 
-	R_TraceEnterNamedRegion("GLM_DrawEntities");
-	GLM_DrawAliasModelBatches();
-	R_TraceLeaveNamedRegion();
-
 	renderer.Draw3DSprites();
 
-	GLM_DrawWorldModelBatch(alpha_surfaces);
+	GLM_DrawAliasModelBatches(false);
+
+    GLM_DrawWorldModelBatch(alpha_surfaces);
+
+	R_TraceEnterNamedRegion("GLM_DrawEntities");
+	GLM_DrawAliasModelBatches(true);
+	R_TraceLeaveNamedRegion();
 
 	GLM_DrawAliasModelPostSceneBatches();
 }

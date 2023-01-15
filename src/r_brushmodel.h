@@ -32,7 +32,7 @@ void GLC_StateBeginAlphaChainSurface(msurface_t* s);
 // gl_rsurf.c
 void GLC_EmitDetailPolys_GLSL(void);
 void GLC_EmitDetailPolys(qbool use_vbo);
-void R_BrushModelDrawEntity(entity_t *e);
+void R_BrushModelDrawEntity(entity_t *e, qbool alpha);
 void R_DrawWorld(void);
 void GLC_DrawAlphaChain(msurface_t* alphachain, frameStatsPolyType polyType);
 

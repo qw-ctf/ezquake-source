@@ -508,11 +508,14 @@ static void GLM_RenderPreparedEntities(aliasmodel_draw_type_t type)
 	}
 }
 
-void GLM_DrawAliasModelBatches(void)
+void GLM_DrawAliasModelBatches(qbool alpha_pass)
 {
-	GLM_RenderPreparedEntities(aliasmodel_draw_std);
-	GLM_RenderPreparedEntities(aliasmodel_draw_alpha);
-	GLM_RenderPreparedEntities(aliasmodel_draw_shells);
+	if (alpha_pass) {
+		GLM_RenderPreparedEntities(aliasmodel_draw_alpha);
+	} else {
+		GLM_RenderPreparedEntities(aliasmodel_draw_std);
+		GLM_RenderPreparedEntities(aliasmodel_draw_shells);
+	}
 }
 
 void GLM_DrawAliasModelPostSceneBatches(void)
