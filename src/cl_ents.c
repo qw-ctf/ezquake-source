@@ -1372,7 +1372,7 @@ void CL_ParsePlayerinfo (void)
 		flags = (unsigned short) MSG_ReadShort ();
 
 #ifdef MVD_PEXT1_EXTRA_PFS
-		if (cls.fteprotocolextensions & FTE_PEXT_TRANS && cls.mvdprotocolextensions1 & MVD_PEXT1_EXTRA_PFS)
+		if (cls.fteprotocolextensions & FTE_PEXT_TRANS)// && cls.mvdprotocolextensions1 & MVD_PEXT1_EXTRA_PFS)
 		{
 			if (flags & PF_EXTRA_PFS)
 				flags |= MSG_ReadByte() << 16;
