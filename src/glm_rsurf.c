@@ -807,13 +807,13 @@ void GLM_DrawWorldModelBatch(glm_brushmodel_drawcall_type type)
 	}
 }
 
-void GLM_DrawBrushModel(entity_t* ent, qbool polygonOffset, qbool caustics, qbool alpha)
+void GLM_DrawBrushModel(entity_t* ent, qbool polygonOffset, qbool caustics, qbool alpha_pass)
 {
 	int i;
 	glm_worldmodel_req_t* req = NULL;
 	model_t* model = ent->model;
 
-	if (alpha) {
+	if (alpha_pass) {
 		GL_StartWaterSurfaceBatch();
 	}
 

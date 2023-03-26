@@ -167,10 +167,18 @@ void CL_AddEntityToList(visentlist_t* list, visentlist_entrytype_t vistype, enti
 
 	if (list->count < sizeof(list->list) / sizeof(list->list[0])) {
 		list->list[cl_visents.count].ent = *ent;
-
 		ent = &list->list[cl_visents.count].ent;
 		list->list[cl_visents.count].type = type;
-		list->list[cl_visents.count].distance = VectorDistanceQuick(cl.simorg, ent->origin);
+
+		if (ent->alpha < 1 && ent->alpha > 0) {
+			vec3_t center;
+			center[0] = (ent->model->mins[0] + ent->model->maxs[0]) / 2.0;
+			center[1] = (ent->model->mins[1] + ent->model->maxs[1]) / 2.0;
+			center[2] = (ent->model->mins[2] + ent->model->maxs[2]) / 2.0;
+			list->list[cl_visents.count].distance = VectorDistance(cl.simorg, center);
+		} else {
+			list->list[cl_visents.count].distance = VectorDistance(cl.simorg, ent->origin);
+		}
 		list->list[cl_visents.count].draw[vistype] = true;
 
 		ent->outlineScale = 0.5f * (r_refdef2.outlineBase + DotProduct(ent->origin, r_refdef2.outline_vpn));
@@ -1027,7 +1035,7 @@ void CL_LinkPacketEntities(void)
 		}
 #if defined(FTE_PEXT_TRANS)
 		//set trans
-		ent.alpha = state->trans ? (state->trans - 1) / 254.0f : 1;
+		ent.alpha = state->trans ? (state->trans - 1) / 254.0f : 0;
 #endif
 
 		if (ent.model->flags & EF_ROTATE)
@@ -1372,7 +1380,7 @@ void CL_ParsePlayerinfo (void)
 		flags = (unsigned short) MSG_ReadShort ();
 
 #ifdef MVD_PEXT1_EXTRA_PFS
-		if (cls.fteprotocolextensions & FTE_PEXT_TRANS)// && cls.mvdprotocolextensions1 & MVD_PEXT1_EXTRA_PFS)
+		if (cls.fteprotocolextensions & FTE_PEXT_TRANS && cls.mvdprotocolextensions1 & MVD_PEXT1_EXTRA_PFS)
 		{
 			if (flags & PF_EXTRA_PFS)
 				flags |= MSG_ReadByte() << 16;
@@ -1462,7 +1470,7 @@ void CL_ParsePlayerinfo (void)
 			state->weaponframe = 0;
 
 
-		state->alpha = 255;
+		state->alpha = 0;
 #ifdef FTE_PEXT_TRANS
 		if (flags & PF_TRANS_Z && cls.fteprotocolextensions & FTE_PEXT_TRANS)
 			state->alpha = MSG_ReadByte();

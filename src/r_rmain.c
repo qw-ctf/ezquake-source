@@ -59,7 +59,7 @@ void GLC_PolyBlend(float v_blend[4]);
 void GLM_InitialiseAliasModelBatches(void);
 
 void R_TimeRefresh_f(void);
-static void R_DrawEntities(void);
+static void R_DrawEntities(qbool alpha_pass);
 void R_InitOtherTextures(void);
 void R_DrawViewModel(void);
 
@@ -852,13 +852,16 @@ void R_RenderView(void)
 		renderer.DrawWaterSurfaces();
 	}
 
-	R_DrawEntities();
-
-	// Adds 3d effects (particles, lights, chat icons etc)
-	R_Render3DEffects();
+	R_DrawEntities(false);
 
 	// Draws transparent world surfaces
 	renderer.DrawWaterSurfaces();
+
+	// Draws transparent entities
+	R_DrawEntities(true);
+
+    // Adds 3d effects (particles, lights, chat icons etc)
+	R_Render3DEffects();
 
 	// Render billboards
 	renderer.Draw3DSpritesInline();
@@ -1020,21 +1023,27 @@ static int R_DrawEntitiesSorter(const void* lhs_, const void* rhs_)
 	return 0;
 }
 
-static void R_DrawEntitiesOnList(visentlist_t *vislist, visentlist_entrytype_t type)
+static void R_DrawEntitiesOnList(visentlist_t *vislist, visentlist_entrytype_t type, qbool alpha_pass)
 {
 	int i;
 
 	if (r_drawentities.integer && vislist->typecount[type] >= 0) {
 		for (i = 0; i < vislist->count; i++) {
 			visentity_t* todraw = &vislist->list[i];
+			qbool has_alpha;
 
 			if (!todraw->draw[type]) {
 				continue;
 			}
 
+			has_alpha = (todraw->ent.alpha > 0 && todraw->ent.alpha < 1) ? true : false;
+			if ((alpha_pass && !has_alpha) || (!alpha_pass && has_alpha)) {
+				continue;
+			}
+
 			switch (todraw->type) {
 				case mod_brush:
-					R_BrushModelDrawEntity(&todraw->ent, type == visent_alpha);
+					R_BrushModelDrawEntity(&todraw->ent, alpha_pass);
 					break;
 				case mod_sprite:
 					if (todraw->ent.model->type == mod_sprite) {
@@ -1084,29 +1093,39 @@ void R_PolyBlend(void)
 	renderer.PolyBlend(v_blend);
 }
 
-static void R_DrawEntities(void)
+static void R_DrawEntities(qbool alpha_pass)
 {
 	visentlist_entrytype_t ent_type;
 
+	// XXX: So this sucks... but something along these lines at least..
+	if (!alpha_pass) {
 #ifdef RENDERER_OPTION_MODERN_OPENGL
-	if (R_UseModernOpenGL()) {
-		GLM_InitialiseAliasModelBatches();
-	}
+		if (R_UseModernOpenGL()) {
+			GLM_InitialiseAliasModelBatches();
+		}
 #endif
 
-	if (!r_drawentities.integer) {
-		return;
-	}
+		if (!r_drawentities.integer) {
+			return;
+		}
 
-	R_TraceEnterNamedRegion("R_DrawEntities");
+		R_TraceEnterNamedRegion("R_DrawEntities");
 
-	R_Sprite3DInitialiseBatch(SPRITE3D_ENTITIES, r_state_sprites_textured, null_texture_reference, 0, r_primitive_triangle_strip);
-	qsort(cl_visents.list, cl_visents.count, sizeof(cl_visents.list[0]), R_DrawEntitiesSorter);
-	for (ent_type = 0; ent_type < visent_max; ++ent_type) {
-		R_DrawEntitiesOnList(&cl_visents, ent_type);
+		R_Sprite3DInitialiseBatch(SPRITE3D_ENTITIES, r_state_sprites_textured, null_texture_reference, 0, r_primitive_triangle_strip);
+		qsort(cl_visents.list, cl_visents.count, sizeof(cl_visents.list[0]), R_DrawEntitiesSorter);
+
+		for (ent_type = 0; ent_type < visent_max; ++ent_type) {
+		  R_DrawEntitiesOnList(&cl_visents, ent_type, alpha_pass);
+		}
+
+		if (R_UseModernOpenGL() || R_UseVulkan()) {
+			R_DrawViewModel();
+		}
+
+		R_TraceLeaveNamedRegion();
+	} else {
+		for (ent_type = 0; ent_type < visent_max; ++ent_type) {
+			R_DrawEntitiesOnList(&cl_visents, ent_type, alpha_pass);
+		}
 	}
-	if (R_UseModernOpenGL() || R_UseVulkan()) {
-		R_DrawViewModel();
-	}
-	R_TraceLeaveNamedRegion();
 }

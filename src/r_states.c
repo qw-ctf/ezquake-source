@@ -117,6 +117,8 @@ static void R_InitialiseWorldStates(void)
 	state = R_InitRenderingState(r_state_alpha_surfaces_offset_glm, true, "glmAlphaOffsetWorldState", vao_brushmodel);
 	state->polygonOffset.option = r_polygonoffset_standard;
 	state->blendingEnabled = true;
+	state->depth.mask_enabled = false;
+	state->depth.test_enabled = true;
 	state->blendFunc = r_blendfunc_premultiplied_alpha;
 
 	state = R_InitRenderingState(r_state_opaque_surfaces_offset_glm, true, "glmOffsetWorldState", vao_brushmodel);
@@ -125,6 +127,8 @@ static void R_InitialiseWorldStates(void)
 	state = R_InitRenderingState(r_state_alpha_surfaces_glm, true, "glmAlphaWorldState", vao_brushmodel);
 	state->blendingEnabled = true;
 	state->blendFunc = r_blendfunc_premultiplied_alpha;
+	state->depth.mask_enabled = false;
+	state->depth.test_enabled = true;
 	state->polygonOffset.option = r_polygonoffset_standard;
 
 	R_InitRenderingState(r_state_opaque_surfaces_glm, true, "glmWorldState", vao_brushmodel);
@@ -265,6 +269,8 @@ static void R_InitialiseSpriteStates(void)
 
 	// Chaticons
 	state = R_Init3DSpriteRenderingState(r_state_chaticon, "chaticon_state");
+	state->depth.test_enabled = true;
+	state->depth.mask_enabled = false;
 	R_GLC_TextureUnitSet(state, 0, true, r_texunit_mode_modulate);
 
 	// Coronas
