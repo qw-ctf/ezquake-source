@@ -845,7 +845,7 @@ static void Mod_LoadMarksurfacesBSP2(model_t* loadmodel, lump_t* l, byte* mod_ba
 static void Mod_LoadMarksurfaces(model_t* loadmodel, lump_t* l, byte* mod_base)
 {
 	int i, j, count;
-	short *in;
+	unsigned short *in;
 	msurface_t **out;
 	int max_surfaces = (INT_MAX / sizeof(*out));
 
