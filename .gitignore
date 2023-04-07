@@ -10,3 +10,6 @@ SysPrintf.log
 .vs
 .*
 !.gitignore
+build
+cmake-build*
+compile_commands.json

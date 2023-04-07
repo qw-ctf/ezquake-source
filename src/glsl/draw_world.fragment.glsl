@@ -38,19 +38,19 @@ in vec3 FlatColor;
 in flat int Flags;
 uniform int SamplerNumber;
 in vec3 Direction;
-#ifdef DRAW_GEOMETRY
+//#ifdef DRAW_GEOMETRY
 in vec3 Normal;
 in vec4 UnClipped;
-#endif
+//#endif
 
 in float mix_floor;
 in float mix_wall;
 in float alpha;
 
 layout(location=0) out vec4 frag_colour;
-#ifdef DRAW_GEOMETRY
+//#ifdef DRAW_GEOMETRY
 layout(location=1) out vec4 normal_texture;
-#endif
+//#endif
 
 // Drawflat mode TINTED... Amend texture color based on floor/wall
 // FIXME: common with glsl, do some kind of #include support
@@ -91,15 +91,32 @@ vec4 applyColorTinting(vec4 frag_colour)
 out vec3 TextureLessCoord;
 #endif
 
+vec2 adjustTextureCoordinates(vec2 texCoord, vec3 normal, mat3 tbn) {
+	// calculate the tangent and bitangent vectors
+	vec3 tangent = tbn[0];
+	vec3 bitangent = tbn[1];
+
+	// calculate the dot products of the normal with the tangent and bitangent vectors
+	float ndotT = dot(normal, tangent);
+	float ndotB = dot(normal, bitangent);
+
+	// adjust the texture coordinates based on the dot products
+	texCoord.x += ndotT * 0.1;  // adjust by 0.1 units per unit of stretching or compression
+	texCoord.y += ndotB * 0.1;
+
+	return texCoord;
+}
+
+
 void main()
 {
 	vec4 texColor;
 	vec4 lmColor;
 	int turbType;
 
-#ifdef DRAW_GEOMETRY
+//#ifdef DRAW_GEOMETRY
 	normal_texture = vec4(Normal, mix(UnClipped.z / r_zFar, 0, min(1, Flags & EZQ_SURFACE_TYPE)));
-#endif
+//#endif
 
 	if (draw_outlines == 1) {
 		frag_colour = vec4(0.5, 0.5, 0.5, 1);
@@ -110,13 +127,34 @@ void main()
 	vec4 detail = texture(detailTex, DetailCoord);
 #endif
 #ifdef DRAW_CAUSTIC_TEXTURES
+	/*
+
 	vec4 caustic = texture(
-		causticsTex,
-		vec2(
-			(TextureCoord.s + sin(0.465 * (time + TextureCoord.t))) * -0.1234375,
-			(TextureCoord.t + sin(0.465 * (time + TextureCoord.s))) * -0.1234375
-		)
+	causticsTex,
+	vec2(
+	(UnClipped.x / 50 + gl_FragCoord.y / 500 + sin(0.465 * (time + UnClipped.x / 50))) * -0.1234375,
+	(UnClipped.y / 50 + gl_FragCoord.y / 500 + sin(0.465 * (time+ UnClipped.x / 50))) * -0.1234375
+	)
 	);
+	*/
+	vec2 causticsSize = textureSize(causticsTex, 0);
+	ivec3 textureS = textureSize(materialTex[SamplerNumber], 0);
+	float ratioX = (causticsSize.x / textureS.x) / 1.5;
+	float ratioY = (causticsSize.y / textureS.y) / 1.5;
+	vec3 adjustedNormal = normalize(Normal);
+
+	float angleFactor = mix(1.0, 1.5, abs(adjustedNormal.y));
+	vec2 causticsOffset = vec2(
+	sin(0.465 * (time + UnClipped.t / ratioY)) * -0.1234375,
+	sin(0.465 * (time + UnClipped.s / ratioX)) * -0.1234375
+	);
+
+	vec2 causticsUV = vec2(
+	(UnClipped.s / 10000) * angleFactor + causticsOffset.x,
+	(UnClipped.t / 10000) * angleFactor + causticsOffset.y
+	);
+
+	vec4 caustic = texture(causticsTex, causticsUV);
 #endif
 #if defined(DRAW_LUMA_TEXTURES) || defined(DRAW_LUMA_TEXTURES_FB)
 	vec4 lumaColor = texture(materialTex[SamplerNumber], LumaCoord);

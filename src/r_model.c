@@ -46,7 +46,7 @@ void Mod_AddModelFlags(model_t *mod);
 
 byte	mod_novis[MAX_MAP_LEAFS/8];
 
-#define	MAX_MOD_KNOWN	512
+#define	MAX_MOD_KNOWN	1024
 model_t	mod_known[MAX_MOD_KNOWN];
 int		mod_numknown;
 

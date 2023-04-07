@@ -842,7 +842,7 @@ void R_RenderView(void)
 	R_SetFrustum();
 	R_SetupGL();
 	R_Clear();
-	R_MarkLeaves();	// done here so we know if we're in water
+	// R_MarkLeaves();	// done here so we know if we're in water
 	R_CreateWorldTextureChains();
 
 	// render normal view

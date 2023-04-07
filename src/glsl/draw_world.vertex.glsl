@@ -25,14 +25,14 @@ out vec2 DetailCoord;
 out vec3 FlatColor;
 out flat int Flags;
 out vec3 Direction;
-#ifdef DRAW_GEOMETRY
+//#ifdef DRAW_GEOMETRY
 out vec3 Normal;
 out vec4 UnClipped;
 
 layout(std140, binding = EZQ_GL_BINDINGPOINT_WORLDMODEL_SURFACES) buffer surface_data {
 	model_surface surfaces[];
 };
-#endif
+//#endif
 
 out float mix_floor;
 out float mix_wall;
@@ -54,10 +54,11 @@ void main()
 	int textureFlags = samplerMapping[drawInfo[_instanceId].samplerBase + materialNumber].flags;
 
 	gl_Position = projectionMatrix * drawInfo[_instanceId].mvMatrix * vec4(position, 1.0);
-#ifdef DRAW_GEOMETRY
+
+//#ifdef DRAW_GEOMETRY
 	Normal = surfaces[surfaceNumber].normal.xyz;
-	UnClipped = drawInfo[_instanceId].mvMatrix * vec4(position, 1.0);
-#endif
+	UnClipped = drawInfo[_instanceId].mvMatrix * projectionMatrix * vec4(position, 1.0);
+//#endif
 
 	alpha = drawInfo[_instanceId].alpha;
 	if (alpha == 0) {

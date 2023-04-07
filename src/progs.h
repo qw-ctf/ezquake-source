@@ -45,7 +45,7 @@ typedef struct link_s
 
 #define	EDICT_FROM_AREA(l)	((l)->ed)
 
-#define	MAX_ENT_LEAFS	16
+#define	MAX_ENT_LEAFS	32
 
 typedef struct sv_edict_s
 {

@@ -93,7 +93,7 @@ void PF_objerror (void)
 	ED_Print (ed);
 	ED_Free (ed);
 
-	SV_Error ("Program error");
+	Con_Printf ("Program error");
 }
 
 
