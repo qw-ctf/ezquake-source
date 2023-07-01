@@ -52,7 +52,7 @@ qbool VK_CreateSwapChain(SDL_Window* window, VkInstance instance, VkSurfaceKHR s
 	createInfo.imageArrayLayers = 1;
 	createInfo.imageColorSpace = vk_options.physicalDeviceSurfaceFormat.colorSpace;
 	createInfo.imageFormat = vk_options.physicalDeviceSurfaceFormat.format;
-	if (vk_options.physicalDeviceSurfaceCapabilities.currentExtent.width == ~(uint32_t)0) {
+	if (vk_options.physicalDeviceSurfaceCapabilities.currentExtent.width != UINT32_MAX) {
 		createInfo.imageExtent = vk_options.physicalDeviceSurfaceCapabilities.currentExtent;
 	}
 	else {
@@ -81,7 +81,8 @@ qbool VK_CreateSwapChain(SDL_Window* window, VkInstance instance, VkSurfaceKHR s
 		createInfo.pQueueFamilyIndices = NULL;
 	}
 	createInfo.preTransform = vk_options.physicalDeviceSurfaceCapabilities.currentTransform;
-	createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+	// maybe use this instead, vk_options.physicalDeviceSurfaceCapabilities.supportedCompositeAlpha
+	createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR;
 	createInfo.presentMode = vk_options.physicalDevicePresentationMode;
 	createInfo.clipped = VK_FALSE; // meag: setting this to false so we can read-back for screenshots
 	createInfo.oldSwapchain = vk_options.swapChain.handle;

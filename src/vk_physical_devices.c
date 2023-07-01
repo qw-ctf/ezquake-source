@@ -28,9 +28,50 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include <SDL_vulkan.h>
 
 #include "vk_local.h"
+#include "tr_types.h"
+#include "r_trace.h"
 
-static const char* validationLayers[] = { "VK_LAYER_LUNARG_standard_validation" };
+extern glconfig_t	glConfig;
+
+static const char* validationLayers[] = { "VK_LAYER_KHRONOS_validation" };
 static const char* requiredDeviceExtensions[] = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
+
+static void VK_PopulateConfig(void)
+{
+	glConfig.colorBits = 32;
+	glConfig.depthBits = 24;
+	glConfig.stencilBits = 8;
+	glConfig.majorVersion = VK_VERSION_MAJOR(vk_options.physicalDeviceProperties.apiVersion);
+	glConfig.minorVersion = VK_VERSION_MINOR(vk_options.physicalDeviceProperties.apiVersion);
+	glConfig.glsl_version = (unsigned char*)"0";
+	glConfig.gl_max_size_default = vk_options.physicalDeviceProperties.limits.maxImageDimension2D;
+	glConfig.texture_units = vk_options.physicalDeviceProperties.limits.maxSamplerAllocationCount;
+	glConfig.max_3d_texture_size = vk_options.physicalDeviceProperties.limits.maxImageDimension3D;
+	glConfig.max_texture_depth = vk_options.physicalDeviceProperties.limits.maxImageArrayLayers;
+	glConfig.uniformBufferOffsetAlignment = vk_options.physicalDeviceProperties.limits.minUniformBufferOffsetAlignment;
+	glConfig.shaderStorageBufferOffsetAlignment = vk_options.physicalDeviceProperties.limits.minStorageBufferOffsetAlignment;
+
+	R_TraceAPI("---Config---");
+	if (glConfig.renderer_string) {
+		R_TraceAPI("Renderer: %s", glConfig.renderer_string);
+	}
+	if (glConfig.vendor_string) {
+		R_TraceAPI("Vendor: %s", glConfig.vendor_string);
+	}
+	if (glConfig.version_string) {
+		R_TraceAPI("Version: %s", glConfig.version_string);
+	}
+	if (glConfig.glsl_version) {
+		R_TraceAPI("GLSL: %s", glConfig.glsl_version);
+	}
+
+	R_TraceAPI("OpenGL version: %d.%d", glConfig.majorVersion, glConfig.minorVersion);
+	R_TraceAPI("Color/depth/stencil: %d/%d/%d", glConfig.colorBits, glConfig.depthBits, glConfig.stencilBits);
+	R_TraceAPI("Hardware type: %d", glConfig.hardwareType);
+	R_TraceAPI("Max sizes: %d %d %d", glConfig.gl_max_size_default, glConfig.max_3d_texture_size, glConfig.max_texture_depth);
+	R_TraceAPI("Texture units: %d", glConfig.texture_units);
+	R_TraceAPI("Alignments: ubo(%d) ssb(%d)", glConfig.uniformBufferOffsetAlignment, glConfig.shaderStorageBufferOffsetAlignment);
+}
 
 static void VK_PhysicalDeviceQueryQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surface, int* graphics_queue_index, int* compute_queue_index, int* present_queue_index)
 {
@@ -263,6 +304,8 @@ qbool VK_SelectPhysicalDevice(VkInstance instance, VkSurfaceKHR surface)
 
 	Com_Printf("Selected device: %s\n", vk_options.physicalDeviceProperties.deviceName);
 
+	VK_PopulateConfig();
+
 	return true;
 }
 
@@ -352,10 +395,11 @@ qbool VK_CreateLogicalDevice(VkInstance instance)
 
 	deviceInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
 	deviceInfo.pQueueCreateInfos = queueInfos;
-	deviceInfo.queueCreateInfoCount = sizeof(queueInfos) / sizeof(queueInfos[0]);
+	deviceInfo.queueCreateInfoCount = queueCount;
 	deviceInfo.pEnabledFeatures = &deviceFeatures;
+	deviceInfo.ppEnabledExtensionNames = requiredDeviceExtensions;
+	deviceInfo.enabledExtensionCount = sizeof(requiredDeviceExtensions) / sizeof(requiredDeviceExtensions[0]);
 
-	deviceInfo.enabledExtensionCount = 0;
 	VK_AddDeviceValidationLayers(&deviceInfo);
 
 	vk_options.logicalDevice = VK_NULL_HANDLE;

@@ -72,6 +72,10 @@ void R_SelectRenderer(void);
 #define R_UseImmediateOpenGL()    (0)
 #define R_UseModernOpenGL()       (1)
 #define R_UseVulkan()             (0)
+#elif defined(RENDERER_OPTION_VULKAN)
+#define R_UseImmediateOpenGL()    (0)
+#define R_UseModernOpenGL()       (0)
+#define R_UseVulkan()             (1)
 #else
 #error No renderer options defined
 #endif
@@ -114,7 +118,7 @@ void Check_Gamma(unsigned char *pal);
 void VID_SetPalette(unsigned char *palette);
 qbool R_OldGammaBehaviour(void);
 
-void R_Initialise(void);
+void R_Initialise(SDL_Window* window);
 float R_WaterAlpha(void);
 
 // 3d rendering limits

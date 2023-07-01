@@ -81,7 +81,7 @@ static cvar_t in_ignore_deadkeys = { "in_ignore_deadkeys", "1", CVAR_SILENT };
 #define	WINDOW_CLASS_NAME	"ezQuake"
 
 #define VID_RENDERER_MIN 0
-#define VID_RENDERER_MAX 1
+#define VID_RENDERER_MAX 2
 
 #define VID_MULTISAMPLED   1
 #define VID_ACCELERATED    2
@@ -1383,7 +1383,13 @@ static void VID_SDL_Init(void)
 
 	VID_SDL_InitSubSystem();
 
-	flags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_OPENGL | SDL_WINDOW_INPUT_FOCUS | SDL_WINDOW_SHOWN;
+	flags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_INPUT_FOCUS | SDL_WINDOW_SHOWN;
+
+	if (R_UseVulkan()) {
+		flags |= SDL_WINDOW_VULKAN;
+	} else {
+		flags |= SDL_WINDOW_OPENGL;
+	}
 	// MEAG: deliberately not specifying SDL_WINDOW_ALLOW_HIGHDPI as in our current workflow, it
 	//          breaks retina devices (we ask for display resolution and get told lower value)
 	//       Understand this is meant to be helped by NSHighResolutionCapable in Info.plist, but
@@ -1459,7 +1465,7 @@ static void VID_SDL_Init(void)
 					// Try to create context and see what we get
 					sdl_context = VID_SDL_GL_SetupContextAttributes();
 
-					if (!sdl_context) {
+					if (!sdl_context && !R_UseVulkan()) {
 						SDL_DestroyWindow(sdl_window);
 						sdl_window = NULL;
 					}
@@ -1523,7 +1529,7 @@ static void VID_SDL_Init(void)
 	}
 #endif
 
-	R_Initialise();
+	R_Initialise(sdl_window);
 
 	//always get/set refresh rate
 	SDL_DisplayMode display_mode;

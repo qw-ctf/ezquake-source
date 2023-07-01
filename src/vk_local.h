@@ -20,12 +20,16 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #ifndef EZQUAKE_VK_LOCAL_HEADER
 #define EZQUAKE_VK_LOCAL_HEADER
 
+#include "r_state.h"
+#include <SDL.h>
+#include <vulkan/vulkan.h>
+
 #define EZ_VKFUNC_DECL_LOAD(instance, func) PFN_##func q##func = (PFN_##func)vkGetInstanceProcAddr(instance, #func)
 #define EZ_VKFUNC_LOAD(instance, func) q##func = (PFN_##func)vkGetInstanceProcAddr(instance, #func)
 
 // vk_main.c
 qbool VK_Initialise(SDL_Window* window);
-void VK_Shutdown(void);
+void VK_Shutdown(r_shutdown_mode_t);
 
 // vk_instance.c
 qbool VK_CreateInstance(SDL_Window* window, VkInstance* instance);
@@ -51,6 +55,16 @@ void VK_DestroySwapChain(void);
 
 // vk_blending.c
 void VK_BlendingConfigure(VkPipelineColorBlendStateCreateInfo* info, VkPipelineColorBlendAttachmentState* blending, r_blendfunc_t func);
+
+// vk_renderpass.c
+typedef enum {
+	vk_renderpass_none,
+
+	vk_renderpass_count
+} vk_renderpass_id;
+
+qbool VK_RenderPassCreate(vk_renderpass_id id);
+void VK_RenderPassDelete(vk_renderpass_id id);
 
 // (common)
 typedef struct vk_options_s {
@@ -82,6 +96,6 @@ extern vk_options_t vk_options;
 
 void VK_PrintGfxInfo(void);
 
-#define VK_Initialise(x) { memset(&x, 0, sizeof(x)); }
+#define VK_InitialiseStructure(x) { memset(&x, 0, sizeof(x)); }
 
 #endif

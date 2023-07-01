@@ -41,7 +41,7 @@ typedef struct {
 
 static vk_vao_t vaos[vao_count];
 
-void VK_ConfigureVertexAttribPointer(r_vao_id vao, buffer_ref vbo, uint32_t index, VkFormat format, int stride, uint32_t offset, qbool instanced)
+void VK_ConfigureVertexAttribPointer(r_vao_id vao, r_buffer_id vbo, uint32_t index, VkFormat format, int stride, uint32_t offset, qbool instanced)
 {
 	VkVertexInputBindingDescription* binding = vaos[vao].bindings + index;
 	VkVertexInputAttributeDescription* attribute = vaos[vao].attributes + index;
@@ -61,7 +61,7 @@ void VK_ConfigureVertexAttribPointer(r_vao_id vao, buffer_ref vbo, uint32_t inde
 	attribute->offset = offset;
 }
 
-qbool VK_CreateAliasModelPipeline(buffer_ref aliasModelVBO, buffer_ref instanceVBO)
+qbool VK_CreateAliasModelPipeline(r_buffer_id aliasModelVBO, r_buffer_id instanceVBO)
 {
 	VkPipelineInputAssemblyStateCreateInfo inputAssembly;
 	VkViewport viewport = { 0 };

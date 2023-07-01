@@ -28,12 +28,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "vk_local.h"
 
-typedef enum {
-	vk_renderpass_none,
-
-	vk_renderpass_count
-} vk_renderpass_id;
-
 static VkRenderPass renderPasses[vk_renderpass_count];
 
 qbool VK_RenderPassCreate(vk_renderpass_id id)

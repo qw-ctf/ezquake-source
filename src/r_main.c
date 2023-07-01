@@ -7,6 +7,7 @@
 #include "gl_local.h"
 #include "glc_local.h"
 #include "glm_local.h"
+#include "vk_local.h"
 #include "r_texture.h"
 #include "r_renderer.h"
 
@@ -85,7 +86,7 @@ void R_SelectRenderer(void)
 }
 #endif // EZ_MULTIPLE_RENDERERS
 
-void R_Initialise(void)
+void R_Initialise(SDL_Window* window)
 {
 	R_SelectRenderer();
 
@@ -101,11 +102,11 @@ void R_Initialise(void)
 #endif
 #ifdef RENDERER_OPTION_VULKAN
 	if (R_UseVulkan()) {
-		VK_Initialise();
+		VK_Initialise(window);
 		VK_PopulateConfig();
 		VK_InitialiseVAOHandling();
 		VK_InitialiseBufferHandling(&buffers);
-		VK_InitialiseState();
+		//VK_InitialiseState();
 	}
 #endif
 	R_Hud_Initialise();

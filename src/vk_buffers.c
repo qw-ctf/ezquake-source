@@ -86,7 +86,7 @@ static qbool VK_BufferReady(void)
 	return true;
 }
 
-static buffer_ref VK_BufferCreate(buffertype_t type, const char* name, int size, void* data, bufferusage_t usage)
+static qbool VK_BufferCreate(r_buffer_id id, buffertype_t type, const char* name, int size, void* data, bufferusage_t usage)
 {
 	VkBuffer buffer = { 0 };
 	VkBufferCreateInfo bufferInfo = { 0 };
@@ -97,17 +97,17 @@ static buffer_ref VK_BufferCreate(buffertype_t type, const char* name, int size,
 	bufferInfo.usage = VK_BufferUsageForType(type);
 	bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE; // FIXME: compute queue?
 	if (vkCreateBuffer(vk_options.logicalDevice, &bufferInfo, NULL, &buffer) != VK_SUCCESS) {
-		return null_buffer_reference;
+		return false;
 	}
 
 	vkGetBufferMemoryRequirements(vk_options.logicalDevice, buffer, &memRequirements);
 
 	// TODO
 	//memRequirements.
-	return null_buffer_reference;
+	return false;
 }
 
-static void VK_BufferEnsureSize(buffer_ref buffer, int size)
+static void VK_BufferEnsureSize(r_buffer_id buffer, int size)
 {
 }
 
@@ -115,25 +115,25 @@ static void VK_BufferInitialiseState(void)
 {
 }
 
-static size_t VK_BufferSize(buffer_ref vbo)
+static size_t VK_BufferSize(r_buffer_id vbo)
 {
 	return 0;
 }
 
-static uintptr_t VK_BufferOffset(buffer_ref ref)
+static uintptr_t VK_BufferOffset(r_buffer_id ref)
 {
 	return 0;
 }
 
-static void VK_BufferBind(buffer_ref ref)
+static void VK_BufferBind(r_buffer_id ref)
 {
 }
 
-static void VK_BufferBindBase(buffer_ref ref, unsigned int index)
+static void VK_BufferBindBase(r_buffer_id ref, unsigned int index)
 {
 }
 
-static void VK_BufferBindRange(buffer_ref ref, unsigned int index, ptrdiff_t offset, int size)
+static void VK_BufferBindRange(r_buffer_id ref, unsigned int index, ptrdiff_t offset, int size)
 {
 }
 
@@ -141,25 +141,24 @@ static void VK_BufferUnBind(buffertype_t type)
 {
 }
 
-static void VK_BufferUpdate(buffer_ref vbo, int size, void* data)
+static void VK_BufferUpdate(r_buffer_id vbo, int size, void* data)
 {
 }
 
-static void VK_BufferUpdateSection(buffer_ref vbo, ptrdiff_t offset, int size, const void* data)
+static void VK_BufferUpdateSection(r_buffer_id vbo, ptrdiff_t offset, int size, const void* data)
 {
 }
 
-static buffer_ref VK_BufferResize(buffer_ref vbo, int size, void* data)
+static void VK_BufferResize(r_buffer_id vbo, int size, void* data)
 {
-	return null_buffer_reference;
 }
 
-static qbool VK_BufferIsValid(buffer_ref ref)
+static qbool VK_BufferIsValid(r_buffer_id ref)
 {
 	return false;
 }
 
-static void VK_BufferSetElementArray(buffer_ref ref)
+static void VK_BufferSetElementArray(r_buffer_id ref)
 {
 	return;
 }

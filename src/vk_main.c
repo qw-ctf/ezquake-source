@@ -41,22 +41,22 @@ qbool VK_Initialise(SDL_Window* window)
 	}
 
 	if (!VK_CreateWindowSurface(window, vk_options.instance, &vk_options.surface)) {
-		VK_Shutdown();
+		VK_Shutdown(r_shutdown_full);
 		return false;
 	}
 
 	if (!VK_SelectPhysicalDevice(vk_options.instance, vk_options.surface)) {
-		VK_Shutdown();
+		VK_Shutdown(r_shutdown_full);
 		return false;
 	}
 
 	if (!VK_CreateLogicalDevice(vk_options.instance)) {
-		VK_Shutdown();
+		VK_Shutdown(r_shutdown_full);
 		return false;
 	}
 
 	if (!VK_CreateSwapChain(window, vk_options.instance, vk_options.surface)) {
-		VK_Shutdown();
+		VK_Shutdown(r_shutdown_full);
 		return false;
 	}
 
@@ -69,7 +69,7 @@ void VK_Shutdown(r_shutdown_mode_t mode)
 	if (mode != r_shutdown_reload) {
 		VK_DestroySwapChain();
 
-		VK_RenderPassDelete();
+		VK_RenderPassDelete(vk_renderpass_none);
 
 		if (vk_options.instance) {
 			VK_DestroyWindowSurface(vk_options.instance, vk_options.surface);

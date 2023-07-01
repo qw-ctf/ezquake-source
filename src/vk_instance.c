@@ -33,7 +33,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // VK_EXT_debug_report extension to get debug messages 
 #define EZ_MAX_ADDITIONAL_EXTENSIONS 1
 
-static const char* validationLayers[] = { "VK_LAYER_LUNARG_standard_validation" };
+static const char* validationLayers[] = { "VK_LAYER_KHRONOS_validation" };
 
 static qbool VK_AddValidationLayers(VkInstanceCreateInfo* createInfo)
 {
@@ -96,13 +96,13 @@ qbool VK_CreateInstance(SDL_Window* window, VkInstance* instance)
 	createInfo.pApplicationInfo = &appInfo;
 
 	if (!SDL_Vulkan_GetInstanceExtensions(window, &extensionCount, NULL)) {
-		Con_Printf("vulkan:GetInstanceExtensions() failed\n");
+		Con_Printf("vulkan:GetInstanceExtensions() failed: %s\n", SDL_GetError());
 		return false;
 	}
 
 	extensionStrings = Q_malloc(sizeof(extensionStrings[0]) * (extensionCount + EZ_MAX_ADDITIONAL_EXTENSIONS));
 	if (!SDL_Vulkan_GetInstanceExtensions(window, &extensionCount, extensionStrings)) {
-		Con_Printf("vulkan:GetInstanceExtensions() failed\n");
+		Con_Printf("vulkan:GetInstanceExtensions() failed: %s\n", SDL_GetError());
 		return false;
 	}
 
@@ -117,14 +117,14 @@ qbool VK_CreateInstance(SDL_Window* window, VkInstance* instance)
 	createInfo.ppEnabledExtensionNames = extensionStrings;
 
 	result = vkCreateInstance(&createInfo, NULL, instance);
-	Q_free((void*)extensionStrings);
+	Q_free(extensionStrings);
 	if (result != VK_SUCCESS) {
 		*instance = NULL;
 		Con_Printf("vulkan:GetInstanceExtensions() failed\n");
 		return false;
 	}
 
-	Con_Printf("Vulkan initialised successfully!");
+	Con_Printf("Vulkan initialised successfully!\n");
 
 	if (debugCallback) {
 		VK_InitialiseDebugCallback(*instance);

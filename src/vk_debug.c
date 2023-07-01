@@ -62,14 +62,14 @@ void VK_InitialiseDebugCallback(VkInstance instance)
 
 		if (qvkCreateDebugReportCallbackEXT(instance, &createInfo, NULL, &callbackHandle) == VK_SUCCESS) {
 			callbackRegistered = true;
-			Con_Printf("Callback registered\n");
+			Con_Printf("Vulkan debug callback registered\n");
 		}
 		else {
-			Con_Printf("Callback registration failed\n");
+			Con_Printf("Vulkan debug callback registration failed\n");
 		}
 	}
 	else {
-		Con_Printf("Callback not supported\n");
+		Con_Printf("Vulkan debug callback not supported\n");
 	}
 }
 
