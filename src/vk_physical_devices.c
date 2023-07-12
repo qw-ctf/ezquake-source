@@ -34,7 +34,14 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 extern glconfig_t	glConfig;
 
 static const char* validationLayers[] = { "VK_LAYER_KHRONOS_validation" };
-static const char* requiredDeviceExtensions[] = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
+static const char* requiredDeviceExtensions[] = {
+		VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+		VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
+		VK_KHR_SPIRV_1_4_EXTENSION_NAME,
+		VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME,
+		VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
+		VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
+};
 
 static void VK_PopulateConfig(void)
 {
@@ -393,10 +400,22 @@ qbool VK_CreateLogicalDevice(VkInstance instance)
 		++queueCount;
 	}
 
+	VkPhysicalDeviceRayTracingPipelineFeaturesKHR rayTracingPipelineFeatures = {};
+	rayTracingPipelineFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
+
+	VkPhysicalDeviceFeatures2 physicalDeviceFeatures2 = {};
+	physicalDeviceFeatures2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+	physicalDeviceFeatures2.pNext = &rayTracingPipelineFeatures;
+
+	vkGetPhysicalDeviceFeatures2(vk_options.physicalDevice, &physicalDeviceFeatures2);
+
+	//rayTracingPipelineFeatures.rayTracingPipeline = VK_TRUE;
+
 	deviceInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
 	deviceInfo.pQueueCreateInfos = queueInfos;
 	deviceInfo.queueCreateInfoCount = queueCount;
-	deviceInfo.pEnabledFeatures = &deviceFeatures;
+	deviceInfo.pEnabledFeatures = NULL;
+	deviceInfo.pNext = &rayTracingPipelineFeatures;
 	deviceInfo.ppEnabledExtensionNames = requiredDeviceExtensions;
 	deviceInfo.enabledExtensionCount = sizeof(requiredDeviceExtensions) / sizeof(requiredDeviceExtensions[0]);
 

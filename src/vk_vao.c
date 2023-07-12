@@ -72,7 +72,7 @@ qbool VK_CreateAliasModelPipeline(r_buffer_id aliasModelVBO, r_buffer_id instanc
 	VkPipelineMultisampleStateCreateInfo multisampling;
 	VkPipelineColorBlendAttachmentState blending;
 	VkPipelineColorBlendStateCreateInfo colorBlending;
-	VkPipeline pipelineLayout;
+	VkPipelineLayout pipelineLayout;
 	VkPipelineLayoutCreateInfo pipelineLayoutInfo;
 
 	VK_InitialiseStructure(inputAssembly);

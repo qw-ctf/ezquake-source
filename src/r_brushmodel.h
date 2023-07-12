@@ -23,6 +23,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "r_buffers.h"
 #include "r_framestats.h"
 
+int R_BrushModelMeasureVBOSize(model_t* m);
+
 qbool R_PointIsUnderwater(vec3_t point);
 
 void GLC_StateBeginWaterSurfaces(void);

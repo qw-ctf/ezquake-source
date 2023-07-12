@@ -4,6 +4,10 @@
 
 #include "r_texture.h"
 
+#ifdef RENDERER_OPTION_VULKAN
+#include <vulkan/vulkan.h>
+#endif
+
 typedef struct gltexture_s {
 	// Internal handle
 	unsigned int texnum;
@@ -31,6 +35,12 @@ typedef struct gltexture_s {
 
 	texture_minification_id minification_filter;
 	texture_magnification_id magnification_filter;
+
+#ifdef RENDERER_OPTION_VULKAN
+	VkDescriptorSet vk_descriptor;
+	VkImage vk_image;
+	VkDeviceMemory vk_memory;
+#endif
 } gltexture_t;
 
 extern gltexture_t gltextures[MAX_GLTEXTURES];

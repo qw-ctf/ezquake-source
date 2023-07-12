@@ -34,7 +34,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 unsigned int* modelIndexes;
 unsigned int modelIndexMaximum;
 
-static int R_BrushModelMeasureVBOSize(model_t* m);
+int R_BrushModelMeasureVBOSize(model_t* m);
 static int R_BrushModelPopulateVBO(model_t* m, void* vbo_buffer, int vbo_pos);
 void R_BrushModelClearTextureChains(model_t *clmodel);
 
@@ -140,7 +140,7 @@ void R_BrushModelCreateVBO(void)
 	Q_free(buffer);
 }
 
-static int R_BrushModelMeasureVBOSize(model_t* m)
+int R_BrushModelMeasureVBOSize(model_t* m)
 {
 	int j, total_surf_verts = 0, total_surfaces = 0;
 

@@ -75,14 +75,17 @@ static VkBufferUsageFlags VK_BufferUsageForType(buffertype_t type)
 
 static void VK_BufferStartFrame(void)
 {
+	VK_NOT_IMPLEMENTED;
 }
 
 static void VK_BufferEndFrame(void)
 {
+	VK_NOT_IMPLEMENTED;
 }
 
 static qbool VK_BufferReady(void)
 {
+	VK_NOT_IMPLEMENTED;
 	return true;
 }
 
@@ -102,6 +105,8 @@ static qbool VK_BufferCreate(r_buffer_id id, buffertype_t type, const char* name
 
 	vkGetBufferMemoryRequirements(vk_options.logicalDevice, buffer, &memRequirements);
 
+	VK_NOT_IMPLEMENTED;
+
 	// TODO
 	//memRequirements.
 	return false;
@@ -109,68 +114,83 @@ static qbool VK_BufferCreate(r_buffer_id id, buffertype_t type, const char* name
 
 static void VK_BufferEnsureSize(r_buffer_id buffer, int size)
 {
+	VK_NOT_IMPLEMENTED;
 }
 
 static void VK_BufferInitialiseState(void)
 {
+	VK_NOT_IMPLEMENTED;
 }
 
 static size_t VK_BufferSize(r_buffer_id vbo)
 {
+	VK_NOT_IMPLEMENTED;
 	return 0;
 }
 
 static uintptr_t VK_BufferOffset(r_buffer_id ref)
 {
+	VK_NOT_IMPLEMENTED;
 	return 0;
 }
 
 static void VK_BufferBind(r_buffer_id ref)
 {
+	VK_NOT_IMPLEMENTED;
 }
 
 static void VK_BufferBindBase(r_buffer_id ref, unsigned int index)
 {
+	VK_NOT_IMPLEMENTED;
 }
 
 static void VK_BufferBindRange(r_buffer_id ref, unsigned int index, ptrdiff_t offset, int size)
 {
+	VK_NOT_IMPLEMENTED;
 }
 
 static void VK_BufferUnBind(buffertype_t type)
 {
+	VK_NOT_IMPLEMENTED;
 }
 
 static void VK_BufferUpdate(r_buffer_id vbo, int size, void* data)
 {
+	VK_NOT_IMPLEMENTED;
 }
 
 static void VK_BufferUpdateSection(r_buffer_id vbo, ptrdiff_t offset, int size, const void* data)
 {
+	VK_NOT_IMPLEMENTED;
 }
 
 static void VK_BufferResize(r_buffer_id vbo, int size, void* data)
 {
+	VK_NOT_IMPLEMENTED;
 }
 
 static qbool VK_BufferIsValid(r_buffer_id ref)
 {
+	VK_NOT_IMPLEMENTED;
 	return false;
 }
 
 static void VK_BufferSetElementArray(r_buffer_id ref)
 {
+	VK_NOT_IMPLEMENTED;
 	return;
 }
 
 static void VK_BufferShutdown(void)
 {
+	VK_NOT_IMPLEMENTED;
 	return;
 }
 
 #ifdef WITH_RENDERING_TRACE
 static void VK_PrintBufferState(FILE* output, int depth)
 {
+	VK_NOT_IMPLEMENTED;
 }
 #endif
 
@@ -205,6 +225,8 @@ void VK_InitialiseBufferHandling(api_buffers_t* api)
 #ifdef WITH_RENDERING_TRACE
 	api->PrintState = VK_PrintBufferState;
 #endif
+
+	api->supported = true;
 }
 
 #endif // #ifdef RENDERER_OPTION_VULKAN

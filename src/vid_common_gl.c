@@ -144,6 +144,10 @@ static qbool GL_InitialiseRenderer(void)
 		Con_Printf("&c0f0Renderer&r: OpenGL (classic)\n");
 		return true;
 	}
+	else if (R_UseVulkan()) {
+		Con_Printf("&c0f0Renderer&r: Vulkan\n");
+		return true;
+	}
 
 	return false;
 }

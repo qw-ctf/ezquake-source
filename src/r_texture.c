@@ -29,6 +29,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "r_trace.h"
 #include "r_state.h"
 #include "gl_texture.h"
+#include "vk_texture.h"
 #include "r_renderer.h"
 #include "image.h"
 
@@ -150,7 +151,7 @@ void R_ClearModelTextureData(void)
 
 qbool R_TextureValid(texture_ref ref)
 {
-	return ref.index && ref.index < numgltextures && gltextures[ref.index].texnum;
+	return ref.index && ref.index < numgltextures && (gltextures[ref.index].texnum || gltextures[ref.index].vk_image != VK_NULL_HANDLE);
 }
 
 qbool R_TexturesAreSameSize(texture_ref tex1, texture_ref tex2)
@@ -474,7 +475,7 @@ gltexture_t* R_TextureAllocateSlot(r_texture_type_id type, const char* identifie
 			GL_AllocateStorage(glt);
 		}
 		else if (R_UseVulkan()) {
-			// VK_AllocateStorage(glt);
+			VK_AllocateStorage(glt);
 		}
 		glt->storage_allocated = true;
 	}
@@ -567,7 +568,7 @@ static void R_AllocateTextureNames(gltexture_t* glt)
 		GL_AllocateTextureNames(glt);
 	}
 	else if (R_UseVulkan()) {
-		// VK_AllocateTextureNames(...);
+		VK_AllocateTextureNames(glt);
 	}
 }
 

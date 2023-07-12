@@ -20,6 +20,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #ifndef EZQUAKE_VK_LOCAL_HEADER
 #define EZQUAKE_VK_LOCAL_HEADER
 
+#include "quakedef.h"
 #include "r_state.h"
 #include <SDL.h>
 #include <vulkan/vulkan.h>
@@ -27,9 +28,14 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define EZ_VKFUNC_DECL_LOAD(instance, func) PFN_##func q##func = (PFN_##func)vkGetInstanceProcAddr(instance, #func)
 #define EZ_VKFUNC_LOAD(instance, func) q##func = (PFN_##func)vkGetInstanceProcAddr(instance, #func)
 
+#define VK_NOT_IMPLEMENTED Con_Printf("%s not implemented\n", __FUNCTION__)
+
 // vk_main.c
 qbool VK_Initialise(SDL_Window* window);
 void VK_Shutdown(r_shutdown_mode_t);
+
+// vk_buffers.c
+void VK_InitialiseBufferHandling(api_buffers_t* api);
 
 // vk_instance.c
 qbool VK_CreateInstance(SDL_Window* window, VkInstance* instance);
@@ -93,6 +99,7 @@ typedef struct vk_options_s {
 } vk_options_t;
 
 extern vk_options_t vk_options;
+extern VkCommandPool vk_command_pool;
 
 void VK_PrintGfxInfo(void);
 

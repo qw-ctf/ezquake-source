@@ -26,6 +26,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "crc.h"
 #include "gl_texture.h"
 #include "r_trace.h"
+#include "vk_texture.h"
 
 static void R_LoadTextureData(gltexture_t* glt, int width, int height, byte *data, int mode, int bpp);
 
@@ -546,7 +547,9 @@ static void R_Upload32(gltexture_t* glt, unsigned *data, int width, int height, 
 		GL_UploadTexture(glt->reference, glt->texmode, width, height, newdata);
 	}
 	else if (R_UseVulkan()) {
-		//VK_UploadTexture(glt->reference, glt->texmode, width, height, newdata);
+		glt->vk_image = VK_NULL_HANDLE;
+		VK_CreateImage(width, height, VK_FORMAT_R8G8B8A8_SRGB, &glt->vk_image, &glt->vk_memory);
+		VK_UploadTexture(glt->vk_image, glt->vk_memory, width, height, newdata);
 	}
 
 	R_TextureUtil_SetFiltering(glt->reference);
