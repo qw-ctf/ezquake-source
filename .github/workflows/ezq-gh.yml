@@ -1,0 +1,98 @@
+name: ezquake
+
+on: [push]
+
+jobs:
+  windows-build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 1
+          submodules: true
+
+      - run: git checkout HEAD
+
+      - name: Setup vcpkg (it does not install any package yet)
+        uses: lukka/run-vcpkg@v11
+
+      - uses: microsoft/setup-msbuild@v1.1
+
+      - run: msbuild -m -p:Configuration=rls-modern,Platform=x64 -p:VcpkgEnableManifest=true
+        env:
+          VcpkgConfiguration: Release
+          VcpkgTriplet: x64-windows-static
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: ezquake-latest-windows
+          path: |
+            ezquake.exe
+
+  linux-appimage:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 1
+          submodules: true
+
+      - name: Install dependencies
+        run: sudo apt-get install libfuse2
+
+      - name: Build
+        run: ./misc/appimage/appimage-manual_creation.sh
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: linux-x86_64-AppImage
+          path: ezQuake-x86_64.AppImage
+
+  macos-arm-build:
+    runs-on: macos-12
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 1
+          submodules: true
+
+      - name: Install dependencies
+        run: .github/workflows/scripts/homebrew.sh install-arm64
+
+      - name: Build
+        run: .github/workflows/scripts/homebrew.sh build-arm64
+
+      - name: Create Bundle
+        run: .github/workflows/scripts/homebrew.sh create-bundle
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: macos-arm64
+          path: ezQuake.zip
+
+  macos-intel-build:
+    runs-on: macos-12
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 1
+          submodules: true
+
+      - name: Install dependencies
+        run: .github/workflows/scripts/homebrew.sh install-intel
+
+      - name: Build
+        run: .github/workflows/scripts/homebrew.sh build-intel
+
+      - name: Create Bundle
+        run: .github/workflows/scripts/homebrew.sh create-bundle
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: macos-intel
+          path: ezQuake.zip
