@@ -218,7 +218,7 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='dbg-all|Win32'">
-    <IncludePath>$(SolutionDir)\vcpkg_installed\$(VcpkgTriplet)\$(VcpkgTriplet)\include\SDL2;$(SolutionDir)\vcpkg_installed\$(VcpkgTriplet)\$(VcpkgTriplet)\include\minizip;$(SolutionDir)\src\qwprot\src;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir)\src\vstudio-libs\include;$(SolutionDir)\src\vstudio-libs\include;$(SolutionDir)\vcpkg_installed\$(VcpkgTriplet)\$(VcpkgTriplet)\include\SDL2;$(SolutionDir)\vcpkg_installed\$(VcpkgTriplet)\$(VcpkgTriplet)\include\minizip;$(SolutionDir)\src\qwprot\src;$(IncludePath)</IncludePath>
     <LibraryPath>$(VC_LibraryPath_x86);$(WindowsSDK_LibraryPath_x86);$(NETFXKitsDir)Lib\um\x86</LibraryPath>
     <LinkIncremental>false</LinkIncremental>
     <PreBuildEventUseInBuild>true</PreBuildEventUseInBuild>
@@ -226,7 +226,7 @@
     <OutDir>$(SolutionDir).vs\$(Platform)\$(Configuration)\Output\</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='dbg-classic|Win32'">
-    <IncludePath>$(SolutionDir)\vcpkg_installed\$(VcpkgTriplet)\$(VcpkgTriplet)\include\SDL2;$(SolutionDir)\vcpkg_installed\$(VcpkgTriplet)\$(VcpkgTriplet)\include\minizip;$(SolutionDir)\src\qwprot\src;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir)\src\vstudio-libs\include;$(SolutionDir)\src\vstudio-libs\include;$(SolutionDir)\vcpkg_installed\$(VcpkgTriplet)\$(VcpkgTriplet)\include\SDL2;$(SolutionDir)\vcpkg_installed\$(VcpkgTriplet)\$(VcpkgTriplet)\include\minizip;$(SolutionDir)\src\qwprot\src;$(IncludePath)</IncludePath>
     <LibraryPath>$(VC_LibraryPath_x86);$(WindowsSDK_LibraryPath_x86);$(NETFXKitsDir)Lib\um\x86</LibraryPath>
     <LinkIncremental>false</LinkIncremental>
     <PreBuildEventUseInBuild>true</PreBuildEventUseInBuild>
@@ -234,7 +234,7 @@
     <IntDir>.vs\$(Platform)\$(Configuration)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='dbg-modern|Win32'">
-    <IncludePath>$(SolutionDir)\vcpkg_installed\$(VcpkgTriplet)\$(VcpkgTriplet)\include\SDL2;$(SolutionDir)\vcpkg_installed\$(VcpkgTriplet)\$(VcpkgTriplet)\include\minizip;$(SolutionDir)\src\qwprot\src;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir)\src\vstudio-libs\include;$(SolutionDir)\src\vstudio-libs\include;$(SolutionDir)\vcpkg_installed\$(VcpkgTriplet)\$(VcpkgTriplet)\include\SDL2;$(SolutionDir)\vcpkg_installed\$(VcpkgTriplet)\$(VcpkgTriplet)\include\minizip;$(SolutionDir)\src\qwprot\src;$(IncludePath)</IncludePath>
     <LibraryPath>$(VC_LibraryPath_x86);$(WindowsSDK_LibraryPath_x86);$(NETFXKitsDir)Lib\um\x86</LibraryPath>
     <LinkIncremental>false</LinkIncremental>
     <PreBuildEventUseInBuild>true</PreBuildEventUseInBuild>
@@ -242,7 +242,7 @@
     <IntDir>.vs\$(Platform)\$(Configuration)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='dbg-vulkan|Win32'">
-    <IncludePath>$(SolutionDir)\vcpkg_installed\$(VcpkgTriplet)\$(VcpkgTriplet)\include\SDL2;$(SolutionDir)\vcpkg_installed\$(VcpkgTriplet)\$(VcpkgTriplet)\include\minizip;$(SolutionDir)\src\qwprot\src;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir)\src\vstudio-libs\include;$(SolutionDir)\src\vstudio-libs\include;$(SolutionDir)\vcpkg_installed\$(VcpkgTriplet)\$(VcpkgTriplet)\include\SDL2;$(SolutionDir)\vcpkg_installed\$(VcpkgTriplet)\$(VcpkgTriplet)\include\minizip;$(SolutionDir)\src\qwprot\src;$(IncludePath)</IncludePath>
     <LibraryPath>$(VC_LibraryPath_x86);$(WindowsSDK_LibraryPath_x86);$(NETFXKitsDir)Lib\um\x86</LibraryPath>
     <LinkIncremental>false</LinkIncremental>
     <PreBuildEventUseInBuild>true</PreBuildEventUseInBuild>
@@ -251,67 +251,67 @@
     <IntDir>.vs\$(Platform)\$(Configuration)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='dbg-all|x64'">
-    <IncludePath>$(SolutionDir)\vcpkg_installed\$(VcpkgTriplet)\$(VcpkgTriplet)\include\SDL2;$(SolutionDir)\vcpkg_installed\$(VcpkgTriplet)\$(VcpkgTriplet)\include\minizip;$(SolutionDir)\src\qwprot\src;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir)\src\vstudio-libs\include;$(SolutionDir)\src\vstudio-libs\include;$(SolutionDir)\vcpkg_installed\$(VcpkgTriplet)\$(VcpkgTriplet)\include\SDL2;$(SolutionDir)\vcpkg_installed\$(VcpkgTriplet)\$(VcpkgTriplet)\include\minizip;$(SolutionDir)\src\qwprot\src;$(IncludePath)</IncludePath>
     <LibraryPath>$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);$(NETFXKitsDir)Lib\um\x64</LibraryPath>
     <PreBuildEventUseInBuild>true</PreBuildEventUseInBuild>
     <IntDir>.vs\$(Platform)\$(Configuration)\</IntDir>
     <OutDir>$(SolutionDir).vs\$(Platform)\$(Configuration)\Output\</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='dbg-classic|x64'">
-    <IncludePath>$(SolutionDir)\vcpkg_installed\$(VcpkgTriplet)\$(VcpkgTriplet)\include\SDL2;$(SolutionDir)\vcpkg_installed\$(VcpkgTriplet)\$(VcpkgTriplet)\include\minizip;$(SolutionDir)\src\qwprot\src;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir)\src\vstudio-libs\include;$(SolutionDir)\src\vstudio-libs\include;$(SolutionDir)\vcpkg_installed\$(VcpkgTriplet)\$(VcpkgTriplet)\include\SDL2;$(SolutionDir)\vcpkg_installed\$(VcpkgTriplet)\$(VcpkgTriplet)\include\minizip;$(SolutionDir)\src\qwprot\src;$(IncludePath)</IncludePath>
     <LibraryPath>$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);$(NETFXKitsDir)Lib\um\x64</LibraryPath>
     <PreBuildEventUseInBuild>true</PreBuildEventUseInBuild>
     <IntDir>.vs\$(Platform)\$(Configuration)\</IntDir>
     <OutDir>$(SolutionDir).vs\$(Platform)\$(Configuration)\Output\</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='dbg-modern|x64'">
-    <IncludePath>$(SolutionDir)\vcpkg_installed\$(VcpkgTriplet)\$(VcpkgTriplet)\include\SDL2;$(SolutionDir)\vcpkg_installed\$(VcpkgTriplet)\$(VcpkgTriplet)\include\minizip;$(SolutionDir)\src\qwprot\src;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir)\src\vstudio-libs\include;$(SolutionDir)\src\vstudio-libs\include;$(SolutionDir)\vcpkg_installed\$(VcpkgTriplet)\$(VcpkgTriplet)\include\SDL2;$(SolutionDir)\vcpkg_installed\$(VcpkgTriplet)\$(VcpkgTriplet)\include\minizip;$(SolutionDir)\src\qwprot\src;$(IncludePath)</IncludePath>
     <LibraryPath>$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);$(NETFXKitsDir)Lib\um\x64</LibraryPath>
     <PreBuildEventUseInBuild>true</PreBuildEventUseInBuild>
     <IntDir>.vs\$(Platform)\$(Configuration)\</IntDir>
     <OutDir>$(SolutionDir).vs\$(Platform)\$(Configuration)\Output\</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='dbg-vulkan|x64'">
-    <IncludePath>$(SolutionDir)\vcpkg_installed\$(VcpkgTriplet)\$(VcpkgTriplet)\include\SDL2;$(SolutionDir)\vcpkg_installed\$(VcpkgTriplet)\$(VcpkgTriplet)\include\minizip;$(SolutionDir)\src\qwprot\src;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir)\src\vstudio-libs\include;$(SolutionDir)\src\vstudio-libs\include;$(SolutionDir)\vcpkg_installed\$(VcpkgTriplet)\$(VcpkgTriplet)\include\SDL2;$(SolutionDir)\vcpkg_installed\$(VcpkgTriplet)\$(VcpkgTriplet)\include\minizip;$(SolutionDir)\src\qwprot\src;$(IncludePath)</IncludePath>
     <LibraryPath>$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);$(NETFXKitsDir)Lib\um\x64</LibraryPath>
     <PreBuildEventUseInBuild>true</PreBuildEventUseInBuild>
     <IntDir>.vs\$(Platform)\$(Configuration)\</IntDir>
     <OutDir>$(SolutionDir).vs\$(Platform)\$(Configuration)\Output\</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='rls-all|x64'">
-    <IncludePath>$(SolutionDir)\vcpkg_installed\$(VcpkgTriplet)\$(VcpkgTriplet)\include\SDL2;$(SolutionDir)\vcpkg_installed\$(VcpkgTriplet)\$(VcpkgTriplet)\include\minizip;$(SolutionDir)\src\qwprot\src;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir)\src\vstudio-libs\include;$(SolutionDir)\src\vstudio-libs\include;$(SolutionDir)\vcpkg_installed\$(VcpkgTriplet)\$(VcpkgTriplet)\include\SDL2;$(SolutionDir)\vcpkg_installed\$(VcpkgTriplet)\$(VcpkgTriplet)\include\minizip;$(SolutionDir)\src\qwprot\src;$(IncludePath)</IncludePath>
     <LibraryPath>$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);$(NETFXKitsDir)Lib\um\x64</LibraryPath>
     <IntDir>.vs\$(Platform)\$(Configuration)\</IntDir>
     <OutDir>$(SolutionDir).vs\$(Platform)\$(Configuration)\Output\</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='rls-modern|x64'">
-    <IncludePath>$(SolutionDir)\vcpkg_installed\$(VcpkgTriplet)\$(VcpkgTriplet)\include\SDL2;$(SolutionDir)\vcpkg_installed\$(VcpkgTriplet)\$(VcpkgTriplet)\include\minizip;$(SolutionDir)\src\qwprot\src;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir)\src\vstudio-libs\include;$(SolutionDir)\src\vstudio-libs\include;$(SolutionDir)\vcpkg_installed\$(VcpkgTriplet)\$(VcpkgTriplet)\include\SDL2;$(SolutionDir)\vcpkg_installed\$(VcpkgTriplet)\$(VcpkgTriplet)\include\minizip;$(SolutionDir)\src\qwprot\src;$(IncludePath)</IncludePath>
     <LibraryPath>$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);$(NETFXKitsDir)Lib\um\x64</LibraryPath>
     <IntDir>.vs\$(Platform)\$(Configuration)\</IntDir>
     <OutDir>$(SolutionDir).vs\$(Platform)\$(Configuration)\Output\</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='rls-classic|x64'">
-    <IncludePath>$(SolutionDir)\vcpkg_installed\$(VcpkgTriplet)\$(VcpkgTriplet)\include\SDL2;$(SolutionDir)\vcpkg_installed\$(VcpkgTriplet)\$(VcpkgTriplet)\include\minizip;$(SolutionDir)\src\qwprot\src;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir)\src\vstudio-libs\include;$(SolutionDir)\src\vstudio-libs\include;$(SolutionDir)\vcpkg_installed\$(VcpkgTriplet)\$(VcpkgTriplet)\include\SDL2;$(SolutionDir)\vcpkg_installed\$(VcpkgTriplet)\$(VcpkgTriplet)\include\minizip;$(SolutionDir)\src\qwprot\src;$(IncludePath)</IncludePath>
     <LibraryPath>$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);$(NETFXKitsDir)Lib\um\x64</LibraryPath>
     <IntDir>.vs\$(Platform)\$(Configuration)\</IntDir>
     <OutDir>$(SolutionDir).vs\$(Platform)\$(Configuration)\Output\</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='rls-all|Win32'">
-    <IncludePath>$(SolutionDir)\vcpkg_installed\$(VcpkgTriplet)\$(VcpkgTriplet)\include\SDL2;$(SolutionDir)\vcpkg_installed\$(VcpkgTriplet)\$(VcpkgTriplet)\include\minizip;$(SolutionDir)\src\qwprot\src;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir)\src\vstudio-libs\include;$(SolutionDir)\src\vstudio-libs\include;$(SolutionDir)\vcpkg_installed\$(VcpkgTriplet)\$(VcpkgTriplet)\include\SDL2;$(SolutionDir)\vcpkg_installed\$(VcpkgTriplet)\$(VcpkgTriplet)\include\minizip;$(SolutionDir)\src\qwprot\src;$(IncludePath)</IncludePath>
     <LibraryPath>$(VC_LibraryPath_x86);$(WindowsSDK_LibraryPath_x86);$(NETFXKitsDir)Lib\um\x86</LibraryPath>
     <LinkIncremental>false</LinkIncremental>
     <OutDir>$(SolutionDir).vs\$(Platform)\$(Configuration)\Output\</OutDir>
     <IntDir>.vs\$(Platform)\$(Configuration)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='rls-modern|Win32'">
-    <IncludePath>$(SolutionDir)\vcpkg_installed\$(VcpkgTriplet)\$(VcpkgTriplet)\include\SDL2;$(SolutionDir)\vcpkg_installed\$(VcpkgTriplet)\$(VcpkgTriplet)\include\minizip;$(SolutionDir)\src\qwprot\src;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir)\src\vstudio-libs\include;$(SolutionDir)\src\vstudio-libs\include;$(SolutionDir)\vcpkg_installed\$(VcpkgTriplet)\$(VcpkgTriplet)\include\SDL2;$(SolutionDir)\vcpkg_installed\$(VcpkgTriplet)\$(VcpkgTriplet)\include\minizip;$(SolutionDir)\src\qwprot\src;$(IncludePath)</IncludePath>
     <LibraryPath>$(VC_LibraryPath_x86);$(WindowsSDK_LibraryPath_x86);$(NETFXKitsDir)Lib\um\x86</LibraryPath>
     <LinkIncremental>false</LinkIncremental>
     <OutDir>$(SolutionDir).vs\$(Platform)\$(Configuration)\Output\</OutDir>
     <IntDir>.vs\$(Platform)\$(Configuration)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='rls-classic|Win32'">
-    <IncludePath>$(SolutionDir)\vcpkg_installed\$(VcpkgTriplet)\$(VcpkgTriplet)\include\SDL2;$(SolutionDir)\vcpkg_installed\$(VcpkgTriplet)\$(VcpkgTriplet)\include\minizip;$(SolutionDir)\src\qwprot\src;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir)\src\vstudio-libs\include;$(SolutionDir)\src\vstudio-libs\include;$(SolutionDir)\vcpkg_installed\$(VcpkgTriplet)\$(VcpkgTriplet)\include\SDL2;$(SolutionDir)\vcpkg_installed\$(VcpkgTriplet)\$(VcpkgTriplet)\include\minizip;$(SolutionDir)\src\qwprot\src;$(IncludePath)</IncludePath>
     <LibraryPath>$(VC_LibraryPath_x86);$(WindowsSDK_LibraryPath_x86);$(NETFXKitsDir)Lib\um\x86</LibraryPath>
     <LinkIncremental>false</LinkIncremental>
     <OutDir>$(SolutionDir).vs\$(Platform)\$(Configuration)\Output\</OutDir>
