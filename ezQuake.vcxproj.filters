@@ -1204,19 +1204,10 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\adivtab.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
     <ClInclude Include="src\anorm_dots.h">
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="src\anorms.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
-    <ClInclude Include="src\block8.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
-    <ClInclude Include="src\block16.h">
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="src\bspfile.h">
@@ -1652,9 +1643,6 @@
       <Filter>Source Files\Renderer\Common</Filter>
     </ClInclude>
     <ClInclude Include="src\r_program.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="src\resource.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\minizip\ioapi.h">

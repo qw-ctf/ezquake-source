@@ -2863,7 +2863,6 @@ msversion.bat</Command>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\.msversion.h" />
-    <ClInclude Include="src\adivtab.h" />
     <ClInclude Include="src\anorms.h" />
     <ClInclude Include="src\anorm_dots.h" />
     <ClInclude Include="src\central.h" />
@@ -2938,8 +2937,6 @@ msversion.bat</Command>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='rls-classic|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='dbg-vulkan|Win32'">true</ExcludedFromBuild>
     </ClInclude>
-    <ClInclude Include="src\block16.h" />
-    <ClInclude Include="src\block8.h" />
     <ClInclude Include="src\bspfile.h" />
     <ClInclude Include="src\cdaudio.h">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='rls-modern|Win32'">
@@ -3039,7 +3036,6 @@ msversion.bat</Command>
     <ClInclude Include="src\r_buffers.h" />
     <ClInclude Include="src\r_chaticons.h" />
     <ClInclude Include="src\r_draw.h" />
-    <ClInclude Include="src\r_drawcalls.h" />
     <ClInclude Include="src\r_enums.h" />
     <ClInclude Include="src\r_framestats.h" />
     <ClInclude Include="src\r_hud.h" />
@@ -3123,7 +3119,6 @@ msversion.bat</Command>
     <ClInclude Include="src\vx_vertexlights.h" />
     <ClInclude Include="src\wad.h" />
     <ClInclude Include="src\zone.h" />
-    <ClInclude Include="src\resource.h" />
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="src\glsl\common.glsl">
