@@ -17,9 +17,9 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 */
 
-#include "stdafx.h"
-#include <string.h>
-#include <ctype.h>
+#include <cctype>
+#include <cstdio>
+#include <cstring>
 
 int main(int argc, const char* argv[])
 {
@@ -33,13 +33,13 @@ int main(int argc, const char* argv[])
 		return 0;
 	}
 
-	if (fopen_s(&input, argv[1], "rb") != 0) {
+	if ((input = fopen(argv[1], "rb")) == nullptr) {
 		printf("ERROR: cannot open %s\n", argv[1]);
 		return 1;
 	}
 
 	if (argc >= 3) {
-		if (fopen_s(&output, argv[2], "wt")) {
+		if ((output = fopen(argv[2], "wt")) == nullptr) {
 			printf("ERROR: cannot open %s for writing\n", argv[2]);
 			return 1;
 		}
@@ -53,7 +53,7 @@ int main(int argc, const char* argv[])
 		const char* next;
 
 		name = argv[1];
-		while (next = strstr(name, "\\")) {
+		while ((next = strstr(name, "\\")) != NULL) {
 			name = next + 1;
 		}
 	}
