@@ -1,0 +1,112 @@
+{
+    "version": 6,
+    "cmakeMinimumRequired": {
+        "major": 3,
+        "minor": 19,
+        "patch": 0
+    },
+    "configurePresets": [
+        {
+            "name": "template-vcpkg",
+            "hidden": true,
+            "binaryDir": "${sourceDir}/cmake-build-presets/${presetName}",
+            "cacheVariables": {
+                "CMAKE_TOOLCHAIN_FILE": {
+                    "type": "FILEPATH",
+                    "value": "vcpkg/scripts/buildsystems/vcpkg.cmake"
+                },
+                "VCPKG_LIBRARY_LINKAGE": "static",
+                "VCPKG_CRT_LINKAGE": "dynamic"
+            }
+        },
+        {
+            "name": "xcode-vcpkg",
+            "hidden": true,
+            "description": "Configure with vcpkg toolchain and XCode project files for all configurations",
+            "generator": "Xcode",
+            "inherits": "template-vcpkg"
+        },
+        {
+            "name": "xcode-vcpkg-arm64",
+            "displayName": "XCode (vcpkg-arm64)",
+            "inherits": "xcode-vcpkg",
+            "cacheVariables": {
+                "VCPKG_TARGET_TRIPLET": "arm64-osx",
+                "CMAKE_OSX_ARCHITECTURES": "arm64",
+                "CMAKE_OSX_DEPLOYMENT_TARGET": "14.0",
+                "VCPKG_C_FLAGS": "-mmacosx-version-min=14.0",
+                "VCPKG_CXX_FLAGS": "-mmacosx-version-min=14.0"
+            }
+        },
+        {
+            "name": "xcode-vcpkg-arm64-release-ci",
+            "inherits": "xcode-vcpkg-arm64",
+            "cacheVariables": {
+                "VCPKG_TARGET_TRIPLET": "arm64-osx-release"
+            }
+        },
+        {
+            "name": "xcode-vcpkg-x64",
+            "displayName": "XCode (vcpkg-x64)",
+            "inherits": "xcode-vcpkg",
+            "cacheVariables": {
+                "VCPKG_TARGET_TRIPLET": "x64-osx",
+                "CMAKE_OSX_ARCHITECTURES": "x86_64",
+                "CMAKE_OSX_DEPLOYMENT_TARGET": "12.7",
+                "VCPKG_C_FLAGS": "-mmacosx-version-min=12.7",
+                "VCPKG_CXX_FLAGS": "-mmacosx-version-min=12.7"
+            }
+        },
+        {
+            "name": "xcode-vcpkg-x64-release-ci",
+            "inherits": "xcode-vcpkg-x64",
+            "cacheVariables": {
+                "VCPKG_TARGET_TRIPLET": "x64-osx-release"
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "xcode-vcpkg-arm64-debug",
+            "configurePreset": "xcode-vcpkg-arm64",
+            "displayName": "Build xcode-vcpkg-debug",
+            "description": "Build xcode-vcpkg Debug configuration",
+            "configuration": "Debug"
+        },
+        {
+            "name": "xcode-vcpkg-arm64-release",
+            "configurePreset": "xcode-vcpkg-arm64",
+            "displayName": "Build xcode-vcpkg-release",
+            "description": "Build xcode-vcpkg Release configuration",
+            "configuration": "Release"
+        },
+        {
+            "name": "xcode-vcpkg-arm64-release-ci",
+            "configurePreset": "xcode-vcpkg-arm64-release-ci",
+            "displayName": "Build xcode-vcpkg-release",
+            "description": "Build with community release triplet",
+            "configuration": "Release"
+        },
+        {
+            "name": "xcode-vcpkg-x64-debug",
+            "configurePreset": "xcode-vcpkg-x64",
+            "displayName": "Build xcode-vcpkg-debug",
+            "description": "Build xcode-vcpkg Debug configuration",
+            "configuration": "Debug"
+        },
+        {
+            "name": "xcode-vcpkg-x64-release",
+            "configurePreset": "xcode-vcpkg-x64",
+            "displayName": "Build xcode-vcpkg-release",
+            "description": "Build xcode-vcpkg Release configuration",
+            "configuration": "Release"
+        },
+        {
+            "name": "xcode-vcpkg-x64-release-ci",
+            "configurePreset": "xcode-vcpkg-x64-release-ci",
+            "displayName": "Build xcode-vcpkg-release",
+            "description": "Build with community release triplet",
+            "configuration": "Release"
+        }
+    ]
+}
