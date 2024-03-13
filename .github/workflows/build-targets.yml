@@ -15,7 +15,7 @@ jobs:
 
     steps:
     - name: Check out code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         submodules: true
 
@@ -41,10 +41,11 @@ jobs:
         VcpkgTriplet: ${{ matrix.triplet }}
 
     - name: Archive client
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: ${{ matrix.target }}
         path: .vs\${{ matrix.platform }}\${{ matrix.config }}\Output\ezQuake.exe
+        compression-level: 9
 
   macos-build:
     runs-on: macos-13
@@ -89,14 +90,15 @@ jobs:
       run: apt-get -qy update && apt-get -qy install curl file libfuse2 git make sudo git
 
     - name: Check out code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         submodules: true
 
     - name: Build
       run:  git config --global --add safe.directory $PWD && ./misc/appimage/appimage-manual_creation.sh
 
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
         name: ${{ matrix.target }}-AppImage
         path: ezQuake-${{ matrix.platform }}.AppImage
+        compression-level: 9
