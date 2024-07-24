@@ -1,0 +1,194 @@
+name: build targets
+on: [push, pull_request, workflow_dispatch]
+
+# TODO: Unify to same set of jobs
+jobs:
+  cmake-windows-build:
+    runs-on: windows-2019
+    strategy:
+      fail-fast: false
+      matrix:
+        configurePreset: [ninja-msvc-x64, msbuild-x64]
+        include:
+          - configurePreset: ninja-msvc-x64
+            buildPreset: ninja-msvc-x64-release
+            should_upload: true
+          - configurePreset: msbuild-x64
+            buildPreset: msbuild-x64-release
+            should_upload: false
+
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v4
+      with:
+        submodules: true
+        fetch-tags: true
+
+    - name: Fetch upstream tags for version metadata
+      run: |
+        git remote add upstream https://github.com/QW-Group/ezquake-source.git
+        git fetch upstream --depth 1 --tags
+      if: github.repository != 'QW-Group/ezquake-source'
+
+    - name: Fetch cmake & ninja
+      uses: lukka/get-cmake@latest
+
+    - name: Bootstrap VCPKG
+      uses: lukka/run-vcpkg@v11
+
+    - name: Build
+      uses: lukka/run-cmake@v10
+      with:
+        configurePreset: ${{ matrix.configurePreset }}
+        buildPreset: ${{ matrix.buildPreset }}
+
+    - name: Archive client
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.configurePreset }}
+        path: "cmake-build-presets/${{ matrix.configurePreset }}/Release/ezquake.exe"
+        compression-level: 9
+      if: ${{ matrix.should_upload }}
+
+  cmake-macos-build:
+    runs-on: macos-13
+    strategy:
+      matrix:
+        arch: [x64, arm64]
+        variant: [release]
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+          fetch-tags: true
+
+      - name: Fetch upstream tags for version metadata
+        run: |
+          git remote add upstream https://github.com/QW-Group/ezquake-source.git
+          git fetch upstream --depth 1 --tags
+        if: github.repository != 'QW-Group/ezquake-source'
+
+      - name: Install build system dependencies
+        run: brew install autoconf automake libtool
+
+      - uses: lukka/get-cmake@latest
+
+      - name: Setup vcpkg
+        uses: lukka/run-vcpkg@v11
+
+      - name: Run CMake
+        uses: lukka/run-cmake@v10
+        with:
+          configurePreset: "xcode-${{ matrix.arch }}-${{ matrix.variant }}-ci"
+          buildPreset: "xcode-${{ matrix.arch }}-${{ matrix.variant }}-ci"
+
+      - name: Prepare upload
+        run: zip -r ../../../ezQuake.zip ezQuake.app
+        working-directory: "cmake-build-presets/xcode-${{ matrix.arch }}-${{ matrix.variant }}-ci/${{ matrix.variant }}"
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: "ezQuake-macOS-${{ matrix.arch }}"
+          path: ezQuake.zip
+          compression-level: 9
+
+  cmake-macos-universal:
+    needs: cmake-macos-build
+    runs-on: macos-13
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Download Intel Build
+        uses: actions/download-artifact@v4
+        with:
+          name: "ezQuake-macOS-x64"
+          path: artifacts/x64
+
+      - name: Download ARM64 Build
+        uses: actions/download-artifact@v4
+        with:
+          name: "ezQuake-macOS-arm64"
+          path: artifacts/arm64
+
+      - name: Create Universal Binary
+        run: |
+          (cd artifacts/x64 && unzip -qq ezQuake.zip) && (cd artifacts/arm64 && unzip -qq ezQuake.zip)
+          cp -r artifacts/arm64/ezQuake.app .
+          lipo -create -output ezQuake.app/Contents/MacOS/ezQuake \
+              artifacts/x64/ezQuake.app/Contents/MacOS/ezQuake \
+              artifacts/arm64/ezQuake.app/Contents/MacOS/ezQuake
+          codesign --force --sign - --entitlements misc/install/ezquake.entitlements.plist --options runtime --timestamp ezQuake.app
+          zip -r ezQuake.zip ezQuake.app
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: "ezQuake-macOS-universal-sandboxed"
+          path: ezQuake.zip
+          compression-level: 9
+
+  cmake-linux-build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        configurePreset: [ninja-mingw64-i686-cross, ninja-mingw64-x64-cross]
+        include:
+          - configurePreset: ninja-mingw64-i686-cross
+            buildPreset: ninja-mingw64-i686-cross-release
+            packages: "binutils-mingw-w64-i686 gcc-mingw-w64-i686 g++-mingw-w64-i686"
+            should_upload: true
+          - configurePreset: ninja-mingw64-x64-cross
+            buildPreset: ninja-mingw64-x64-cross-release
+            packages: "binutils-mingw-w64-x86-64 gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64"
+            should_upload: true
+          - configurePreset: ninja-generic-dynamic
+            buildPreset: ninja-generic-dynamic-release
+            packages: "libcurl4-openssl-dev libexpat1-dev libfreetype-dev libjpeg-dev libjansson-dev libminizip-dev libpcre2-dev libpng-dev libsdl2-dev libsndfile1-dev libspeex-dev libspeexdsp-dev zlib1g-dev"
+            should_upload: false
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+          fetch-tags: true
+
+      - name: Fetch upstream tags for version metadata
+        run: |
+          git remote add upstream https://github.com/QW-Group/ezquake-source.git
+          git fetch upstream --tags
+        if: github.repository != 'QW-Group/ezquake-source'
+
+      - name: Install build dependencies
+        run: |
+          sudo dpkg --add-architecture i386
+          sudo apt-get update -qq
+          sudo apt-get install -qq ${{ matrix.packages }}
+
+      - uses: lukka/get-cmake@latest
+
+      - name: Setup vcpkg
+        uses: lukka/run-vcpkg@v11
+
+      - name: Run CMake
+        uses: lukka/run-cmake@v10
+        with:
+          configurePreset: ${{ matrix.configurePreset }}
+          buildPreset: ${{ matrix.buildPreset }}
+
+      - name: Prepare upload
+        run: zip -r ../../../ezQuake.zip ezquake.exe
+        working-directory: cmake-build-presets/${{ matrix.configurePreset }}/Release/
+        if: ${{ matrix.should_upload }}
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.buildPreset }}
+          path: ezQuake.zip
+          compression-level: 9
+        if: ${{ matrix.should_upload }}
