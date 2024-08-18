@@ -73,12 +73,19 @@ Clone the ezQuake source code:
 git clone --recurse-submodules https://github.com/ezQuake/ezquake-source.git ezquake
 ```
 
-Initialize Vcpkg, and refresh submodules if needed by invoking the `bootstrap.ps1` script.
+Initialize Vcpkg, and refresh submodules if needed by invoking the `bootstrap.ps1` script via right click menu.
 
-Load the solution into VS, and compile your preferred target.
+Visual Studio has native CMake support so simply load the project and compile your preferred target.
 
+If you instead prefer a Visual Studio Solution, CMake can generate this via:
 
-#### Using Ubuntu Bash (WSL)
+```
+cmake --preset msbuild-x64
+```
+
+The solution is found under `cmake-build-presets/msbuild-x64/`.
+
+#### Using Ubuntu WSL or Native
 
 You can use the new Ubuntu Bash feature in Windows 10 to compile ezQuake for Windows.
 
@@ -91,7 +98,7 @@ Now press the `Start` button again and enter `bash`. Click it and install Bash.
 Enter the following command to install all required prerequisites to build ezQuake:
 
 ```
-sudo apt-get install -y git mingw-w64 build-essential libspeexdsp-dev dos2unix pkg-config
+sudo apt-get install -y git mingw-w64 build-essential cmake ninja-build curl zip autoconf libtool
 ```
 
 Now clone the ezQuake source code:
@@ -109,27 +116,15 @@ dos2unix *.sh
 Now build the ezQuake executable:
 
 ```
-EZ_CONFIG_FILE=.config_windows make
+./bootstrap.sh # initialize vcpkg helper
+
+# Configure and build all 3rd party dependencies, grab a beverage of choice.
+cmake --preset ninja-mingw64-x64 # or 'ninja-mingw64-i686'
+cmake --build cmake-build-presets/ninja-mingw64-x64 --config Release
 ```
+If cross-compiling from Linux the targets are called `ninja-mingw64-x64-cross` and `ninja-mingw64-i686`.
 
-Copy the compiled binary to your Quake folder, the binary is called `ezquake.exe`.
-
-#### Using a Linux system
-
-Initialize/update git submodules:
-```
-git submodule update --init --recursive --remote
-```
-
-Make sure you have mingw32 toolchain installed. On Arch Linux it's `mingw-w64` (select complete group).
-
-Build an executable using the following command:
-
-```
-EZ_CONFIG_FILE=.config_windows make
-```
-
-You can add `-jN` as a parameter to `make` to build in parallell. Use number of cpu cores plus 1 (e.g. `-j5` if you have a quad core processor).
+Copy the compiled binary to your Quake folder, the binary is called `cmake-build-presets/ninja-mingw64-x64/Release/ezquake.exe`.
 
 ### Compiling a Linux binary
 
@@ -141,17 +136,17 @@ Make sure you have the dependencies installed:
 
 - For *Debian/Ubuntu 16.10+*
 ```
-sudo apt install git build-essential libsdl2-2.0-0 libsdl2-dev libjansson-dev libexpat1-dev libcurl4-openssl-dev libpng-dev libjpeg-dev libspeex-dev libspeexdsp-dev libfreetype6-dev libsndfile1-dev libpcre2-dev libminizip-dev
+sudo apt install cmake ninja-build git build-essential libsdl2-2.0-0 libsdl2-dev libjansson-dev libexpat1-dev libcurl4-openssl-dev libpng-dev libjpeg-dev libspeex-dev libspeexdsp-dev libfreetype6-dev libsndfile1-dev libpcre2-dev libminizip-dev
 ```
 - For *openSUSE Tumbleweed*
 ```
 sudo zypper install -t pattern devel_C_C++
-sudo zypper install git pcre2-devel Mesa-libGL-devel SDL2-devel libjansson-devel libexpat-devel libcurl-devel libpng16-devel libpng16-compat-devel libjpeg8-devel libjpeg-turbo libsndfile-devel speex-devel speexdsp-devel libXxf86vm-devel
+sudo zypper install cmake ninja-build git pcre2-devel Mesa-libGL-devel SDL2-devel libjansson-devel libexpat-devel libcurl-devel libpng16-devel libpng16-compat-devel libjpeg8-devel libjpeg-turbo libsndfile-devel speex-devel speexdsp-devel libXxf86vm-devel
 ```
 - For *Fedora*
 ```
 sudo dnf group install 'C Development Tools and Libraries'
-sudo dnf install git pcre2-devel mesa-libEGL-devel SDL2-devel jansson-devel expat-devel libcurl-devel libpng-devel libjpeg-turbo-devel libsndfile-devel speex-devel speexdsp-devel libXxf86vm-devel
+sudo dnf install cmake ninja-build git pcre2-devel mesa-libEGL-devel SDL2-devel jansson-devel expat-devel libcurl-devel libpng-devel libjpeg-turbo-devel libsndfile-devel speex-devel speexdsp-devel libXxf86vm-devel
 ```
 
 Clone the git repository:
@@ -166,20 +161,23 @@ cd ~/ezquake-source/
 
 Initialize/update git submodules:
 ```
-git submodule update --init --recursive --remote
+cmake --preset ninja-generic-dynamic # tweak flags via -DCMAKE_C_FLAGS="-march=native"
+cmake --build cmake-build-presets/ninja-generic-dynamic --config Release
 ```
 
-Run the compilation (replace 5 with the number of cpu cores you have +1):
+Copy the compiled binary to your Quake folder, the binary is called `cmake-build-presets/ninja-generic-dynamic/Release/ezquake`.
+
+If you instead wish to build a static binary, install `autoconf`, `automake`, and `libtool` and run:
+
 ```
-make -j5
+./bootstrap.sh # initialize vcpkg helper
+# Configure and build all 3rd party dependencies, grab a beverage of choice.
+cmake --preset ninja-generic-static # tweak flags via -DCMAKE_C_FLAGS="-march=native"
+cmake --build cmake-build-presets/ninja-generic-static --config Release
 ```
-You can add `-jN` as a parameter to `make` to build in parallell. Use number of cpu cores plus 1 (e.g. `-j5` if you have a quad core processor).
 
-Copy the compiled binary to your Quake folder, on 64bit linux the binary will be called `ezquake-linux-x86_64`.
+### Compiling a macOS 11.0+ binary
 
-### Compiling an OS X binary
-
-_These instructions were tested on Mac OS X 10.10._
 
 Get [Homebrew](http://brew.sh)
 
@@ -194,24 +192,19 @@ Make sure you run the `brew doctor` as instructed before doing anything else.
 Then run:
 
 ```
-brew install sdl2 sdl2_net sdl2_image sdl2_gfx sdl2_mixer pcre2 jansson pkg-config speex speexdsp libsndfile
+brew install autoconf automake libtool
 ```
 
-When it's done, just run `make` and it should compile without errors.
-
-
-#### Creating an app bundle
-
-Call from main ezquake-source directory, e.g. you probably do something like this:
+When it's done, run:
 
 ```
-make
-sh misc/install/create_osx_bundle.sh
+./bootstrap.sh # initialize vcpkg helper
+# Configure and build all 3rd party dependencies, grab a beverage of choice.
+cmake --preset xcode-arm64 # or xcode-x64
+cmake --build cmake-build-presets/xcode-arm64 --config Release
 ```
 
-Current directory should have an `ezQuake.app` folder which is the app.
-
-There will also be an `ezquake.zip` which basically just zips up the .app.
+App bundle is called `cmake-build-presets/xcode-arm64/Release/ezQuake.app`.
 
 ## Nightly builds
 
