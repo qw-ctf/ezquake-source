@@ -358,7 +358,7 @@ void Cvar_Register(cvar_t *var)
 	}
 
 	// link the variable in
-	key = Com_HashKey(var->name);
+	key = Com_HashKey(var->name) % VAR_HASHPOOL_SIZE;
 	var->hash_next = cvar_hash[key];
 	cvar_hash[key] = var;
 	var->next = cvar_vars;
@@ -454,6 +454,7 @@ void Cvar_Register(cvar_t *var)
 #endif // !SERVERONLY
 }
 
+#ifndef SERVERONLY
 static void Cvar_ApplyLatchedUpdate(cvar_t* var)
 {
 	if (var->latchedString) {
@@ -467,6 +468,7 @@ static void Cvar_ApplyLatchedUpdate(cvar_t* var)
 		var->modified = true;
 	}
 }
+#endif
 
 qbool Cvar_Command (void)
 {
@@ -661,6 +663,7 @@ void Cvar_CvarList_re_f (void)
 	Cvar_CvarList (true);
 }
 
+#ifndef SERVERONLY
 static void Cvar_CvarEdit_f(void)
 {
 	cvar_t* cvar;
@@ -688,6 +691,7 @@ static void Cvar_CvarEdit_f(void)
 	memcpy(key_lines[edit_line] + 1, str2wcs(final_string), strlen(final_string) * sizeof(wchar));
 	Q_free(s);
 }
+#endif
 
 cvar_t *Cvar_Create(const char *name, const char *string, int cvarflags)
 {
@@ -1557,13 +1561,13 @@ void Cvar_CleanUpTempVars (void)
 void Cvar_Init(void)
 {
 	Cmd_AddCommand("cvarlist", Cvar_CvarList_f);
-	Cmd_AddCommand("cvaredit", Cvar_CvarEdit_f);
 	Cmd_AddCommand("cvarlist_re", Cvar_CvarList_re_f);
 	Cmd_AddCommand("toggle", Cvar_Toggle_f);
 	Cmd_AddCommand("set", Cvar_Set_f);
 	Cmd_AddCommand("inc", Cvar_Inc_f);
 
 #ifndef SERVERONLY
+	Cmd_AddCommand("cvaredit", Cvar_CvarEdit_f);
 	Cmd_AddCommand("set_tp", Cvar_Set_tp_f);
 	Cmd_AddCommand("set_ex", Cvar_Set_ex_f);
 	Cmd_AddCommand("set_ex2", Cvar_Set_ex_f);
@@ -1590,8 +1594,10 @@ void Cvar_Shutdown(void)
 {
 	cvar_t *cvar;
 	cvar_t *next;
+#ifndef SERVERONLY
 	cvar_group_t* group;
 	cvar_group_t* next_group;
+#endif
 
 	for (cvar = cvar_vars; cvar; cvar = next) {
 		next = cvar->next;
@@ -1627,6 +1633,7 @@ void Cvar_ExecuteQueuedChanges(void)
 	qbool sound_restart = false;
 
 	for (cvar = cvar_vars; cvar; cvar = cvar->next) {
+#ifndef SERVERONLY
 		if ((cvar->flags & CVAR_QUEUED_TRIGGER) && cvar->latchedString) {
 			if (cvar->OnChange) {
 				qbool cancel = false;
@@ -1643,6 +1650,7 @@ void Cvar_ExecuteQueuedChanges(void)
 		vid_restart |= (cvar->flags & CVAR_LATCH_GFX) && cvar->latchedString;
 		vid_reload |= (cvar->flags & CVAR_RELOAD_GFX && cvar->modified);
 		sound_restart |= (cvar->flags & CVAR_LATCH_SOUND) && cvar->latchedString;
+#endif
 	}
 
 	if (vid_restart) {
@@ -1662,6 +1670,7 @@ void Cvar_ExecuteQueuedChanges(void)
 
 void Cvar_ClearAllModifiedFlags(int flags)
 {
+#ifndef SERVERONLY
 	cvar_t* cvar;
 
 	for (cvar = cvar_vars; cvar; cvar = cvar->next) {
@@ -1669,10 +1678,12 @@ void Cvar_ClearAllModifiedFlags(int flags)
 			cvar->modified = false;
 		}
 	}
+#endif
 }
 
 qbool Cvar_AnyModified(int flags)
 {
+#ifndef SERVERONLY
 	cvar_t* cvar;
 
 	for (cvar = cvar_vars; cvar; cvar = cvar->next) {
@@ -1681,4 +1692,7 @@ qbool Cvar_AnyModified(int flags)
 		}
 	}
 	return false;
+#else
+	return false;
+#endif
 }

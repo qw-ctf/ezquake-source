@@ -26,8 +26,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "quakedef.h"
 #include "server.h"
 #include "utils.h"
-#define MAX_STRINGS 16 // well, this used not only for va, anyway, static buffers is evil...
 #endif
+
+#define MAX_STRINGS 16 // well, this used not only for va, anyway, static buffers is evil...
 
 #ifdef _WIN32
 WSADATA winsockdata;
@@ -45,11 +46,12 @@ void NET_CloseClient (void);
 static void cl_net_clientport_changed(cvar_t* var, char* value, qbool* cancel);
 static cvar_t cl_net_clientport = { "cl_net_clientport", "27001", CVAR_AUTO, cl_net_clientport_changed };  // Was PORT_CLIENT in protocol.h
 
-#define MIN_TCP_TIMEOUT  500
-#define MAX_TCP_TIMEOUT 5000
-
 static cvar_t net_tcp_timeout = { "net_tcp_timeout", "2000" };
 #endif
+
+
+#define MIN_TCP_TIMEOUT  500
+#define MAX_TCP_TIMEOUT 5000
 
 #ifndef CLIENTONLY
 netadr_t	net_local_sv_ipadr;
@@ -1103,6 +1105,7 @@ int TCP_OpenStream(netadr_t remoteaddr)
 
 	if (connect (newsocket, (struct sockaddr *)&qs, temp) == INVALID_SOCKET) {
 		// Socket is non-blocking, so check if the error is just because it would block
+#ifndef SERVERONLY
 		if (qerrno == EZ_TCP_WOULDBLOCK) {
 			struct timeval t;
 			fd_set socket_set;
@@ -1135,10 +1138,13 @@ int TCP_OpenStream(netadr_t remoteaddr)
 			}
 		}
 		else {
+#endif
 			Con_Printf("TCP_OpenStream: connect: (%i): %s\n", qerrno, strerror(qerrno));
 			closesocket(newsocket);
 			return INVALID_SOCKET;
+#ifndef SERVERONLY
 		}
+#endif
 	}
 
 	return newsocket;

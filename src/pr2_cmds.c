@@ -1696,7 +1696,7 @@ int PF2_FS_OpenFile(char *name, fileHandle_t *handle, fsMode_t fmode)
 #ifndef SERVERONLY
 		pr2_fopen_files[i].handle = FS_OpenVFS(name, cmodes[fmode], FS_ANY);
 #else
-		pr2_fopen_files[i].handle = FS_OpenVFS(name, cmodes[fmode], FS_GAME);
+		pr2_fopen_files[i].handle = FS_OpenVFS(name, cmodes[fmode], FS_ANY);
 #endif
 
 		if(!pr2_fopen_files[i].handle)
@@ -1908,11 +1908,7 @@ intptr_t PF2_FS_GetFileList(char *path, char *ext,
 
 			// skip file extension
 			if (!(flags & FILELIST_WITH_EXT)) {
-#ifndef SERVERONLY
 				COM_StripExtension(fullname, fullname, sizeof(fullname));
-#else
-				COM_StripExtension(fullname);
-#endif
 			}
 
 			list[i] = Q_strdup(fullname); // a bit below we will free it

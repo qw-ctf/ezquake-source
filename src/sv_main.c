@@ -292,7 +292,9 @@ void SV_Error (char *error, ...)
 
 	SV_Shutdown (va ("SV_Error: %s\n", string));
 
+#ifndef SERVERONLY
 	Host_EndGame();
+#endif
 	Host_Error("SV_Error: %s", string);
 }
 
@@ -3871,7 +3873,7 @@ void Host_Init (int argc, char **argv, int default_memsize)
 	Cvar_Init ();
 	COM_Init ();
 
-	FS_Init ();
+	FS_InitFilesystem ();
 	NET_Init ();
 
 	Netchan_Init ();

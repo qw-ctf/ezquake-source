@@ -143,11 +143,13 @@ qbool Utils_RegExpGetGroup(char *regexp, char *matchstring, const char **results
 void Utils_RegExpFreeSubstring(char* substring);
 
 // regexp match support for group operations in scripts
+#ifndef SERVERONLY
 qbool IsRegexp(const char *str);
 qbool ReSearchInit(const char *wildcard);
 qbool ReSearchInitEx(const char* wildcard, qbool case_sensitive);
 qbool ReSearchMatch(const char *str);
 void ReSearchDone(void);
+#endif
 
 ///
 /// RANDOM GENERATORS

@@ -853,6 +853,7 @@ static qbool Sys_CheckIfQWProtocolHandler(void)
 	return false;
 }
 
+#ifndef SERVERONLY
 void Sys_CheckQWProtocolHandler(void)
 {
 	// Verify that ezQuake is associated with the QW:// protocl handler.
@@ -878,6 +879,7 @@ void Sys_CheckQWProtocolHandler(void)
 		Com_Printf("\n\n");
 	}
 }
+#endif
 
 void Sys_RegisterQWURLProtocol_f(void)
 {

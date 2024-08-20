@@ -50,7 +50,7 @@ void SV_Quit (qbool restart)
 {
 	SV_Shutdown ("Server shutdown.\n");
 #ifdef SERVERONLY
-	Sys_Quit (restart);
+	Sys_Quit (); // TODO: handle restart
 #else
 	Host_Quit(); // will also call SV_Shutdown(), but it is not an issue.
 #endif

@@ -13,6 +13,7 @@ include(AddResources)
 include(CheckIPOSupported)
 include(CheckCCompilerFlag)
 include(CheckDependency)
+include(TestBigEndian)
 
 git_refresh_submodules()
 git_extract_version(git_version)
@@ -119,6 +120,8 @@ if (APPLE)
     find_library(FRAMEWORK_GAMECONTROLLER GameController REQUIRED)
 endif()
 
+test_big_endian(IS_BIG_ENDIAN)
+
 # Place special CMake targets in separate VS/Xcode folder
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
@@ -140,9 +143,11 @@ set(common_headers
         ${SOURCE_DIR}/macro_ids.h
         ${SOURCE_DIR}/mathlib.h
         ${SOURCE_DIR}/net.h
+        ${SOURCE_DIR}/parser.h
         ${SOURCE_DIR}/pmove.h
         ${SOURCE_DIR}/q_platform.h
         ${SOURCE_DIR}/q_shared.h
+        ${SOURCE_DIR}/sha1.h
         ${SOURCE_DIR}/sha3.h
         ${SOURCE_DIR}/version.h
         ${SOURCE_DIR}/vfs.h
@@ -158,14 +163,15 @@ set(common
         ${SOURCE_DIR}/cvar.c
         ${SOURCE_DIR}/fs.c
         ${SOURCE_DIR}/hash.c
-        ${SOURCE_DIR}/host.c
         ${SOURCE_DIR}/mathlib.c
         ${SOURCE_DIR}/md4.c
         ${SOURCE_DIR}/net.c
         ${SOURCE_DIR}/net_chan.c
+        ${SOURCE_DIR}/parser.c
         ${SOURCE_DIR}/pmove.c
         ${SOURCE_DIR}/pmovetst.c
         ${SOURCE_DIR}/q_shared.c
+        ${SOURCE_DIR}/sha1.c
         ${SOURCE_DIR}/sha3.c
         ${SOURCE_DIR}/version.c
         ${SOURCE_DIR}/vfs_doomwad.c
@@ -577,7 +583,6 @@ set(other_headers
         ${SOURCE_DIR}/movie_avi.h
         ${SOURCE_DIR}/mvd_utils.h
         ${SOURCE_DIR}/mvd_utils_common.h
-        ${SOURCE_DIR}/parser.h
         ${SOURCE_DIR}/qsound.h
         ${SOURCE_DIR}/qtv.h
         ${SOURCE_DIR}/rulesets.h
@@ -585,7 +590,6 @@ set(other_headers
         ${SOURCE_DIR}/screen.h
         ${SOURCE_DIR}/settings.h
         ${SOURCE_DIR}/settings_page.h
-        ${SOURCE_DIR}/sha1.h
         ${SOURCE_DIR}/stats_grid.h
         ${SOURCE_DIR}/sys.h
         ${SOURCE_DIR}/teamplay.h
@@ -603,6 +607,7 @@ if (WIN32)
     list(APPEND other_headers ${SOURCE_DIR}/movie_avi.h)
 endif()
 set(other
+        ${SOURCE_DIR}/host.c
         ${SOURCE_DIR}/Ctrl.c
         ${SOURCE_DIR}/Ctrl_EditBox.c
         ${SOURCE_DIR}/Ctrl_PageViewer.c
@@ -671,12 +676,10 @@ set(other
         ${SOURCE_DIR}/mvd_autotrack.c
         ${SOURCE_DIR}/mvd_utils.c
         ${SOURCE_DIR}/mvd_xmlstats.c
-        ${SOURCE_DIR}/parser.c
         ${SOURCE_DIR}/qtv.c
         ${SOURCE_DIR}/rulesets.c
         ${SOURCE_DIR}/sbar.c
         ${SOURCE_DIR}/settings_page.c
-        ${SOURCE_DIR}/sha1.c
         ${SOURCE_DIR}/skin.c
         ${SOURCE_DIR}/snd_main.c
         ${SOURCE_DIR}/snd_mem.c
@@ -957,3 +960,60 @@ elseif (APPLE)
             "$<TARGET_FILE_DIR:ezquake>/../Info.plist"
     )
 endif ()
+
+if(WIN32)
+    set(TARGET_TYPE WIN32)
+else()
+    set(TARGET_TYPE "")
+endif()
+
+add_executable(ezquake-sv ${TARGET_TYPE}
+        ${main}
+        ${sys_glue}
+        ${central}
+        ${common}
+        ${server}
+
+        ${qwprot_headers}
+)
+
+target_include_directories(ezquake-sv PRIVATE
+        ${SOURCE_DIR}/qwprot/src
+)
+
+target_compile_definitions(ezquake-sv PRIVATE
+        BUILDSTRING="${CMAKE_SYSTEM_NAME}"
+        CPUSTRING="${CMAKE_SYSTEM_PROCESSOR}"
+
+        SERVERONLY
+        SERVER_ONLY
+
+        USE_PR2
+        MVD_PEXT1_SERVERSIDEWEAPON
+        MVD_PEXT1_SERVERSIDEWEAPON2
+        MVD_PEXT2_VOICECHAT
+
+        $<$<BOOL:${DEBUG_MEMORY_ALLOCATIONS}>:DEBUG_MEMORY_ALLOCATIONS>
+
+        WITH_ZIP
+        WITH_ZLIB
+
+        PCRE2_CODE_UNIT_WIDTH=8
+)
+
+target_link_libraries(ezquake-sv PRIVATE
+        git_version
+
+        ${CMAKE_DL_LIBS}
+
+        Dep::zlib
+        Dep::cURL
+        Dep::PCRE2
+        Dep::MiniZip
+        Dep::Expat
+
+        Threads::Threads
+
+        $<$<PLATFORM_ID:Win32>:ws2_32>
+        $<$<PLATFORM_ID:Win32>:winmm>
+)

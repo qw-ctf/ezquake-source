@@ -90,6 +90,9 @@ void Sys_Printf (char *fmt, ...);
 void Sys_Quit (void);
 
 double Sys_DoubleTime (void);
+#ifdef SERVERONLY
+char *Sys_ConsoleInput (void);
+#endif
 
 
 // Perform Key_Event() callbacks until the input que is empty

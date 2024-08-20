@@ -23,10 +23,13 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include <strings.h>
 #endif
 
+#include "q_shared.h"
 #include "quakedef.h"
 #include "gl_model.h"
 #include "teamplay.h"
+#ifndef SERVERONLY
 #include "rulesets.h"
+#endif
 #include "tp_triggers.h"
 #include "parser.h"
 #include "utils.h"
@@ -77,9 +80,11 @@ void Cmd_Wait_f (void)
 }
 
 // copies the first argument to clipboard
+#ifndef SERVERONLY
 void Cmd_Clipboard_f(void) {
 	CopyToClipboard(Cmd_Args());
 }
+#endif
 
 /*
 =============================================================================
@@ -219,7 +224,7 @@ void Cbuf_ExecuteEx (cbuf_t *cbuf)
 
 		for (i = 0; i < cursize; i++)
 		{
-			if (cl_curlybraces.integer)
+			if (cl_curlybraces.value)
 			{
 				if (text[i] == '\\')
 				{
@@ -250,7 +255,7 @@ void Cbuf_ExecuteEx (cbuf_t *cbuf)
 			}
 			else if (quotes >= 0)
 			{
-				if (cl_curlybraces.integer)
+				if (cl_curlybraces.value)
 				{
 					if (text[i] == '{')
 						quotes++;
@@ -307,9 +312,11 @@ void Cbuf_ExecuteEx (cbuf_t *cbuf)
 		// (some cvars are not created/initialized at the time when we want to use them in hud262)
 		// we should save these commands to buffer and execute it when all
 		// cvars will be created
+#ifndef SERVERONLY
 		if (!host_initialized) {
 			Hud_262CatchStringsOnLoad(line);
 		}
+#endif
 
 		Cmd_ExecuteStringEx (cbuf, line);	// execute the command line
 
@@ -324,6 +331,7 @@ void Cbuf_ExecuteEx (cbuf_t *cbuf)
 			cbuf->runAwayLoop = 0;
 		}
 
+#ifndef SERVERONLY
 		if (cbuf->wait && cbuf->waitCount >= Rulesets_MaxSequentialWaitCommands())
 		{
 			Com_Printf("\x02" "Max number of wait commands detected.\n");
@@ -331,17 +339,20 @@ void Cbuf_ExecuteEx (cbuf_t *cbuf)
 			cbuf->wait = false;
 			cbuf->waitCount = 0;
 		}
+#endif
 
 		if (cbuf->wait)
 		{
 			// skip out while text still remains in buffer, leaving it for next frame
 			cbuf->wait = false;
+#ifndef SERVERONLY
 			++cbuf->waitCount;
 
 			cbuf->runAwayLoop += Q_rint (0.5 * cls.frametime * MAX_RUNAWAYLOOP);
 
 			if (cbuf == &cbuf_safe)
 				gtf--;
+#endif
 			return;
 		}
 	}
@@ -481,13 +492,14 @@ void Cmd_Exec_f (void)
 			return;
 		}
 	}
-	if (cl_warnexec.integer || developer.integer) {
+	if (cl_warnexec.value || developer.value) {
 		Com_Printf("execing %s/%s\n", FS_Locate_GetPath(name), name);
 	}
 
+#ifndef SERVERONLY
 	// All config files default to con_bindphysical 1, and would have to over-ride if they
 	//   want different behaviour.
-	sprintf(reset_bindphysical, "\ncon_bindphysical %d\n", con_bindphysical.integer);
+	sprintf(reset_bindphysical, "\ncon_bindphysical %d\n", (int) con_bindphysical.value);
 	if (cbuf_current == &cbuf_svc) {
 		Cbuf_AddTextEx(&cbuf_main, "con_bindphysical 1\n");
 		Cbuf_AddTextEx(&cbuf_main, f);
@@ -501,6 +513,7 @@ void Cmd_Exec_f (void)
 		Cbuf_InsertTextEx(&cbuf_main, f);
 		Cbuf_InsertTextEx(&cbuf_main, "con_bindphysical 1\n");
 	}
+#endif
 	
 	Q_free(f);
 }
@@ -531,12 +544,16 @@ void Cmd_Echo_f (void)
 
 	//	str = TP_ParseMacroString(args);
 
+#ifndef SERVERONLY
 	str = TP_ParseMacroString(args);
 	str = TP_ParseFunChars(str, false);
+#endif
 
 	strlcpy (buf, str, MAX_MACRO_STRING);
 
+#ifndef SERVERONLY
 	CL_SearchForReTriggers (buf, RE_PRINT_ECHO); 	// BorisU
+#endif
 	Print_flags[Print_current] |= PR_TR_SKIP;
 	Com_Printf ("%s\n", buf);
 }
@@ -709,9 +726,11 @@ void Cmd_AliasEdit_f (void)
 	strlcat(final_string, "\" \"", sizeof(final_string));
 	strlcat(final_string, v, sizeof(final_string));
 	strlcat(final_string, "\"", sizeof(final_string));
+#ifndef SERVERONLY
 	Key_ClearTyping();
 	key_linepos = 9 + (int)strlen(s) + 3; // move to where the commands are in the alias
 	memcpy(key_lines[edit_line]+1, str2wcs(final_string), (strlen(final_string) + 1) * sizeof(wchar));
+#endif
 }
 
 static cmd_alias_t* Cmd_AliasCreate (char* name)
@@ -911,6 +930,7 @@ void Cmd_UnAliasAll_f (void)
 /* FIXME: Optimize this, its n^2 slow atm since Cmd_DeleteAlias will loop through
  * the list again for each entry
  */
+#ifndef SERVERONLY
 	if (cls.state >= ca_connected) {
 		Com_Printf("Connected to a server, will not remove server aliases\n");
 		for (a = cmd_alias; a; a = next) {
@@ -920,6 +940,7 @@ void Cmd_UnAliasAll_f (void)
 			}
 		}
 	} else {
+#endif
 		for (a = cmd_alias; a ; a = next) {
 			next = a->next;
 			Q_free(a->value);
@@ -929,7 +950,9 @@ void Cmd_UnAliasAll_f (void)
 
 		// clear hash
 		memset (cmd_alias_hash, 0, sizeof(cmd_alias_t*) * ALIAS_HASHPOOL_SIZE);
+#ifndef SERVERONLY
 	}
+#endif
 }
 
 void DeleteServerAliases(void)
@@ -1457,6 +1480,7 @@ void Cmd_CmdList_re_f (void)
 
 void Cmd_ReInitAllMacro(void)
 {
+#ifndef SERVERONLY
 	int i;
 	int teamplay = (int)Rulesets_RestrictTriggers();
 
@@ -1465,6 +1489,7 @@ void Cmd_ReInitAllMacro(void)
 			macro_commands[i].teamplay = teamplay;
 		}
 	}
+#endif
 }
 
 void Cmd_AddMacroEx(macro_id id, char *(*f) (void), int teamplay)
@@ -1605,17 +1630,21 @@ void Cmd_ExpandString (const char *data, char *dest)
 			if (bestvar && (!str || (strlen (bestvar->name) > macro_length))) {
 				str = bestvar->string;
 				name_length = strlen(bestvar->name);
+#ifndef SERVERONLY
                 if (bestvar->teamplay)
                     cbuf_current = &cbuf_formatted_comms;
+#endif
 			}
 
 			if (str) {
 				int fixed_width = 0;
 				int alignment = 0;
 
+#ifndef SERVERONLY
 				TP_SetDefaultMacroFormat(buf, &fixed_width, &alignment);
 				if (fixed_width != 0)
 					str = TP_AlignMacroText(str, fixed_width, alignment);
+#endif
 
 				// check buffer size
 				if (len + strlen (str) >= 1024 - 1)
@@ -1696,6 +1725,7 @@ qbool AllowedImpulse(int imp)
 
 	int i;
 
+#ifndef SERVERONLY
 	if (!cl.teamfortress) return false;
 	for (i=0; i<sizeof(Allowed_TF_Impulses)/sizeof(Allowed_TF_Impulses[0]); i++) {
 		if (Allowed_TF_Impulses[i] == imp) {
@@ -1709,6 +1739,7 @@ qbool AllowedImpulse(int imp)
 			return true;
 		}
 	}
+#endif
 	return false;
 }
 
@@ -1747,15 +1778,17 @@ static void Cmd_ExecuteStringEx (cbuf_t *context, char *text)
 	cbuf_current = context;
 
 	Cmd_ExpandString(text, text_exp);
-	Cmd_TokenizeStringEx2(&cmd_tokenizecontext, text_exp, cl_curlybraces.integer);
+	Cmd_TokenizeStringEx2(&cmd_tokenizecontext, text_exp, cl_curlybraces.value);
 
 	if (!Cmd_Argc())
 		goto done; // no tokens
 
+#ifndef SERVERONLY
 	if (cbuf_current == &cbuf_svc) {
 		if (CL_CheckServerCommand())
 			goto done;
 	}
+#endif
 
 #ifndef CLIENTONLY
 	// 'status' on remote ktx servers..
@@ -1780,8 +1813,10 @@ static void Cmd_ExecuteStringEx (cbuf_t *context, char *text)
 
 		if (cmd->function)
 			cmd->function();
+#ifndef SERVERONLY
 		else
 			Cmd_ForwardToServer ();
+#endif
 		goto done;
 	}
 
@@ -1874,14 +1909,16 @@ checkaliases:
 	if (Cmd_LegacyCommand())
 		goto done;
 
+#ifndef SERVERONLY
 	if (!host_initialized && Cmd_Argc() > 1) {
 		if (Cvar_CreateTempVar())
 			goto done;
 	}
+#endif
 
 	if (cbuf_current != &cbuf_svc)
 	{
-		if (cl_warncmd.integer || developer.integer)
+		if (cl_warncmd.value || developer.value)
 			Com_Printf ("Unknown command \"%s\"\n", Cmd_Argv(0));
 	}
 
@@ -1902,11 +1939,15 @@ static qbool is_numeric (char *c)
 }
 
 void Re_Trigger_Copy_Subpatterns (const char *s, size_t* offsets, int num, cvar_t *re_sub); // QW262
+#ifndef SERVERONLY
 extern cvar_t re_sub[10]; // QW262
+#endif
 
 void Cmd_CatchTriggerSubpatterns(const char *s, size_t* offsets, int num)
 {
+#ifndef SERVERONLY
 	Re_Trigger_Copy_Subpatterns(s, offsets, min(num, 10), re_sub);
+#endif
 }
 
 // this is a test replacement of the "if" command
@@ -2042,7 +2083,7 @@ void Cmd_If_Old (void)
 		result = (strstr(Cmd_Argv(3), Cmd_Argv(1)) ? 1 : 0);
 	} else if (!strcmp(op, "!isin")) {
 		result = (strstr(Cmd_Argv(3), Cmd_Argv(1)) ? 0 : 1);
-
+#ifndef SERVERONLY
 	} else if (!strcmp(op, "=~") || !strcmp(op, "!~")) {
 		pcre2_code       *regexp;
 		int              error;
@@ -2072,6 +2113,7 @@ void Cmd_If_Old (void)
 
 		pcre2_match_data_free (match_data);
 		pcre2_code_free (regexp);
+#endif
 	} else {
 		Com_Printf ("unknown operator: %s\n", op);
 		Com_Printf ("valid operators are ==, =, !=, <>, >, <, >=, <=, isin, !isin, =~, !~\n");
@@ -2114,7 +2156,9 @@ void Cmd_If_f(void) {
 		 // while the original "if" wouldn't work with these so it's safe
 		 // to presume noone used it there
 		 Cmd_If_New();
+#ifndef SERVERONLY
 	else Cmd_If_Old();
+#endif
 }
 
 void Cmd_If_Exists_f(void)
@@ -2135,8 +2179,16 @@ void Cmd_If_Exists_f(void)
 	name = Cmd_Argv(2);
 	if ( ( (iscvar = !strcmp(type, "cvar")) && Cvar_Find(name) )			||
 	        ( (isalias = !strcmp(type, "alias")) && Cmd_FindAlias (name) )			||
-	        ( (istrigger = !strcmp(type, "trigger")) && CL_FindReTrigger (name) )	||
-	        ( (ishud = !strcmp(type, "hud")) && Hud_ElementExists (name) ) )
+	        ( (istrigger = !strcmp(type, "trigger"))
+#ifndef SERVERONLY
+	        	&& CL_FindReTrigger (name)
+#endif
+	        	)	||
+	        ( (ishud = !strcmp(type, "hud"))
+#ifndef SERVERONLY
+	        	&& Hud_ElementExists (name)
+#endif
+	        	) )
 		exists = true;
 	else {
 		exists = false;
@@ -2394,7 +2446,9 @@ void Cmd_Init (void)
 	Cmd_AddCommand ("if", Cmd_If_f);
 	Cmd_AddCommand ("if_exists", Cmd_If_Exists_f);
 	Cmd_AddCommand ("eval", Cmd_Eval_f);
+#ifndef SERVERONLY
 	Cmd_AddCommand ("clipboard", Cmd_Clipboard_f);
+#endif
 // QW262 -->
 	Cmd_AddCommand ("alias_in", Cmd_Alias_In_f);
 	Cmd_AddCommand ("alias_out", Cmd_Alias_Out_f);

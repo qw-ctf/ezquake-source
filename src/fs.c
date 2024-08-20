@@ -390,12 +390,16 @@ static byte *FS_LoadFile (const char *path, int usehunk, int *file_length)
 
 	((byte *)buf)[len] = 0;
 
+#ifndef SERVERONLY
 	Draw_BeginDisc ();
+#endif
 
 	VFS_READ(f, buf, len, &err);
 	VFS_CLOSE(f);
 
+#ifndef SERVERONLY
 	Draw_EndDisc ();
+#endif
 
 	return buf;
 }
@@ -638,7 +642,9 @@ void FS_SetGamedir(char* dir, qbool force)
 	}
 
 	// Reload gamedir specific conback as its not flushed
+#ifndef SERVERONLY
 	Draw_InitConback();
+#endif
 
 	FS_AddUserDirectory(dir);
 }
@@ -713,7 +719,12 @@ void FS_InitFilesystemEx( qbool guess_cwd ) {
 		if (!Sys_fullpath(com_basedir, "/proc/self/exe", sizeof(com_basedir)))
 			Sys_Error("FS_InitFilesystemEx: Sys_fullpath failed");
 #elif defined(__APPLE__)
+#ifdef SERVERONLY
+		if (proc_pidpath(getpid(), com_basedir, (uint32_t)sizeof(com_basedir)) != 0)
+			Sys_Error("FS_InitFilesystemEx: proc_pidpath failed");
+#else
 		SysLibrarySupportDir(com_basedir, MAX_OSPATH);
+#endif
 #elif defined(__FreeBSD__)
 		int mib[4] = {CTL_KERN, KERN_PROC, KERN_PROC_PATHNAME, -1};
 		size_t com_basedirlen = sizeof(com_basedir);
@@ -835,6 +846,7 @@ void FS_InitFilesystem( void ) {
 // allow user select differet "style" how/where open/save different media files.
 // so user select media_dir is relative to quake base dir or some system HOME dir or may be full path
 // NOTE: using static buffer, use with care
+#ifndef SERVERONLY
 char *FS_LegacyDir(char *media_dir)
 {
 	static char dir[MAX_PATH];
@@ -864,6 +876,7 @@ char *FS_LegacyDir(char *media_dir)
 			return dir;
 	}
 }
+#endif
 
 
 //=============================================================================
@@ -1153,10 +1166,12 @@ static void FS_PakOper_Process(pak_operation_t op)
 	int i;
 	int c = Cmd_Argc();
 
+#ifndef SERVERONLY
 	if (cls.state != ca_disconnected && !cls.demoplayback && !cls.mvdplayback) {
 		Com_Printf("This command cannot be used while connected\n");
 		return;
 	}
+#endif
 	if (c < 2) {
 		Com_Printf("Usage: %s <pakname> [<pakname> [<pakname> ...]\n", Cmd_Argv(0));
 		return;
@@ -1579,6 +1594,7 @@ void* FS_ZipUnpackOneFileToMemory(
 	return extracted_file;
 }
 
+#ifndef SERVERONLY
 int FS_ZipBreakupArchivePath (char *archive_extension,			// The extension of the archive type we're looking fore "zip" for example.
 							   char *path,						// The path that should be broken up into parts.
 							   char *archive_path,				// The buffer that should contain the archive path after the breakup.
@@ -1613,6 +1629,7 @@ int FS_ZipBreakupArchivePath (char *archive_extension,			// The extension of the
 
 	return -1;
 }
+#endif
 
 //
 // Does the given path point to a zip file?
@@ -2993,11 +3010,13 @@ void FS_ReloadPackFilesFlags(FS_Load_File_Types reloadflags)
 	searchpath_t	*next;
 
 	//a lame way to fix pure paks
+#ifndef SERVERONLY
 	if (cls.state)
 	{
 		CL_Disconnect_f();
 		CL_Reconnect_f();
 	}
+#endif
 
 	FS_FlushFSHash();
 
@@ -3068,7 +3087,7 @@ void FS_ListFiles_f(void)
 	if (Cmd_Argc() != 2) {
 		Com_Printf("Usage: fs_search <extension>\nLists files in search paths with given extension\n");
 	}
-	else if (!fs_cache.integer) {
+	else if (!fs_cache.value) {
 		Com_Printf("Can't search, fs_cache must be turned on\n");
 	}
 	else {
@@ -3236,7 +3255,7 @@ void FS_SaveGameDirectory(char* buffer, int buffer_size)
 {
 	extern cvar_t fs_savegame_home;
 
-	if (fs_savegame_home.integer) {
+	if (fs_savegame_home.value) {
 		snprintf(buffer, buffer_size, "%s/%s/save/", com_homedir, com_gamedirfile);
 	}
 	else {

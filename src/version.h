@@ -81,14 +81,16 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define VERSION_NUMBER "3.6.5-dev"
 #define VERSION_MAX_LEN 32
 
-void CL_Version_f(void);
 char *VersionString(void);
 char *VersionStringColour(void);
 char *VersionStringFull(void);
 
+#ifndef SERVERONLY
+void CL_Version_f(void);
 void VersionCheck_Init(void);
 void VersionCheck_Shutdown(void);
 qbool VersionCheck_GetLatest(char dest[VERSION_MAX_LEN]);
+#endif
 
 #ifndef SERVERONLY
 #define SERVER_NAME         "EZQUAKE"

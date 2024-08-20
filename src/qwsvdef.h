@@ -37,3 +37,5 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "sv_log.h"
 #include "sv_world.h"
 #include "vfs.h"
+
+#define Host_Error SV_Error

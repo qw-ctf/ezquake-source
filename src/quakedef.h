@@ -27,17 +27,14 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "common.h"
 
-#include "vid.h"
-#include "screen.h"
-#include "render.h"
-#include "draw.h"
-#include "console.h"
-#include "cl_view.h"
-#include "fs.h"
-
+#ifdef SERVERONLY
+#include "qwsvdef.h"
+#else
 #include "client.h"
+#endif
 
 // particles
+#ifndef SERVERONLY
 typedef enum trail_type_s {
 	ROCKET_TRAIL, GRENADE_TRAIL, ALT_ROCKET_TRAIL, BLOOD_TRAIL, BIG_BLOOD_TRAIL,
 	TRACER1_TRAIL, TRACER2_TRAIL, VOOR_TRAIL,
@@ -98,6 +95,7 @@ typedef enum {
 
 	texture_magnification_count
 } texture_magnification_id;
+#endif
 
 #if defined(_WIN32) && defined(_DEBUG)
 #define DebugOutput(text) \

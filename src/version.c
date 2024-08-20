@@ -29,6 +29,7 @@
 #include "common.h"
 #include "version.h"
 
+#ifndef SERVERONLY
 #include <jansson.h>
 #include <SDL_mutex.h>
 #include <SDL_thread.h>
@@ -45,6 +46,7 @@ static SDL_mutex *version_mutex = NULL;
 
 static void VersionCheck_OnConfigChange(cvar_t *var, char *string, qbool *cancel);
 static cvar_t allow_update_check  = {"sys_update_check",  "1", CVAR_NONE, VersionCheck_OnConfigChange};
+#endif
 
 /*
 =======================
@@ -154,6 +156,7 @@ typedef struct version_context_St
 	char *ptr;
 } version_context_t;
 
+#ifndef SERVERONLY
 static size_t VersionReadGitHubResponse(void* chunk, size_t size, size_t nmemb, void* user_data)
 {
 	version_context_t* ctx = (version_context_t *) user_data;
@@ -348,3 +351,4 @@ qbool VersionCheck_GetLatest(char dest[VERSION_MAX_LEN])
 
 	return VersionCheck_IsOutdated(dest);
 }
+#endif

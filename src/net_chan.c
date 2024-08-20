@@ -89,8 +89,8 @@ cvar_t  sv_showdrop    = {"sv_showdrop", "0"};
 
 #ifdef SERVERONLY
 #define CHAN_IDENTIFIER(sockType) " [s]"
-#define ShowPacket(src,packet_type) (showpackets.integer == 1 || showpackets.integer == packet_type)
-#define ShowDrop(src) (showdrop.integer)
+#define ShowPacket(src,packet_type) (showpackets.value == 1 || showpackets.value == packet_type)
+#define ShowDrop(src) (showdrop.value)
 #elif CLIENTONLY
 #define CHAN_IDENTIFIER(sockType) " [c]"
 #define ShowPacket(src,packet_type) (showpackets.integer == 1 || showpackets.integer == packet_type)
@@ -368,7 +368,6 @@ void Netchan_Transmit (netchan_t *chan, int length, byte *data)
 	if (ShowPacket(chan->sock, PACKET_SENDING)) {
 #ifndef SERVERONLY
 		Print_flags[Print_current] |= PR_TR_SKIP;
-#endif
 		Con_Printf ("%.1f --> s=%i(%i) a=%i(%i) %i%s\n"
 		            , cls.demopackettime * 1000, chan->outgoing_sequence
 		            , send_reliable
@@ -376,6 +375,7 @@ void Netchan_Transmit (netchan_t *chan, int length, byte *data)
 		            , chan->incoming_reliable_sequence
 		            , send.cursize, CHAN_IDENTIFIER(chan->sock)
 		);
+#endif
 	}
 
 }
@@ -416,7 +416,6 @@ qbool Netchan_Process (netchan_t *chan)
 	if (ShowPacket(chan->sock, PACKET_RECEIVING)) {
 #ifndef SERVERONLY
 		Print_flags[Print_current] |= PR_TR_SKIP;
-#endif
 		Con_Printf ("%.1f <-- s=%i(%i) a=%i(%i) %i%s\n"
 		            , cls.demopackettime * 1000, sequence
 		            , reliable_message
@@ -424,6 +423,7 @@ qbool Netchan_Process (netchan_t *chan)
 		            , reliable_ack
 		            , net_message.cursize, CHAN_IDENTIFIER(chan->sock)
 		);
+#endif
 	}
 
 	// discard stale or duplicated packets

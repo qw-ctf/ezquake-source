@@ -42,7 +42,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include <dirent.h>
 #include <sys/resource.h>
 
+#ifndef SERVERONLY
 #include <SDL.h>
+#endif
 #include <dlfcn.h>
 
 #include "quakedef.h"
@@ -101,7 +103,7 @@ void Sys_Quit(void)
 
 void Sys_Init(void)
 {
-#ifdef __APPLE__
+#if defined(__APPLE__) && !defined(SERVERONLY)
 	extern void init_macos_extras(void);
 	init_macos_extras();
 #endif
@@ -111,7 +113,9 @@ void Sys_Init(void)
 
 void Sys_Error(char *error, ...)
 {
+#ifndef SERVERONLY
 	extern FILE *qconsole_log;
+#endif
 	va_list argptr;
 	char string[1024];
 
@@ -121,11 +125,15 @@ void Sys_Error(char *error, ...)
 	vsnprintf (string, sizeof(string), error, argptr);
 	va_end (argptr);
 	fprintf(stderr, "Error: %s\n", string);
+#ifndef SERVERONLY
 	if (qconsole_log)
 		fprintf(qconsole_log, "Error: %s\n", string);
+#endif
 
+#ifndef SERVERONLY
 	Host_Shutdown ();
 	SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", string, NULL);
+#endif
 	exit(1);
 }
 
@@ -315,6 +323,42 @@ double Sys_DoubleTime(void)
 }
 #endif
 
+#ifdef SERVERONLY
+/*
+================
+Sys_ConsoleInput
+
+Checks for a complete line of text typed in at the console, then forwards
+it to the host command processor
+================
+*/
+char *Sys_ConsoleInput (void)
+{
+	static char text[256];
+	ssize_t len = 0;
+
+	if (!do_stdin || !stdin_ready)
+		return NULL; // the select didn't say it was ready
+
+	stdin_ready = false;
+
+	len = read (STDIN_FILENO, text, sizeof(text));
+
+	if (len < 0)
+		return NULL; // error.
+
+	if (len == 0)
+	{   // end of file
+		do_stdin = false;
+		return NULL;
+	}
+
+	text[len - 1] = 0;  // rip off the /n and terminate
+
+	return text;
+}
+#endif
+
 int main(int argc, char **argv)
 {
 	double time, oldtime, newtime;
@@ -328,21 +372,25 @@ int main(int argc, char **argv)
 	COM_InitArgv (argc, argv);
 
 	// let me use -condebug C:\condebug.log before Quake FS init, so I get ALL messages before quake fully init
+#ifndef SERVERONLY
 	if ((i = COM_CheckParm(cmdline_param_console_debug)) && i < COM_Argc() - 1) {
 		extern FILE *qconsole_log;
 		char *s = COM_Argv(i + 1);
 		if (*s != '-' && *s != '+')
 			qconsole_log = fopen(s, "a");
 	}
+#endif
 
 	signal(SIGFPE, SIG_IGN);
 
 	// we need to check for -noconinput and -nostdout before Host_Init is called
+#ifndef SERVERONLY
 	if (!(noconinput = COM_CheckParm(cmdline_param_client_nostdinput)))
 		fcntl(0, F_SETFL, fcntl (0, F_GETFL, 0) | FNDELAY);
 
 	if (COM_CheckParm(cmdline_param_client_nostdoutput))
 		sys_nostdout.value = 1;
+#endif
 
 	Host_Init (argc, argv, 256 * 1024 * 1024);
 
@@ -353,7 +401,11 @@ int main(int argc, char **argv)
 		time = newtime - oldtime;
 		oldtime = newtime;
 
+#ifdef SERVERONLY
+		SV_Frame(time);
+#else
 		Host_Frame(time);
+#endif
 	}
 }
 

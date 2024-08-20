@@ -13,14 +13,6 @@
 #define CHECKIN_PATH                "ServerApi/Checkin"
 #define MIN_CHECKIN_PERIOD          60
 
-#ifdef _WIN32
-#ifdef SERVER_ONLY
-#pragma comment(lib, "libcurld.lib")
-#pragma comment(lib, "ws2_32.lib")
-#pragma comment(lib, "wldap32.lib")
-#endif
-#endif
-
 #ifndef SERVER_ONLY
 // Have set this to read-only to stop this accidentally on-purpose being set to another site by someone else's config
 static cvar_t cl_www_address = { "cl_www_address", "https://badplace.eu/", CVAR_ROM };
@@ -28,10 +20,8 @@ static cvar_t cl_www_address = { "cl_www_address", "https://badplace.eu/", CVAR_
 static cvar_t sv_www_address = { "sv_www_address", "" };
 static cvar_t sv_www_authkey = { "sv_www_authkey", "" };
 static cvar_t sv_www_checkin_period = { "sv_www_checkin_period", "60" };
-
-static void Web_ConstructServerURL(char* url, const char* path, int sizeof_url);
-static void Web_SubmitRequestFormServer(const char* url, struct curl_httppost* first_form_ptr, struct curl_httppost* last_form_ptr, web_response_func_t callback, const char* requestId, void* internal_data);
 #endif
+
 
 static CURLM* curl_handle = NULL;
 
@@ -42,6 +32,9 @@ static double last_checkin_time;
 struct web_request_data_s;
 
 typedef void(*web_response_func_t)(struct web_request_data_s* req, qbool valid);
+static void Web_ConstructServerURL(char* url, const char* path, int sizeof_url);
+static void Web_SubmitRequestFormServer(const char* url, struct curl_httppost *first_form_ptr, struct curl_httppost *last_form_ptr, web_response_func_t callback, const char* requestId, void* internal_data);
+static void Web_ConstructGenericURL(const char* base_url, char* url, const char* path, int sizeof_url);
 
 typedef struct web_request_data_s {
 	CURL*               handle;
@@ -197,7 +190,11 @@ static void Auth_GenerateChallengeResponse(web_request_data_t* req, qbool valid)
 		strlcat(buffer, challenge, sizeof(buffer));
 		strlcat(buffer, "\n", sizeof(buffer));
 
+#ifdef SERVERONLY
+		strlcpy(client->login_challenge, challenge, sizeof(client->login_challenge));
+#else
 		strlcpy(client->challenge, challenge, sizeof(client->challenge));
+#endif
 		SV_ClientPrintf2(client, PRINT_HIGH, "Challenge stored...\n", message);
 
 		ClientReliableWrite_Begin (client, svc_stufftext, 2+strlen(buffer));

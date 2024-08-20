@@ -564,11 +564,12 @@ LOCAL expr_val operator_int(EParser p, const expr_val arg1)
 LOCAL expr_val operator_tobrown(EParser p, const expr_val arg1)
 {
 	expr_val ret;
-
 	if (arg1.type == ET_STR) {
 		ret.s_val = Q_strdup(arg1.s_val);
 		ret.type = ET_STR;
+#ifndef SERVERONLY
 		CharsToBrown(ret.s_val, ret.s_val + strlen(ret.s_val));
+#endif
 	}
 	else {
 		SetError(p, ERR_TYPE_MISMATCH);
@@ -586,7 +587,9 @@ LOCAL expr_val operator_towhite(EParser p, const expr_val arg1)
 	if (arg1.type == ET_STR) {
 		ret.s_val = Q_strdup(arg1.s_val);
 		ret.type = ET_STR;
+#ifndef SERVERONLY
 		CharsToWhite(ret.s_val, ret.s_val + strlen(ret.s_val));
+#endif
 	}
 	else {
 		SetError(p, ERR_TYPE_MISMATCH);

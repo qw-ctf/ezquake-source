@@ -68,7 +68,9 @@ usercmd_t nullcmd; // guaranteed to be zero
 
 static char	*largv[MAX_NUM_ARGVS + 1];
 
+#ifndef SERVERONLY
 cvar_t	developer = {"developer", "0"};
+#endif
 cvar_t	host_mapname = {"mapname", "", CVAR_ROM};
 
 qbool com_serveractive = false;
@@ -774,6 +776,7 @@ void COM_InitArgv(int argc, char **argv)
 	}
 }
 
+#ifndef SERVERONLY
 void COM_Init(void)
 {
 	Cvar_SetCurrentGroup(CVAR_GROUP_NO_GROUP);
@@ -782,6 +785,7 @@ void COM_Init(void)
 
 	Cvar_ResetCurrentGroup();
 }
+#endif
 
 //does a varargs printf into a temp buffer, so I don't need to have varargs versions of all text functions.
 char *va(const char *format, ...)
@@ -1518,6 +1522,7 @@ unsigned Print_flags[16];
 int Print_current = 0;
 
 /* FIXME: Please make us thread safe! */
+#ifndef SERVERONLY
 void Com_Printf (char *fmt, ...) 
 {
 	va_list argptr;
@@ -1561,6 +1566,7 @@ void Com_DPrintf (char *fmt, ...)
 
 	Com_Printf ("%s", msg);
 }
+#endif
 
 void Com_Printf_State(int state, const char *fmt, ...)
 {
@@ -1581,13 +1587,13 @@ void Com_Printf_State(int state, const char *fmt, ...)
 			break;
 		case PRINT_OK:
 
-			if (!developer.integer)
+			if (!developer.value)
 				return;  // NOTE: print msgs only in developer mode
 
 			prefix = " " " ok " "  ";
 			break;
 		case PRINT_DBG:
-			if (!developer.integer)
+			if (!developer.value)
 				return;  // NOTE: print msgs only in developer mode
 
 			prefix = "";
@@ -1666,10 +1672,12 @@ qbool COM_CheckArgsForPlayableFiles(char *commandbuf_out, unsigned int commandbu
 			{
 				snprintf(commandbuf_out, commandbuf_size, "qtvplay \"#%s\"\n", infile);
 			}
+#ifndef SERVERONLY
 			else if (CL_IsDemoExtension(infile))
 			{
 				snprintf(commandbuf_out, commandbuf_size, "playdemo \"%s\"\n", infile);
 			}
+#endif
 			else if (!strncasecmp(infile, "qw://", sizeof("qw://") - 1))
 			{
 				snprintf(commandbuf_out, commandbuf_size, "qwurl \"%s\"\n", infile);
