@@ -46,7 +46,7 @@ jobs:
 
           - configurePreset: ninja-generic-static
             buildPreset: ninja-generic-static-release
-            packages: "autoconf automake libtool libx11-dev libxft-dev libxext-dev libwayland-dev libxkbcommon-dev libegl1-mesa-dev"
+            packages: "autoconf automake libtool libxinerama-dev libxcursor-dev xorg-dev libwayland-dev libxkbcommon-dev libegl1-mesa-dev"
             executable: "ezquake-linux-x86_64"
             os: ubuntu-latest
             should_upload: true
