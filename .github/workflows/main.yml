@@ -43,6 +43,7 @@ jobs:
             os: ubuntu-latest
             should_upload: false
             double_zip: true
+            cflags: "-march=nehalem"
 
           - configurePreset: ninja-generic-static
             buildPreset: ninja-generic-static-release
@@ -51,6 +52,7 @@ jobs:
             os: ubuntu-latest
             should_upload: true
             double_zip: true
+            cflags: "-march=nehalem"
 
           - configurePreset: xcode-arm64-release-ci
             buildPreset: xcode-arm64-release-ci
@@ -100,12 +102,16 @@ jobs:
 
       - name: Setup vcpkg
         uses: lukka/run-vcpkg@v11
+        env:
+          CFLAGS: ${{ matrix.cflags }}
 
       - name: Run CMake
         uses: lukka/run-cmake@v10
         with:
           configurePreset: ${{ matrix.configurePreset }}
           buildPreset: ${{ matrix.buildPreset }}
+        env:
+          CFLAGS: ${{ matrix.cflags }}
 
       - name: Pre-zip to preserve executable bit
         run: zip -r -9 ezQuake.zip ${{ matrix.executable }}

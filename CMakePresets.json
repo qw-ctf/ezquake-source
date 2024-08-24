@@ -11,7 +11,7 @@
             "hidden": true,
             "binaryDir": "${sourceDir}/cmake-build-presets/${presetName}",
             "cacheVariables": {
-                "CMAKE_VERBOSE_MAKEFILE": "OFF",
+                "CMAKE_VERBOSE_MAKEFILE": "ON",
                 "CMAKE_COLOR_DIAGNOSTICS": "ON",
                 "CMAKE_CONFIGURATION_TYPES": "Debug;RelWithDebInfo;Release"
             }
