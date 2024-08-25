@@ -85,7 +85,7 @@ else()
     )
 
     check_c_compiler_flag("-Wstrlcpy-strlcat-size" HAS_STRLCPY_STRLCAT_SIZE)
-    if (HAS_STRLCPY_STRLCAT_SIZE)
+    if(HAS_STRLCPY_STRLCAT_SIZE)
         add_compile_options("-Werror=strlcpy-strlcat-size")
     endif()
 endif()
@@ -235,7 +235,7 @@ set(server
 source_group(TREE ${SOURCE_DIR} PREFIX "Source Files/server" FILES ${server})
 source_group(TREE ${SOURCE_DIR} PREFIX "Header Files/server" FILES ${server_headers})
 
-if (RENDERER_MODERN_OPENGL)
+if(RENDERER_MODERN_OPENGL)
     set(MODERN_GLSL_DIR ${SOURCE_DIR}/glsl)
     add_resources(shaders_modern
             ${MODERN_GLSL_DIR}/common.glsl
@@ -300,7 +300,7 @@ if (RENDERER_MODERN_OPENGL)
     source_group(TREE ${SOURCE_DIR} PREFIX "Header Files/modern_opengl" FILES ${modern_opengl_headers})
 endif()
 
-if (RENDERER_CLASSIC_OPENGL)
+if(RENDERER_CLASSIC_OPENGL)
     set(CLASSIC_GLSL_DIR ${SOURCE_DIR}/glsl/glc)
     add_resources(shaders_classic
             ${CLASSIC_GLSL_DIR}/glc_aliasmodel_shadow.fragment.glsl
@@ -534,7 +534,7 @@ add_resources(documentation
         ${DOCUMENTATION_DIR}/help_variables.json
 )
 
-set(other_headers
+set(client_headers
         ${SOURCE_DIR}/Ctrl.h
         ${SOURCE_DIR}/Ctrl_EditBox.h
         ${SOURCE_DIR}/Ctrl_PageViewer.h
@@ -598,10 +598,10 @@ set(other_headers
         ${SOURCE_DIR}/xsd.h
         ${SOURCE_DIR}/xsd_document.h
 )
-if (WIN32)
-    list(APPEND other_headers ${SOURCE_DIR}/movie_avi.h)
+if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
+    list(APPEND client_headers ${SOURCE_DIR}/movie_avi.h)
 endif()
-set(other
+set(client
         ${SOURCE_DIR}/Ctrl.c
         ${SOURCE_DIR}/Ctrl_EditBox.c
         ${SOURCE_DIR}/Ctrl_PageViewer.c
@@ -694,43 +694,29 @@ set(other
         ${SOURCE_DIR}/wad.c
         ${SOURCE_DIR}/xsd.c
         ${SOURCE_DIR}/xsd_document.c
-        ${other_headers}
+        ${client_headers}
 )
-if (WIN32)
-    list(APPEND other ${SOURCE_DIR}/movie_avi.c)
+if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
+    list(APPEND client ${SOURCE_DIR}/movie_avi.c)
 endif()
-source_group(TREE ${SOURCE_DIR} PREFIX "Source Files/other" FILES ${other})
-source_group(TREE ${SOURCE_DIR} PREFIX "Header Files/other" FILES ${other_headers})
+source_group(TREE ${SOURCE_DIR} PREFIX "Source Files/client" FILES ${client})
+source_group(TREE ${SOURCE_DIR} PREFIX "Header Files/client" FILES ${client_headers})
 
-set(sys_headers
-        ${SOURCE_DIR}/localtime.h
-)
-if (WIN32)
-    set(sys_glue
-            ${SOURCE_DIR}/localtime_win.c
-    )
+set(sys_headers ${SOURCE_DIR}/localtime.h)
+if (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+    list(APPEND sys_headers ${SOURCE_DIR}/in_osx.h)
+endif()
+if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
+    set(sys ${SOURCE_DIR}/localtime_win.c)
 else()
-    set(sys_glue
-            ${SOURCE_DIR}/localtime_posix.c
-            ${SOURCE_DIR}/linux_signals.c
-            ${sys_headers}
-    )
+    set(sys ${SOURCE_DIR}/localtime_posix.c ${SOURCE_DIR}/linux_signals.c)
+    if (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+        list(APPEND sys_headers ${SOURCE_DIR}/in_osx.m ${SOURCE_DIR}/sys_osx.m)
+    endif()
 endif()
-source_group(TREE ${SOURCE_DIR} PREFIX "Source Files/sys_glue" FILES ${sys_glue})
-source_group(TREE ${SOURCE_DIR} PREFIX "Header Files/sys_glue" FILES ${sys_headers})
-
-if (APPLE)
-    set(sys_macos_headers
-            ${SOURCE_DIR}/in_osx.h
-    )
-    set(sys_macos
-            ${SOURCE_DIR}/in_osx.m
-            ${SOURCE_DIR}/sys_osx.m
-            ${sys_macos_headers}
-    )
-    source_group(TREE ${SOURCE_DIR} PREFIX "Source Files/sys_macos" FILES ${sys_macos})
-    source_group(TREE ${SOURCE_DIR} PREFIX "Header Files/sys_macos" FILES ${sys_macos_headers})
-endif()
+list(APPEND sys ${sys_headers})
+source_group(TREE ${SOURCE_DIR} PREFIX "Source Files/sys" FILES ${sys})
+source_group(TREE ${SOURCE_DIR} PREFIX "Header Files/sys" FILES ${sys_headers})
 
 set(central_headers
         ${SOURCE_DIR}/central.h
@@ -745,41 +731,40 @@ source_group(TREE ${SOURCE_DIR} PREFIX "Header Files/central" FILES ${central_he
 set(main ${SOURCE_DIR}/sys_$<IF:$<PLATFORM_ID:Windows>,win,posix>.c)
 source_group(TREE ${SOURCE_DIR} PREFIX "Source Files/main" FILES ${main})
 
-if (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
-    set(macos_icon "${PROJECT_SOURCE_DIR}/misc/install/ezquake.icns")
-    set_source_files_properties(${macos_icon} PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
-endif()
+get_target_property(version_major git_version VERSION_MAJOR)
+get_target_property(version_minor git_version VERSION_MINOR)
+get_target_property(version_patch git_version VERSION_PATCH)
+get_target_property(version_build git_version REVISION)
 
-if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
-    get_target_property(version_major git_version VERSION_MAJOR)
-    get_target_property(version_minor git_version VERSION_MINOR)
-    get_target_property(version_patch git_version VERSION_PATCH)
-    get_target_property(version_build git_version REVISION)
+# macOS icon
+set(macos_icon "${PROJECT_SOURCE_DIR}/misc/install/ezquake.icns")
+set_source_files_properties(${macos_icon} PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
 
-    set(windows_icon "${CMAKE_CURRENT_BINARY_DIR}/ezQuake.rc")
-    set(EZQUAKE_RESOURCE_AUTHOR "QW-Group")
-    set(EZQUAKE_RESOURCE_NAME "ezQuake")
-    set(EZQUAKE_RESOURCE_DESCRIPTION "ezQuake - a QuakeWorld client")
-    set(EZQUAKE_RESOURCE_ICON "${PROJECT_SOURCE_DIR}/ezquake.ico")
-    set(EZQUAKE_RESOURCE_VERSION "${version_major},${version_minor},${version_patch},${version_build}")
-    configure_file("${PROJECT_SOURCE_DIR}/ezQuake.rc.in" ${windows_icon} @ONLY)
-endif()
+# Windows icon, and exe metadata
+set(windows_icon "${CMAKE_CURRENT_BINARY_DIR}/ezQuake.rc")
+set(EZQUAKE_RESOURCE_AUTHOR "QW-Group")
+set(EZQUAKE_RESOURCE_NAME "ezQuake")
+set(EZQUAKE_RESOURCE_DESCRIPTION "ezQuake - a QuakeWorld client")
+set(EZQUAKE_RESOURCE_ICON "${PROJECT_SOURCE_DIR}/ezquake.ico")
+set(EZQUAKE_RESOURCE_VERSION "${version_major},${version_minor},${version_patch},${version_build}")
+configure_file("${PROJECT_SOURCE_DIR}/ezQuake.rc.in" ${windows_icon} @ONLY)
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+    # Mark the executable as a non-console application
     set(TARGET_TYPE WIN32)
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+    # Mark the executable for bundling as .app
     set(TARGET_TYPE MACOSX_BUNDLE)
 endif()
 
 add_executable(ezquake ${TARGET_TYPE}
         ${main}
-        ${sys_glue}
-        $<IF:$<PLATFORM_ID:Darwin>,${sys_macos},>
+        ${sys}
         ${central}
         ${common}
         ${common_hud}
         ${server}
-        ${other}
+        ${client}
 
         ${common_opengl}
         ${common_renderer}
@@ -858,7 +843,7 @@ target_link_libraries(ezquake PRIVATE
         ${FRAMEWORK_GAMECONTROLLER}
 )
 
-if (MATH)
+if(MATH)
     target_link_libraries(ezquake PRIVATE ${MATH})
 endif()
 
@@ -873,8 +858,14 @@ endif()
 set_target_properties(ezquake PROPERTIES OUTPUT_NAME ${EXECUTABLE_NAME})
 
 # Make executable easy to find in project root, strip if release (macOS does this on its own).
+# If CMake was invoked with an installation prefix, don't override with project root.
 if(NOT CMAKE_SYSTEM_NAME STREQUAL "Darwin")
-    install(TARGETS ezquake DESTINATION ${PROJECT_SOURCE_DIR})
+    if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+        set(INSTALL_DESTINATION ${PROJECT_SOURCE_DIR})
+    else()
+        set(INSTALL_DESTINATION ${CMAKE_INSTALL_PREFIX})
+    endif()
+    install(TARGETS ezquake DESTINATION ${INSTALL_DESTINATION})
     add_custom_command(
             TARGET ezquake POST_BUILD
             COMMAND ${CMAKE_COMMAND} --install ${CMAKE_BINARY_DIR} $<$<CONFIG:Release>:--strip> --config $<CONFIG>
@@ -885,18 +876,18 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
     get_target_property(version git_version GIT_DESCRIBE)
 
     set_target_properties(ezquake PROPERTIES
-            XCODE_ATTRIBUTE_PRODUCT_NAME                             "ezQuake"
-            XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER                "com.ezquake.ezQuake"
-            XCODE_ATTRIBUTE_MARKETING_VERSION                        "${version}"
-            XCODE_ATTRIBUTE_CURRENT_PROJECT_VERSION                  "${version}"
-            XCODE_ATTRIBUTE_LLVM_LTO                                 $<IF:$<OR:$<CONFIG:Debug>,$<NOT:$<BOOL:${ENABLE_LTO}>>>,NO,Monolithic>
-            XCODE_ATTRIBUTE_GCC_OPTIMIZATION_LEVEL                   $<IF:$<CONFIG:Debug>,0,3>
-            XCODE_ATTRIBUTE_DEAD_CODE_STRIPPING                      YES
-            XCODE_ATTRIBUTE_GENERATE_INFOPLIST_FILE                  YES
-            XCODE_ATTRIBUTE_INFOPLIST_KEY_CFBundleDisplayName        "ezQuake"
-            XCODE_ATTRIBUTE_INFOPLIST_KEY_LSApplicationCategoryType  "public.app-category.action-games"
-            XCODE_ATTRIBUTE_INFOPLIST_KEY_NSHumanReadableCopyright   "GNU General Public License, version 2"
-            MACOSX_BUNDLE_ICON_FILE                                  "ezquake"
+            XCODE_ATTRIBUTE_PRODUCT_NAME                            "ezQuake"
+            XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER               "com.ezquake.ezQuake"
+            XCODE_ATTRIBUTE_MARKETING_VERSION                       "${version}"
+            XCODE_ATTRIBUTE_CURRENT_PROJECT_VERSION                 "${version}"
+            XCODE_ATTRIBUTE_LLVM_LTO                                $<IF:$<OR:$<CONFIG:Debug>,$<NOT:$<BOOL:${ENABLE_LTO}>>>,NO,Monolithic>
+            XCODE_ATTRIBUTE_GCC_OPTIMIZATION_LEVEL                  $<IF:$<CONFIG:Debug>,0,3>
+            XCODE_ATTRIBUTE_DEAD_CODE_STRIPPING                     YES
+            XCODE_ATTRIBUTE_GENERATE_INFOPLIST_FILE                 YES
+            XCODE_ATTRIBUTE_INFOPLIST_KEY_CFBundleDisplayName       "ezQuake"
+            XCODE_ATTRIBUTE_INFOPLIST_KEY_LSApplicationCategoryType "public.app-category.action-games"
+            XCODE_ATTRIBUTE_INFOPLIST_KEY_NSHumanReadableCopyright  "GNU General Public License, version 2"
+            MACOSX_BUNDLE_ICON_FILE                                 "ezquake"
     )
 
     if(ENABLE_SANDBOX)
@@ -909,8 +900,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
     endif()
 
     add_custom_command(
-            TARGET ezquake
-            POST_BUILD
+            TARGET ezquake POST_BUILD
             COMMAND /usr/libexec/PlistBuddy
             -c "Add :NSHighResolutionCapable bool YES"
             "$<TARGET_FILE_DIR:ezquake>/../Info.plist"
@@ -918,8 +908,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
 
     # qw:// protocol support
     add_custom_command(
-            TARGET ezquake
-            POST_BUILD
+            TARGET ezquake POST_BUILD
             COMMAND /usr/libexec/PlistBuddy
             -c "Add :CFBundleURLTypes array"
             -c "Add :CFBundleURLTypes:0 dict"
@@ -931,8 +920,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
 
     # .mvd/.qwd/.dem file type support
     add_custom_command(
-            TARGET ezquake
-            POST_BUILD
+            TARGET ezquake POST_BUILD
             COMMAND /usr/libexec/PlistBuddy
             -c "Add :CFBundleDocumentTypes array"
             -c "Add :CFBundleDocumentTypes:0 dict"
