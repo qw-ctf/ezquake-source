@@ -70,6 +70,9 @@ jobs:
       with:
           configurePreset: macos-${{matrix.ARCH}}-release-ci
           buildPreset: macos-${{matrix.ARCH}}-release-ci
+      env:
+          # Will be cleaned up in mvdsv
+          CFLAGS: -Wno-shorten-64-to-32
 
     - name: Pre-zip to preserve executable bit
       run: |
