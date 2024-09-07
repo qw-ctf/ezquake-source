@@ -1,6 +1,6 @@
 ## Compiling for Windows
 
-### Using Ubuntu Bash
+### Cross compiling from Linux WSL
 
 You can use the new Ubuntu Bash feature in Windows 10 to compile ezQuake for Windows.
 
@@ -13,7 +13,9 @@ Now press the `Start` button again and enter `bash`. Click it and install Bash.
 Enter the following command to install all required prerequisites to build ezQuake:
 
 ```
-sudo apt-get install -y git mingw-w64 build-essential
+sudo apt-get install -y \
+  autoconf automake libtool pkg-config curl zip unzip tar \
+  cmake ninja-build mingw-w64
 ```
 
 Now clone the ezQuake source code:
@@ -22,18 +24,20 @@ Now clone the ezQuake source code:
 git clone https://github.com/ezQuake/ezquake-source.git ezquake
 ```
 
+Initialize the build and compile dependencies:
+```
+cd ezquake
+./bootstrap.sh
+cmake --preset mingw64-x64-cross
+```
+This will take some time the first invocation, but is a one-off cost.
+
+The dependency build cache is found in `${HOME}/.cache/vcpkg` if you
+don't intend to build again and want to reclaim some space.
+
 Now build the ezQuake executable:
-
 ```
-EZ_CONFIG_FILE=.config_windows make
+cmake --build build-mingw64-x64-cross --config Release
 ```
 
-### Using a Linux system
-
-1) Make sure you have mingw32 toolchain installed. On Arch Linux it's mingw-w64 (select complete group)
-
-2) Run "EZ_CONFIG_FILE=.config_windows make" (you can add -j5 to make to build in parallell. Use nbr of cpu cores +1)
-   without the quotes.
-
-3) You should get an ezquake.exe :-)
-
+This will produce `ezquake.exe` in the current directory. 
