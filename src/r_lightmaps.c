@@ -590,6 +590,60 @@ static int LightmapAllocBlock(int w, int h, int *x, int *y)
 	return LightmapAllocBlock(w, h, x, y);
 }
 
+#define EPSILON 1e-6
+
+#ifdef __APPLE__
+// TODO: use the builtins for mathy stuff
+static qbool R_ArePointsColinear(const float *v1, const float *v2, const float *v3)
+{
+	float v0[3], v1_vec[3], cross[3];
+	int i;
+
+	for (i = 0; i < 3; i++) {
+		v0[i] = v2[i] - v1[i];
+		v1_vec[i] = v3[i] - v2[i];
+	}
+
+	cross[0] = v0[1] * v1_vec[2] - v0[2] * v1_vec[1];
+	cross[1] = v0[2] * v1_vec[0] - v0[0] * v1_vec[2];
+	cross[2] = v0[0] * v1_vec[1] - v0[1] * v1_vec[0];
+
+	float cross_mag_sq = cross[0]*cross[0] + cross[1]*cross[1] + cross[2]*cross[2];
+
+	return cross_mag_sq < EPSILON;
+}
+
+static void R_RemoveColinearVertices(glpoly_t *poly, float new_verts[][VERTEXSIZE])
+{
+	int i, v1_index, v2_index, v3_index, new_numverts = 0;
+	int numverts = poly->numverts;
+
+	v1_index = numverts - 1;
+	v2_index = 0;
+	v3_index = 1;
+
+	for (i = 0; i < numverts; i++) {
+		float *v1 = poly->verts[v1_index];
+		float *v2 = poly->verts[v2_index];
+		float *v3 = poly->verts[v3_index];
+
+		if (!R_ArePointsColinear(v1, v2, v3)) {
+			memcpy(new_verts[new_numverts], v2, sizeof(float) * VERTEXSIZE);
+			new_numverts++;
+		}
+
+		v1_index = v2_index;
+		v2_index = v3_index;
+		v3_index = (v3_index + 1) % numverts;
+	}
+
+	if (new_numverts > 0) {
+		memcpy(poly->verts, new_verts, new_numverts * sizeof(float) * VERTEXSIZE);
+		poly->numverts = new_numverts;
+	}
+}
+#endif
+
 // 
 static void R_BuildSurfaceDisplayList(model_t* currentmodel, msurface_t *fa)
 {
@@ -684,8 +738,18 @@ static void R_BuildSurfaceDisplayList(model_t* currentmodel, msurface_t *fa)
 	}
 	poly->numverts = lnumverts;
 
+#ifdef __APPLE__
+	if (poly->numverts > 4) {
+		float (*new_verts)[VERTEXSIZE] = Q_malloc(poly->numverts * sizeof(float[VERTEXSIZE]));
+		R_RemoveColinearVertices(poly, new_verts);
+		Q_free(new_verts);
+	} else {
+		float new_verts[4][VERTEXSIZE];
+		R_RemoveColinearVertices(poly, new_verts);
+	}
+#endif
+
 	R_BrushModelPolygonToTriangleStrip(poly);
-	return;
 }
 
 static void R_BuildLightmapData(msurface_t* surf, int surfnum)
