@@ -61,7 +61,7 @@ jobs:
       if: github.repository != 'QW-Group/ezquake-source'
 
     - name: Install macOS build dependencies
-      run: brew install -q autoconf automake libtool
+      run: brew install -q autoconf automake
 
     - uses: lukka/get-cmake@latest
 
