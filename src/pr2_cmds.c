@@ -45,14 +45,26 @@ static int PASSFLOAT(float f)
 	return fi.i;
 }
 
-#if 0 // Provided for completness.
 static float GETFLOAT(int i)
 {
 	floatint_t fi;
 	fi.i = i;
 	return fi.f;
 }
-#endif
+
+typedef intptr_t (*ext_syscall_t)(intptr_t *arg);
+intptr_t EXT_SetExtField(intptr_t *args);
+intptr_t EXT_GetExtField(intptr_t *args);
+struct
+{
+	char *extname;
+	ext_syscall_t fun;
+} ext_syscalls[] =
+{
+	{"SetExtField",	EXT_SetExtField},
+	{"GetExtField",	EXT_GetExtField},
+};
+ext_syscall_t ext_syscall_tbl[256];
 
 int NUM_FOR_GAME_EDICT(byte *e)
 {
@@ -1403,6 +1415,7 @@ void PF2_makestatic(edict_t *ent)
 	s->frame = ent->v->frame;
 	s->colormap = ent->v->colormap;
 	s->skinnum = ent->v->skin;
+	s->trans = ent->xv.alpha ? bound(1, (byte)(ent->xv.alpha * 254.0f), 254) : 255;
 	VectorCopy(ent->v->origin, s->origin);
 	VectorCopy(ent->v->angles, s->angles);
 	++sv.static_entity_count;
@@ -1951,6 +1964,31 @@ intptr_t PF2_FS_GetFileList(char *path, char *ext,
 	return numfiles;
 }
 
+intptr_t EXT_SetExtField(intptr_t *args)
+{
+	int edictnum = NUM_FOR_GAME_EDICT(VM_ArgPtr(args[1]));
+	edict_t *e = &sv.edicts[edictnum];
+	char *key = VM_ArgPtr(args[2]);
+	if (key && !strcmp(key, "alpha"))
+	{
+		e->xv.alpha = GETFLOAT(args[3]);
+		return args[3];
+	}
+	return 0;
+}
+
+intptr_t EXT_GetExtField(intptr_t *args)
+{
+	int edictnum = NUM_FOR_GAME_EDICT(VM_ArgPtr(args[1]));
+	edict_t *e = &sv.edicts[edictnum];
+	char *key = VM_ArgPtr(args[2]);
+	if (key && !strcmp(key, "alpha"))
+	{
+		return PASSFLOAT(e->xv.alpha);
+	}
+	return 0;
+}
+
 /*
   int trap_Map_Extension( const char* ext_name, int mapto)
   return:
@@ -1960,10 +1998,28 @@ intptr_t PF2_FS_GetFileList(char *path, char *ext,
 */
 intptr_t PF2_Map_Extension(char *name, int mapto)
 {
-	if (mapto < _G__LASTAPI)
-	{
+	int i;
 
+	if ((mapto - G_EXTENSIONS_FIRST) >= ARRAY_LEN(ext_syscall_tbl))
+	{
 		return -2;
+	}
+
+	if (!name)
+	{
+		if (mapto < _G__LASTAPI)
+		{
+			return -2;
+		}
+		return -1;
+	}
+	for (i = 0; i < ARRAY_LEN(ext_syscalls); i++)
+	{
+		if (!strcmp(ext_syscalls[i].extname, name))
+		{
+			ext_syscall_tbl[mapto - G_EXTENSIONS_FIRST] = ext_syscalls[i].fun;
+			return mapto;
+		}
 	}
 
 	return -1;
@@ -2674,7 +2730,14 @@ intptr_t PR2_GameSystemCalls(intptr_t *args) {
 		PF2_VisibleTo(args[1], args[2], args[3], VMA(4));
 		return 0;
 	default:
-		SV_Error("Bad game system trap: %ld", (long int)args[0]);
+		if (args[0] >= _G__LASTAPI && ext_syscall_tbl[args[0] - G_EXTENSIONS_FIRST])
+		{
+			ext_syscall_tbl[args[0] - G_EXTENSIONS_FIRST](args);
+		}
+		else
+		{
+			SV_Error("Bad game system trap: %ld", (long int)args[0]);
+		}
 	}
 	return 0;
 }

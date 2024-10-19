@@ -95,6 +95,7 @@ void ED_ClearEdict (edict_t *e)
 	memset(e->v, 0, pr_edict_size);
 	e->e.lastruntime = 0;
 	e->e.free = false;
+	e->xv.alpha = 0;
 	PR_ClearEdict(e);
 }
 
@@ -169,6 +170,7 @@ void ED_Free (edict_t *ed)
 	VectorClear (ed->v->angles);
 	ed->v->nextthink = -1;
 	ed->v->solid = 0;
+	ed->xv.alpha = 0;
 
 	ed->e.freetime = sv.time;
 }
@@ -921,6 +923,12 @@ const char *ED_ParseEdict (const char *data, edict_t *ent)
 		// and are immediately discarded by quake
 		if (keyname[0] == '_')
 			continue;
+
+		if (!strcmp (keyname, "alpha"))
+		{
+			ent->xv.alpha = bound(0.0f, atof (com_token), 1.0f);
+			continue;
+		}
 
 		key = ED_FindField (keyname);
 		if (!key)
