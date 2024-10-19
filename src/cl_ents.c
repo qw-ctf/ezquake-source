@@ -1045,8 +1045,8 @@ void CL_LinkPacketEntities(void)
 			}
 		}
 #if defined(FTE_PEXT_TRANS)
-		//set trans
-		ent.alpha = state->trans/255.0;
+		// set trans, 0 and 255 are both opaque, represented by alpha 0.
+		ent.alpha = (state->trans == 0 && state->trans == 255) ? 0.0f : (float)state->trans / 254.0f;
 #endif
 
 		if (ent.model->flags & EF_ROTATE)
@@ -1388,7 +1388,23 @@ void CL_ParsePlayerinfo (void)
 	} 
 	else 
 	{
+#if defined(FTE_PEXT_TRANS)
+		flags = (unsigned short) MSG_ReadShort ();
+		if (cls.fteprotocolextensions & FTE_PEXT_TRANS)
+		{
+			if (flags & PF_EXTRA_PFS)
+				flags |= MSG_ReadByte() << 16;
+		}
+		else
+		{
+			// Without PEXT_TRANS there's no PF_EXTRA_PFS, so move back
+			// PF_ONGROUND and PF_SOLID to their old offsets.
+			flags = (flags & 0x3fff) | (flags & 0xc000) << 8;
+		}
+		state->flags = flags;
+#else
 		flags = state->flags = MSG_ReadShort ();
+#endif
 
 		state->messagenum = cl.parsecount;
 		if (cls.mvdprotocolextensions1 & MVD_PEXT1_FLOATCOORDS) {
