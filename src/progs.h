@@ -66,6 +66,7 @@ typedef struct sv_edict_s
 typedef struct
 {
 	float	alpha;			// 0 = opaque, 1 = opaque, 0 < x < 1 translucent
+	byte    colourmod[4];   // r,g,b,padding
 } ext_entvars_t;
 
 typedef struct edict_s

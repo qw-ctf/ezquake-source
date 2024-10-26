@@ -558,6 +558,15 @@ void CL_ParseDelta (entity_state_t *from, entity_state_t *to, int bits) {
 	}
 #endif
 
+#ifdef FTE_PEXT_COLOURMOD
+	if ((morebits & U_FTE_COLOURMOD) && (cls.fteprotocolextensions & FTE_PEXT_COLOURMOD))
+	{
+		to->colourmod[0] = MSG_ReadByte();
+		to->colourmod[1] = MSG_ReadByte();
+		to->colourmod[2] = MSG_ReadByte();
+	}
+#endif
+
 #ifdef FTE_PEXT_ENTITYDBL
 	if (morebits & U_FTE_ENTITYDBL) {
 		to->number += 512;
@@ -1047,6 +1056,20 @@ void CL_LinkPacketEntities(void)
 #if defined(FTE_PEXT_TRANS)
 		// set trans, 0 and 255 are both opaque, represented by alpha 0.
 		ent.alpha = (state->trans == 0 && state->trans == 255) ? 0.0f : (float)state->trans / 254.0f;
+#endif
+
+#if defined(FTE_PEXT_COLOURMOD)
+		//if (state->colourmod[0] > 0 || state->colourmod[1] > 0 ||  state->colourmod[2] > 0) {
+			ent.r_modelcolor[0] = (float) state->colourmod[0]  / 256.0f;
+			ent.r_modelcolor[1] = (float) state->colourmod[1]  / 256.0f;
+			ent.r_modelcolor[2] = (float) state->colourmod[2] / 256.0f;
+			if (state->colourmod[0] > 0 || state->colourmod[1] > 0 ||  state->colourmod[2] > 0) {
+				ent.renderfx = RF_FORCECOLOURMOD;
+			} else {
+				ent.renderfx &= ~RF_FORCECOLOURMOD;
+			}
+
+		//}
 #endif
 
 		if (ent.model->flags & EF_ROTATE)

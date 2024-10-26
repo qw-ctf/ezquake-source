@@ -53,16 +53,18 @@ static float GETFLOAT(int i)
 }
 
 typedef intptr_t (*ext_syscall_t)(intptr_t *arg);
-intptr_t EXT_SetExtField(intptr_t *args);
-intptr_t EXT_GetExtField(intptr_t *args);
+static intptr_t EXT_MapExtFieldPtr(intptr_t *args);
+static intptr_t EXT_SetExtFieldPtr(intptr_t *args);
+static intptr_t EXT_GetExtFieldPtr(intptr_t *args);
 struct
 {
 	char *extname;
 	ext_syscall_t fun;
 } ext_syscalls[] =
 {
-	{"SetExtField",	EXT_SetExtField},
-	{"GetExtField",	EXT_GetExtField},
+	{"MapExtFieldPtr",	EXT_MapExtFieldPtr},
+	{"SetExtFieldPtr",	EXT_SetExtFieldPtr},
+	{"GetExtFieldPtr",	EXT_GetExtFieldPtr},
 };
 ext_syscall_t ext_syscall_tbl[256];
 
@@ -1964,28 +1966,47 @@ intptr_t PF2_FS_GetFileList(char *path, char *ext,
 	return numfiles;
 }
 
-intptr_t EXT_SetExtField(intptr_t *args)
+static intptr_t EXT_MapExtFieldPtr(intptr_t *args)
+{
+	char *key = VM_ArgPtr(args[1]);
+	if (key)
+	{
+		if (!strcmp(key, "alpha"))
+		{
+			return offsetof(ext_entvars_t, alpha);
+		}
+		else if (!strcmp(key, "colormod"))
+		{
+			return offsetof(ext_entvars_t, colourmod);
+		}
+	}
+
+	return 0;
+}
+
+static intptr_t EXT_SetExtFieldPtr(intptr_t *args)
 {
 	int edictnum = NUM_FOR_GAME_EDICT(VM_ArgPtr(args[1]));
 	edict_t *e = &sv.edicts[edictnum];
-	char *key = VM_ArgPtr(args[2]);
-	if (key && !strcmp(key, "alpha"))
-	{
-		e->xv.alpha = GETFLOAT(args[3]);
-		return args[3];
+	int fieldref = args[2];
+	byte *dst = ((byte*)(&e->xv)) + fieldref;
+	byte *src = (byte*)args[3];
+	size_t size = args[4];
+	for (int i = 0; i < size; i++) {
+		dst[i] = src[i];
 	}
 	return 0;
 }
 
-intptr_t EXT_GetExtField(intptr_t *args)
+static intptr_t EXT_GetExtFieldPtr(intptr_t *args)
 {
 	int edictnum = NUM_FOR_GAME_EDICT(VM_ArgPtr(args[1]));
 	edict_t *e = &sv.edicts[edictnum];
-	char *key = VM_ArgPtr(args[2]);
-	if (key && !strcmp(key, "alpha"))
-	{
-		return PASSFLOAT(e->xv.alpha);
-	}
+	int fieldref = args[2];
+	void *src = &e->xv + fieldref;
+	void *dst = (void *)args[3];
+	size_t size = args[4];
+	memcpy(dst, src, size);
 	return 0;
 }
 
@@ -2732,7 +2753,7 @@ intptr_t PR2_GameSystemCalls(intptr_t *args) {
 	default:
 		if (args[0] >= _G__LASTAPI && ext_syscall_tbl[args[0] - G_EXTENSIONS_FIRST])
 		{
-			ext_syscall_tbl[args[0] - G_EXTENSIONS_FIRST](args);
+			return ext_syscall_tbl[args[0] - G_EXTENSIONS_FIRST](args);
 		}
 		else
 		{

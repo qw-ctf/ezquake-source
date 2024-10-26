@@ -93,9 +93,13 @@ Sets everything to NULL
 void ED_ClearEdict (edict_t *e)
 {
 	memset(e->v, 0, pr_edict_size);
+	memset(&e->xv, 0, sizeof(ext_entvars_t ));
 	e->e.lastruntime = 0;
 	e->e.free = false;
-	e->xv.alpha = 0;
+	e->xv.colourmod[0] = 0;
+	e->xv.colourmod[1] = 0;
+	e->xv.colourmod[2] = 0;
+	e->xv.colourmod[3] = 0;
 	PR_ClearEdict(e);
 }
 
@@ -171,6 +175,10 @@ void ED_Free (edict_t *ed)
 	ed->v->nextthink = -1;
 	ed->v->solid = 0;
 	ed->xv.alpha = 0;
+	ed->xv.colourmod[0] = 0;
+	ed->xv.colourmod[1] = 0;
+	ed->xv.colourmod[2] = 0;
+	ed->xv.colourmod[3] = 0;
 
 	ed->e.freetime = sv.time;
 }

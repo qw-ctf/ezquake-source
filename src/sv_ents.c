@@ -215,6 +215,13 @@ void SV_WriteDelta(client_t* client, entity_state_t *from, entity_state_t *to, s
         evenmorebits |= U_FTE_TRANS;
 #endif
 
+#ifdef U_FTE_COLOURMOD
+	if ((to->colourmod[0] != from->colourmod[0] ||
+	     to->colourmod[1] != from->colourmod[1] ||
+	     to->colourmod[2] != from->colourmod[2]) && (fte_extensions & FTE_PEXT_COLOURMOD))
+		evenmorebits |= U_FTE_COLOURMOD;
+#endif
+
 	if (evenmorebits&0xff00)
 		evenmorebits |= U_FTE_YETMORE;
 	if (evenmorebits&0x00ff)
@@ -298,6 +305,15 @@ void SV_WriteDelta(client_t* client, entity_state_t *from, entity_state_t *to, s
 #ifdef U_FTE_TRANS
 	if (evenmorebits & U_FTE_TRANS)
 		MSG_WriteByte (msg, to->trans);
+#endif
+
+#ifdef U_FTE_COLOURMOD
+	if (evenmorebits & U_FTE_COLOURMOD)
+	{
+		MSG_WriteByte (msg, to->colourmod[0]);
+		MSG_WriteByte (msg, to->colourmod[1]);
+		MSG_WriteByte (msg, to->colourmod[2]);
+	}
 #endif
 }
 
@@ -994,6 +1010,12 @@ void SV_WriteEntitiesToClient (client_t *client, sizebuf_t *msg, qbool recorder)
 			state->effects = TranslateEffects(ent);
 #ifdef FTE_PEXT_TRANS
 			state->trans = ent->xv.alpha ? bound(1, (byte)(ent->xv.alpha * 254.0f), 254) : 255;
+#endif
+#ifdef FTE_PEXT_COLOURMOD
+			//Con_Printf("%d %d %d %d\n", (int)ent->v->modelindex, ent->xv.colourmod[0], ent->xv.colourmod[1], ent->xv.colourmod[2]);
+			state->colourmod[0] = ent->xv.colourmod[0];
+			state->colourmod[1] = ent->xv.colourmod[1];
+			state->colourmod[2] = ent->xv.colourmod[2];
 #endif
 		}
 	} // server flash

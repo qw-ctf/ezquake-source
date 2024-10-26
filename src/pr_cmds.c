@@ -2227,6 +2227,11 @@ void PF_makestatic (void)
 	s->colormap = ent->v->colormap;
 	s->skinnum = ent->v->skin;
 	s->trans = ent->xv.alpha ? bound(1, (byte)(ent->xv.alpha * 254.0), 254) : 255;
+#ifdef FTE_PEXT_COLOURMOD
+	s->colourmod[0] = ent->xv.colourmod[0];
+	s->colourmod[1] = ent->xv.colourmod[1];
+	s->colourmod[2] = ent->xv.colourmod[2];
+#endif
 	VectorCopy(ent->v->origin, s->origin);
 	VectorCopy(ent->v->angles, s->angles);
 	++sv.static_entity_count;

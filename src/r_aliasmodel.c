@@ -157,8 +157,12 @@ static void R_RenderAliasModelEntity(
 {
 	int i;
 	model_t* model = ent->model;
+	if (ent->renderfx & RF_FORCECOLOURMOD) {
+		Con_Printf("%s %.2f %.2f %.2f\n", ent->model->name, ent->r_modelcolor[0], ent->r_modelcolor[1], ent->r_modelcolor[2]);
+	}
 
-	ent->r_modelcolor[0] = -1;  // by default no solid fill color for model, using texture
+	if (!(ent->renderfx & RF_FORCECOLOURMOD))
+		ent->r_modelcolor[0] = -1;  // by default no solid fill color for model, using texture
 	if (color32bit) {
 		// force some color for such model
 		for (i = 0; i < 3; i++) {
@@ -1008,7 +1012,8 @@ void R_AliasModelPrepare(entity_t* ent, int framecount, int* frame1_, int* frame
 	//
 	ent->r_modelalpha = ((ent->renderfx & RF_WEAPONMODEL) && gl_mtexable) ? bound(0, cl_drawgun.value, 1) : 1;
 	ent->r_modelalpha = (ent->alpha ? ent->alpha : ent->r_modelalpha);
-	ent->r_modelcolor[0] = -1;  // by default no solid fill color for model, using texture
+	if (!(ent->renderfx & RF_FORCECOLOURMOD))
+		ent->r_modelcolor[0] = -1;  // by default no solid fill color for model, using texture
 
 	R_AliasSetupLighting(ent);
 
