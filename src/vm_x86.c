@@ -73,7 +73,9 @@ int		CPU_Flags = 0;
 
 static void CPUID( int func, unsigned int *regs )
 {
-#if _MSC_VER >= 1400
+#if defined(_M_ARM64) || defined(_M_ARM)
+	regs[0] = regs[1] = regs[2] = regs[3] = 0;
+#elif _MSC_VER >= 1400
 	__cpuid( regs, func );
 #else
 	__asm {
