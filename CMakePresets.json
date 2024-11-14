@@ -11,7 +11,7 @@
             "hidden": true,
             "binaryDir": "${sourceDir}/build-${presetName}",
             "cacheVariables": {
-                "CMAKE_VERBOSE_MAKEFILE": "OFF",
+                "CMAKE_VERBOSE_MAKEFILE": "ON",
                 "CMAKE_COLOR_DIAGNOSTICS": "ON",
                 "CMAKE_CONFIGURATION_TYPES": "Debug;RelWithDebInfo;Release"
             }
@@ -61,6 +61,40 @@
                 "CMAKE_CXX_COMPILER": "x86_64-w64-mingw32-g++",
                 "CMAKE_RC_COMPILER": "x86_64-w64-mingw32-windres",
                 "CMAKE_C_FLAGS": "-march=nehalem"
+            }
+        },
+        {
+            "name": "msbuild-arm64",
+            "description": "Configure as Visual Studio project",
+            "generator": "Visual Studio 17 2022",
+            "inherits": "template-vcpkg",
+            "architecture": {
+                "value": "arm64",
+                "strategy": "set"
+            },
+            "cacheVariables": {
+                "VCPKG_TARGET_TRIPLET": "arm64-windows-static-release",
+                "CMAKE_CONFIGURATION_TYPES": "Release"
+            },
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            }
+        },
+        {
+            "name": "msvc-arm64",
+            "description": "Configure using Ninja to build with msvc",
+            "generator": "Ninja Multi-Config",
+            "inherits": "template-vcpkg",
+            "cacheVariables": {
+                "VCPKG_TARGET_TRIPLET": "arm64-windows-static-release",
+                "CMAKE_CONFIGURATION_TYPES": "Release"
+            },
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
             }
         },
         {
@@ -230,6 +264,48 @@
         }
     ],
     "buildPresets": [
+        {
+            "name": "msbuild-arm64-debug",
+            "configurePreset": "msbuild-arm64",
+            "displayName": "Build msbuild-arm64 debug",
+            "description": "Build Visual Studio Debug configuration",
+            "configuration": "Debug"
+        },
+        {
+            "name": "msbuild-arm64-release",
+            "configurePreset": "msbuild-arm64",
+            "displayName": "Build msbuild-arm64 release",
+            "description": "Build Visual Studio Release configuration",
+            "configuration": "Release"
+        },
+        {
+            "name": "msbuild-arm64-relwithdebinfo",
+            "configurePreset": "msbuild-arm64",
+            "displayName": "Build msbuild-arm64 release with debug info",
+            "description": "Build Visual Studio Release configuration",
+            "configuration": "RelWithDebInfo"
+        },
+        {
+            "name": "msvc-arm64-debug",
+            "configurePreset": "msvc-arm64",
+            "displayName": "Build msvc-arm64 debug",
+            "description": "Build MSVC debug configuration",
+            "configuration": "Debug"
+        },
+        {
+            "name": "msvc-arm64-release",
+            "configurePreset": "msvc-arm64",
+            "displayName": "Build ninja-msvc-arm64 release",
+            "description": "Build MSVC release configuration",
+            "configuration": "Release"
+        },
+        {
+            "name": "msvc-arm64-relwithdebinfo",
+            "configurePreset": "msvc-arm64",
+            "displayName": "Build MSVC release with debug symbols",
+            "description": "Build MSVC release with debug info configuration",
+            "configuration": "RelWithDebInfo"
+        },
         {
             "name": "msbuild-x64-debug",
             "configurePreset": "msbuild-x64",

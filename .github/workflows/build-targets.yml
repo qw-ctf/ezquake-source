@@ -3,6 +3,11 @@ on: [push, pull_request, workflow_dispatch]
 jobs:
   windows-build:
     runs-on: windows-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: ["arm64"]
 
     steps:
     - name: Check out code
@@ -23,14 +28,14 @@ jobs:
     - name: Run CMake
       uses: lukka/run-cmake@v10
       with:
-        configurePreset: msbuild-x64
-        buildPreset: msbuild-x64-release
+        configurePreset: msbuild-${{ matrix.arch }}
+        buildPreset: msbuild-${{ matrix.arch }}-release
 
     - name: Archive client
       uses: actions/upload-artifact@v4
       with:
-        name: windows-multi-x64
-        path: build-msbuild-x64/Release/ezquake.exe
+        name: windows-multi-${{ matrix.arch }}
+        path: build-msbuild-${{ matrix.arch }}/Release/ezquake.exe
 
   macos-build:
     runs-on: macos-latest
