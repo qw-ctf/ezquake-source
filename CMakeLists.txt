@@ -586,6 +586,7 @@ set(client_headers
         ${SOURCE_DIR}/ez_scrollpane.h
         ${SOURCE_DIR}/ez_slider.h
         ${SOURCE_DIR}/ez_window.h
+        ${SOURCE_DIR}/ezcsqc.h
         ${SOURCE_DIR}/fchecks.h
         ${SOURCE_DIR}/fmod.h
         ${SOURCE_DIR}/fonts.h
@@ -647,6 +648,7 @@ set(client
         ${SOURCE_DIR}/cl_cmd.c
         ${SOURCE_DIR}/cl_demo.c
         ${SOURCE_DIR}/cl_ents.c
+        ${SOURCE_DIR}/cl_ezcsqc.c
         ${SOURCE_DIR}/cl_input.c
         ${SOURCE_DIR}/cl_main.c
         ${SOURCE_DIR}/cl_multiview.c
