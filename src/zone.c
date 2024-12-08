@@ -179,6 +179,7 @@ void *Hunk_AllocName(int size, const char *name)
 #ifdef SERVERONLY
 		Sys_Error("Hunk_AllocName: Not enough RAM allocated. Try starting using \"-mem 64\" (or more) on the command line.");
 #else
+		Hunk_Print(true);
 		Sys_Error("Hunk_AllocName: Not enough RAM allocated. Try starting using \"-mem 128\" (or more) on the command line.");
 #endif
 	}
