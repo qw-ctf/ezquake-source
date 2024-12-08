@@ -590,8 +590,6 @@ void Cache_Init_Commands(void)
 	Cmd_AddCommand("flush", Cache_Flush);
 	Cmd_AddCommand("cache_print", Cache_Print);
 	Cmd_AddCommand("cache_report", Cache_Report);
-
-	Cmd_AddCommand("hunk_print", Hunk_Print_f);
 }
 
 #ifndef WITH_DP_MEM
@@ -701,4 +699,6 @@ void Memory_Init(void *buf, int size)
 	hunk_high_used = 0;
 
 	Cache_Init();
+
+	Cmd_AddCommand("hunk_print", Hunk_Print_f);
 }
