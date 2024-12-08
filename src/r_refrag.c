@@ -39,7 +39,7 @@ entity_t	*r_addent;
 
 void R_Init_EFrags (void)
 {
-	cl.free_efrags = (efrag_t *) Hunk_Alloc (sizeof (efrag_t));
+	cl.free_efrags = (efrag_t *) Hunk_AllocName (sizeof (efrag_t), "efrags");
 	memset (cl.free_efrags, 0, sizeof (efrag_t));
 }
 
