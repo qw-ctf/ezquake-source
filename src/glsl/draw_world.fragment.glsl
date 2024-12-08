@@ -131,6 +131,9 @@ void main()
 
 	lmColor = texture(lightmapTex, TexCoordLightmap);
 	texColor = texture(materialTex[SamplerNumber], tex);
+	if (texColor.a == 0) {
+		texColor = vec4(1.0, 0.0, 0.0, 1.0);
+	}
 
 #ifdef DRAW_ALPHATEST_ENABLED
 	#ifdef DRAW_TEXTURELESS
