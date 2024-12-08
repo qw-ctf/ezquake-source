@@ -31,6 +31,8 @@ typedef enum {
 	framebuffer_std_blit_ms,
 	framebuffer_hud_blit,
 	framebuffer_hud_blit_ms,
+	framebuffer_wboit,
+	framebuffer_wboit_ms,
 	framebuffer_count
 } framebuffer_id;
 

@@ -758,7 +758,7 @@ void GLM_DrawWorldModelBatch(glm_brushmodel_drawcall_type type)
 
 static void GLM_DrawBrushModel2(entity_t* ent, qbool polygonOffset, qbool caustics, qbool alpha);
 void GLM_DrawBrushModel(entity_t* ent, qbool polygonOffset, qbool caustics) {
-	GLM_DrawBrushModel2(ent, polygonOffset, caustics, true);
+	GLM_DrawBrushModel2(ent, polygonOffset, caustics, false);
 }
 
 static void GLM_DrawBrushModel2(entity_t* ent, qbool polygonOffset, qbool caustics, qbool alpha)
@@ -809,6 +809,13 @@ static int GL_DrawCallComparison(const void* lhs_, const void* rhs_)
 {
 	const glm_worldmodel_req_t* lhs = (glm_worldmodel_req_t*)lhs_;
 	const glm_worldmodel_req_t* rhs = (glm_worldmodel_req_t*)rhs_;
+
+	if (lhs->alpha && !rhs->alpha) {
+		return 1;
+	}
+	if (!lhs->alpha && rhs->alpha) {
+		return -1;
+	}
 
 	if (lhs->polygonOffset && !rhs->polygonOffset) {
 		return 1;

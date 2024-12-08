@@ -94,6 +94,8 @@ static const char* framebuffer_names[] = {
 	"std-blit-ms", // framebuffer_std_blit_ms
 	"hud-blit", // framebuffer_hud_blit
 	"hud-blit-ms", // framebuffer_hud_blit_ms
+	"wboit", // framebuffer_wboit
+	"wboit-ms", // framebuffer_wboit_ms
 };
 static const char* framebuffer_texture_names[] = {
 	"std", // fbtex_standard,
@@ -111,6 +113,8 @@ static qbool framebuffer_depth_buffer[] = {
 	false, // framebuffer_std_blit_ms
 	false, // framebuffer_hud_blit
 	false, // framebuffer_hud_blit_ms
+	true, // framebuffer_wboit
+	true, // framebuffer_wboit_ms
 };
 static qbool framebuffer_hdr[] = {
 	false, // framebuffer_none
@@ -122,6 +126,8 @@ static qbool framebuffer_hdr[] = {
 	false, // framebuffer_std_blit_ms
 	false, // framebuffer_hud_blit
 	false, // framebuffer_hud_blit_ms
+	true, // framebuffer_wboit
+	true, // framebuffer_wboit_ms
 };
 static qbool framebuffer_alpha[] = {
 	false, // framebuffer_none
@@ -133,6 +139,8 @@ static qbool framebuffer_alpha[] = {
 	false, // framebuffer_std_blit_ms
 	false, // framebuffer_hud_blit
 	false, // framebuffer_hud_blit_ms
+	true, // framebuffer_wboit
+	true, // framebuffer_wboit_ms
 };
 static qbool framebuffer_multisampled[] = {
 	false, // framebuffer_none
@@ -144,6 +152,8 @@ static qbool framebuffer_multisampled[] = {
 	true, // framebuffer_std_blit_ms
 	false, // framebuffer_hud_blit
 	true, // framebuffer_hud_blit_ms
+	false, // framebuffer_wboit
+	true, // framebuffer_wboit_ms
 };
 static framebuffer_id framebuffer_multisample_alternate[] = {
 	framebuffer_none,
@@ -157,6 +167,8 @@ static framebuffer_id framebuffer_multisample_alternate[] = {
 	framebuffer_none,
 	framebuffer_none,
 	framebuffer_none,
+	framebuffer_wboit_ms,
+	framebuffer_wboit_ms,
 };
 
 #ifdef C_ASSERT

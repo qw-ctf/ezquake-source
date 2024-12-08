@@ -59,7 +59,7 @@ void GLC_PolyBlend(float v_blend[4]);
 void GLM_InitialiseAliasModelBatches(void);
 
 void R_TimeRefresh_f(void);
-static void R_DrawEntities(void);
+static void R_DrawEntities(qbool opaque);
 void R_InitOtherTextures(void);
 void R_DrawViewModel(void);
 
@@ -890,7 +890,7 @@ void R_RenderView(void)
 		renderer.DrawWaterSurfaces();
 	}
 
-	R_DrawEntities();
+	R_DrawEntities(true);
 
 	// Adds 3d effects (particles, lights, chat icons etc)
 	R_Render3DEffects();
@@ -1058,7 +1058,7 @@ static int R_DrawEntitiesSorter(const void* lhs_, const void* rhs_)
 	return 0;
 }
 
-static void R_DrawEntitiesOnList(visentlist_t *vislist, visentlist_entrytype_t type)
+static void R_DrawEntitiesOnList(visentlist_t *vislist, visentlist_entrytype_t type, qbool draw_alpha)
 {
 	int i;
 
@@ -1068,6 +1068,16 @@ static void R_DrawEntitiesOnList(visentlist_t *vislist, visentlist_entrytype_t t
 
 			if (!todraw->draw[type]) {
 				continue;
+			}
+
+			if (todraw->ent.alpha > 0.0f && todraw->ent.alpha < 1.0f) {
+				if (!draw_alpha) {
+					continue;
+				}
+			} else {
+				if (draw_alpha) {
+					continue;
+				}
 			}
 
 			switch (todraw->type) {
@@ -1122,7 +1132,7 @@ void R_PolyBlend(void)
 	renderer.PolyBlend(v_blend);
 }
 
-static void R_DrawEntities(void)
+static void R_DrawEntities(qbool opaque)
 {
 	visentlist_entrytype_t ent_type;
 
@@ -1139,11 +1149,11 @@ static void R_DrawEntities(void)
 	R_TraceEnterNamedRegion("R_DrawEntities");
 
 	R_Sprite3DInitialiseBatch(SPRITE3D_ENTITIES, r_state_sprites_textured, null_texture_reference, 0, r_primitive_triangle_strip);
-	qsort(cl_visents.list, cl_visents.count, sizeof(cl_visents.list[0]), R_DrawEntitiesSorter);
+	//qsort(cl_visents.list, cl_visents.count, sizeof(cl_visents.list[0]), R_DrawEntitiesSorter);
 	for (ent_type = 0; ent_type < visent_max; ++ent_type) {
-		R_DrawEntitiesOnList(&cl_visents, ent_type);
+		R_DrawEntitiesOnList(&cl_visents, ent_type, !opaque);
 	}
-	if (R_UseModernOpenGL() || R_UseVulkan()) {
+	if ((R_UseModernOpenGL() || R_UseVulkan()) && opaque) {
 		R_DrawViewModel();
 	}
 	R_TraceLeaveNamedRegion();
