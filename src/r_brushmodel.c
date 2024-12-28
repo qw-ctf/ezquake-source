@@ -30,6 +30,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "r_lightmaps.h"
 #include "r_lighting.h"
 #include "glc_state.h"
+#include <float.h>
 
 unsigned int* modelIndexes;
 unsigned int modelIndexMaximum;
@@ -60,15 +61,51 @@ static int R_BrushModelMeasureIndexSize(model_t* m)
 	return (total_surf_verts)+(total_surfaces - 1);
 }
 
+static int CompareMarkSurface (const void *pa, const void *pb)
+{
+	msurface_t *sa = &cl.worldmodel->surfaces[((glm_gpuvis_marksurf_t *)pa)->surfindex];
+	msurface_t *sb = &cl.worldmodel->surfaces[((glm_gpuvis_marksurf_t *)pb)->surfindex];
+	return sb->numedges - sa->numedges;
+}
+
+void Mod_CalcSurfaceBounds (msurface_t *s, float mins[3], float maxs[3])
+{
+	int			i, e;
+	mvertex_t	*v;
+
+	mins[0] = mins[1] = mins[2] = FLT_MAX;
+	maxs[0] = maxs[1] = maxs[2] = -FLT_MAX;
+
+	for (i=0 ; i<s->numedges ; i++)
+	{
+		e = cl.worldmodel->surfedges[s->firstedge+i];
+		if (e >= 0)
+			v = &cl.worldmodel->vertexes[cl.worldmodel->edges[e].v[0]];
+		else
+			v = &cl.worldmodel->vertexes[cl.worldmodel->edges[-e].v[1]];
+
+		mins[0] = min (mins[0], v->position[0]);
+		mins[1] = min (mins[1], v->position[1]);
+		mins[2] = min (mins[2], v->position[2]);
+
+		maxs[0] = max (maxs[0], v->position[0]);
+		maxs[1] = max (maxs[1], v->position[1]);
+		maxs[2] = max (maxs[2], v->position[2]);
+	}
+}
+
 void R_BrushModelCreateVBO(void)
 {
-	int i;
+	int i, j, sum, nummark;
 	int size = 0;
 	int position = 0;
 	int indexes = 0;
 	int max_entity_indexes = 0;
 	void* buffer = NULL;
 	unsigned int buffer_size;
+	glm_gpuvis_marksurf_t *mark;
+	glm_gpuvis_draw_indirect_t *cmds;
+	glm_gpuvis_surf_t *surfs;
 
 	for (i = 1; i < MAX_MODELS; ++i) {
 		model_t* mod = cl.model_precache[i];
@@ -138,6 +175,49 @@ void R_BrushModelCreateVBO(void)
 	buffers.Create(r_buffer_brushmodel_vertex_data, buffertype_vertex, "brushmodel-vbo", buffer_size, buffer, bufferusage_reuse_many_frames);
 
 	Q_free(buffer);
+
+	nummark = 0;
+	for (i = 0; i < cl.worldmodel->numleafs; i++)
+		nummark += cl.worldmodel->leafs[i + 1].nummarksurfaces;
+
+	mark = Q_malloc(nummark * sizeof(glm_gpuvis_marksurf_t));
+	for (i = sum = 0; i < cl.worldmodel->numleafs; i++)
+	{
+		mleaf_t *leaf = &cl.worldmodel->leafs[i + 1];
+		uint32_t packedleafsky = (i << 1) | (leaf->contents == CONTENTS_SKY);
+		for (j = 0; j < leaf->nummarksurfaces; j++)
+		{
+			mark[sum + j].packedleafsky = packedleafsky;
+			mark[sum + j].surfindex = &leaf->firstmarksurface[j] - cl.worldmodel->marksurfaces;
+		}
+		qsort (mark + sum, j, sizeof (*mark), CompareMarkSurface);
+		sum += j;
+	}
+
+	buffers.Create(r_buffer_gpuvis_marksurf, buffertype_storage, "gpuvis-marksurf-vbo", sizeof(glm_gpuvis_marksurf_t ) * nummark, mark, bufferusage_reuse_many_frames);
+	Q_free(mark);
+
+	surfs = Q_malloc(cl.worldmodel->numsurfaces * sizeof(glm_gpuvis_surf_t));
+	// fill worldmodel surface data
+	for (i = 0; i < cl.worldmodel->numsurfaces; i++)
+	{
+		float mins[3], maxs[3];
+		msurface_t *src = &cl.worldmodel->surfaces[i];
+		glm_gpuvis_surf_t *dst = &surfs[i];
+		float flip = (src->flags & SURF_PLANEBACK) ? -1.f : 1.f;
+		Mod_CalcSurfaceBounds(src, mins, maxs);
+		memcpy (dst->mins, mins, 3 * sizeof (float));
+		memcpy (dst->maxs, maxs, 3 * sizeof (float));
+		dst->plane[0] = src->plane->normal[0] * flip;
+		dst->plane[1] = src->plane->normal[1] * flip;
+		dst->plane[2] = src->plane->normal[2] * flip;
+		dst->plane[3] = src->plane->dist * flip;
+		dst->texnum = src->texinfo->texture->gl_texturenum.index;
+		dst->numedges = src->numedges;
+		dst->firstvert = src->polys[0].vbo_start;
+	}
+	buffers.Create(r_buffer_gpuvis_surf, buffertype_storage, "gpuvis-surf-vbo", sizeof(glm_gpuvis_surf_t ) * cl.worldmodel->numsurfaces, surfs, bufferusage_reuse_many_frames);
+	Q_free(surfs);
 }
 
 static int R_BrushModelMeasureVBOSize(model_t* m)

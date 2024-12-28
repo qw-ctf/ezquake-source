@@ -10,7 +10,7 @@ option(USE_SYSTEM_LIBS          "Use system libraries instead of VCPKG"       ON
 option(RENDERER_MODERN_OPENGL   "Enable modern OpenGL renderer"               ON)
 option(RENDERER_CLASSIC_OPENGL  "Enable classic OpenGL renderer"              ON)
 option(DEBUG_MEMORY_ALLOCATIONS "Enable debug prints for memory allocations" OFF)
-option(RENDERING_TRACE          "Enable tracing of the rendering pipeline"   OFF)
+option(RENDERING_TRACE          "Enable tracing of the rendering pipeline"    ON)
 option(ENABLE_SANDBOX           "Enables application sandboxing (macOS)"      ON)
 option(ENABLE_LTO               "Enable Link Time Optimization"               ON)
 
@@ -276,6 +276,7 @@ if(RENDERER_MODERN_OPENGL)
     add_resources(shaders_modern
             ${MODERN_GLSL_DIR}/common.glsl
             ${MODERN_GLSL_DIR}/constants.glsl
+            ${MODERN_GLSL_DIR}/cull_mark.compute.glsl
             ${MODERN_GLSL_DIR}/draw_aliasmodel.fragment.glsl
             ${MODERN_GLSL_DIR}/draw_aliasmodel.vertex.glsl
             ${MODERN_GLSL_DIR}/draw_sprites.fragment.glsl

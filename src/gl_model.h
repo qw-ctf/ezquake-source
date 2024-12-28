@@ -160,6 +160,31 @@ typedef struct vbo_model_vert_s {
 	int padding4;
 } vbo_model_vert_t;
 
+typedef struct glm_draw_indirect_s {
+	uint32_t	count;
+	uint32_t	instanceCount;
+	uint32_t	firstIndex;
+	uint32_t	baseVertex;
+	uint32_t	baseInstance;
+} glm_gpuvis_draw_indirect_t;
+
+typedef struct glm_marksurf_s {
+	uint32_t	packedleafsky; // bit 0=sky; bits 1..31=leafindex
+	uint32_t	surfindex;
+} glm_gpuvis_marksurf_t;
+
+typedef struct glm_surf_s {
+	float		plane[4];
+	uint32_t	framecount;
+	uint32_t	texnum;
+	uint32_t	numedges;
+	uint32_t	firstvert;
+	vec3_t		mins;
+	uint32_t	padding0;
+	vec3_t		maxs;
+	uint32_t	padding1;
+} glm_gpuvis_surf_t;
+
 typedef struct glpoly_s {
 	struct	glpoly_s	*next;
 #ifdef RENDERER_OPTION_CLASSIC_OPENGL

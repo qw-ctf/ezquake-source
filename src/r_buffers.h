@@ -25,7 +25,9 @@ typedef enum {
 	r_buffer_hud_circle_vertex_data,
 	r_buffer_postprocess_vertex_data,
 	r_buffer_frame_constants,
-
+	r_buffer_gpuvis_surf,
+	r_buffer_gpuvis_marksurf,
+	r_buffer_gpuvis_drawindirect,
 	r_buffer_count
 } r_buffer_id;
 

@@ -66,6 +66,9 @@ typedef struct glm_worldmodel_req_s {
 	int nonDynamicSampler;
 } glm_worldmodel_req_t;
 
+
+
+
 typedef struct glm_brushmodel_drawcall_s {
 	uniform_block_world_calldata_t calls[MAX_WORLDMODEL_BATCH];
 	sampler_mapping_t mappings[MAX_SAMPLER_MAPPINGS];
