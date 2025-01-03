@@ -36,7 +36,7 @@ in vec3 LumaCoord;
 #endif
 in vec3 FlatColor;
 in flat int Flags;
-uniform int SamplerNumber;
+in flat int SamplerNumber;
 in vec3 Direction;
 #ifdef DRAW_GEOMETRY
 in vec3 Normal;

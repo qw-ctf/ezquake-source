@@ -361,7 +361,7 @@ static qbool GLM_DuplicatePreviousRequest(model_t* model, float alpha, int num_t
 	if (drawcall->batch_count) {
 		req = &drawcall->worldmodel_requests[drawcall->batch_count - 1];
 
-		if (model == req->model && req->samplerMappingCount == num_textures && req->firstTexture == first_texture && drawcall->batch_count < MAX_WORLDMODEL_BATCH) {
+		if (model == req->model && req->samplerMappingCount == num_textures && drawcall->batch_count < MAX_WORLDMODEL_BATCH) {
 			// Duplicate details from previous request, but with different matrix
 			glm_worldmodel_req_t* newreq = &drawcall->worldmodel_requests[drawcall->batch_count];
 
@@ -663,22 +663,19 @@ static void GLM_DrawWorldExecuteCalls(glm_brushmodel_drawcall_t* drawcall, uintp
 
 	for (i = begin; i < begin + count; ++i) {
 		glm_worldmodel_req_t* req = &drawcall->worldmodel_requests[i];
-		int sampler = req->nonDynamicSampler;
 		int batchCount = 1;
 
-		if (prevSampler != sampler || req->isAlphaTested != prev_alphaTested) {
+		if (req->isAlphaTested != prev_alphaTested) {
 			if (req->isAlphaTested) {
 				R_ProgramUse(r_program_brushmodel_alphatested);
-				R_ProgramUniform1i(r_program_uniform_brushmodel_alphatested_sampler, prevSampler = sampler);
 			}
 			else {
 				R_ProgramUse(r_program_brushmodel);
-				R_ProgramUniform1i(r_program_uniform_brushmodel_sampler, prevSampler = sampler);
 			}
 			prev_alphaTested = req->isAlphaTested;
 		}
 
-		while (i + batchCount < begin + count && drawcall->worldmodel_requests[i + batchCount].nonDynamicSampler == sampler && drawcall->worldmodel_requests[i + batchCount].isAlphaTested == req->isAlphaTested) {
+		while (i + batchCount < begin + count && drawcall->worldmodel_requests[i + batchCount].isAlphaTested == req->isAlphaTested) {
 			++batchCount;
 		}
 
@@ -770,7 +767,7 @@ void GLM_DrawBrushModel(entity_t* ent, qbool polygonOffset, qbool caustics)
 	}
 
 	if (model->drawflat_chain) {
-		req = GLM_NextBatchRequest(model, 1.0f, 0, 0, false, false, false, false);
+		req = GLM_NextBatchRequest(model, 1.0f, 0, 0, false, false, true, false);
 
 		req = GLM_DrawFlatChain(req, model->drawflat_chain);
 
@@ -788,10 +785,10 @@ void GLM_DrawBrushModel(entity_t* ent, qbool polygonOffset, qbool caustics)
 			continue;
 		}
 
-		req = GLM_NextBatchRequest(model, 1.0f, 1, i, polygonOffset, caustics, false, tex->isAlphaTested);
+		req = GLM_NextBatchRequest(model, 1.0f, 1, i, polygonOffset, caustics, true, tex->isAlphaTested);
 		tex = R_TextureAnimation(ent, tex);
 		if (!GLM_AssignTexture(i, tex)) {
-			req = GLM_NextBatchRequest(model, 1.0f, 1, i, polygonOffset, caustics, false, tex->isAlphaTested);
+			req = GLM_NextBatchRequest(model, 1.0f, 1, i, polygonOffset, caustics, true, tex->isAlphaTested);
 			GLM_AssignTexture(i, tex);
 		}
 
@@ -851,6 +848,7 @@ static void GL_SortDrawCalls(glm_brushmodel_drawcall_t* drawcall)
 		drawcall->calls[i].flags = thisReq->flags;
 		memcpy(drawcall->calls[i].modelMatrix, thisReq->mvMatrix, sizeof(drawcall->calls[i].modelMatrix));
 		drawcall->calls[i].samplerBase = thisReq->samplerMappingBase;
+		drawcall->calls[i].sampler = thisReq->nonDynamicSampler;
 		thisReq->baseInstance = i;
 	}
 }
