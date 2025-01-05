@@ -347,7 +347,11 @@ void R_Frustum(double left, double right, double bottom, double top, double zNea
 
 #ifdef RENDERER_OPTION_CLASSIC_OPENGL
 	if (R_UseImmediateOpenGL()) {
-		GLC_Frustum(left, right, bottom, top, zNear, zFar);
+		if (glConfig.reversed_depth) {
+			GLC_FrustumReverseZ(left, right, bottom, top, zNear, zFar);
+		} else {
+			GLC_Frustum(left, right, bottom, top, zNear, zFar);
+		}
 	}
 #endif
 }

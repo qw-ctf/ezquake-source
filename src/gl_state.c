@@ -251,6 +251,8 @@ rendering_state_t* R_InitRenderingState(r_state_id id, qbool default_state, cons
 	state->depth.func = r_depthfunc_less;
 	state->depth.nearRange = 0;
 	state->depth.farRange = 1;
+	state->depth.nearRangeInv = 0;
+	state->depth.farRangeInv = 1;
 	state->depth.test_enabled = false;
 	state->depth.mask_enabled = false;
 
@@ -364,10 +366,6 @@ void GL_ApplyRenderingState(r_state_id id)
 	rendering_state_t* state = &states[id];
 	extern cvar_t gl_brush_polygonoffset;
 	rendering_state_t* current = &opengl.rendering_state;
-	float zRange[2] = {
-		glConfig.reversed_depth && false ? 1.0f - state->depth.nearRange : state->depth.nearRange,
-		glConfig.reversed_depth && false ? 1.0f - state->depth.farRange : state->depth.farRange,
-	};
 
 	R_TraceEnterRegion(va("GL_ApplyRenderingState(%s)", state->name), true);
 
@@ -382,12 +380,22 @@ void GL_ApplyRenderingState(r_state_id id)
 			R_TraceLogAPICall("glDepthFunc(%s)", txtDepthFunctions[current->depth.func]);
 		}
 	}
-	if (zRange[0] != current->depth.nearRange || zRange[1] != current->depth.farRange) {
-		glDepthRange(
-			current->depth.nearRange = zRange[0],
-			current->depth.farRange = zRange[1]
-		);
-		R_TraceLogAPICall("glDepthRange(%f,%f)", zRange[0], zRange[1]);
+	if (glConfig.reversed_depth) {
+		if (state->depth.nearRangeInv != current->depth.nearRangeInv || state->depth.farRangeInv != current->depth.farRangeInv) {
+			glDepthRange(
+				current->depth.nearRangeInv = state->depth.nearRangeInv,
+				current->depth.farRangeInv = state->depth.farRangeInv
+			);
+			R_TraceLogAPICall("glDepthRange(%f,%f)", state->depth.nearRangeInv, state->depth.farRangeInv);
+		}
+	} else {
+		if (state->depth.nearRange != current->depth.nearRange || state->depth.farRange != current->depth.farRange) {
+			glDepthRange(
+				current->depth.nearRange = state->depth.nearRange,
+				current->depth.farRange = state->depth.farRange
+			);
+			R_TraceLogAPICall("glDepthRange(%f,%f)", state->depth.nearRange, state->depth.farRange);
+		}
 	}
 	if (state->cullface.mode != current->cullface.mode) {
 		glCullFace(glCullFaceValues[current->cullface.mode = state->cullface.mode]);
@@ -1744,16 +1752,27 @@ static void GL_DownloadState(rendering_state_t* state, GLuint* gl_bound2d, GLuin
 
 	// depth buffer
 	{
+		const rendering_state_t* expected = &opengl.rendering_state;
 		float range[2];
 		GLint glInt = 0;
 
 		glGetFloatv(GL_DEPTH_RANGE, range);
 
-		state->depth.farRange = range[1];
-		state->depth.func = GL_FindIntegerInEnum(GL_DEPTH_FUNC, glDepthFunctions, sizeof(glDepthFunctions) / sizeof(glDepthFunctions[0]));
+		if (glConfig.reversed_depth) {
+			state->depth.nearRange = expected->depth.nearRange;
+			state->depth.nearRangeInv = range[0];
+			state->depth.farRange = expected->depth.farRange;
+			state->depth.farRangeInv = range[1];
+			state->depth.func = GL_FindIntegerInEnum(GL_DEPTH_FUNC, glReversedDepthFunctions, sizeof(glReversedDepthFunctions) / sizeof(glReversedDepthFunctions[0]));
+		} else {
+			state->depth.nearRange = range[0];
+			state->depth.nearRangeInv = expected->depth.nearRangeInv;
+			state->depth.farRange = range[1];
+			state->depth.farRangeInv = expected->depth.farRangeInv;
+			state->depth.func = GL_FindIntegerInEnum(GL_DEPTH_FUNC, glDepthFunctions, sizeof(glDepthFunctions) / sizeof(glDepthFunctions[0]));
+		}
 		glGetIntegerv(GL_DEPTH_WRITEMASK, &glInt);
 		state->depth.mask_enabled = (glInt != GL_FALSE);
-		state->depth.nearRange = range[0];
 		state->depth.test_enabled = GL_IsEnabled(GL_DEPTH_TEST);
 	}
 
