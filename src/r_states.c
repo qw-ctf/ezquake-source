@@ -299,9 +299,11 @@ static void R_InitialiseEntityStates(void)
 
 	state = R_CopyRenderingState(r_state_weaponmodel_outline, r_state_aliasmodel_outline, "weaponmodel-outline");
 	state->depth.farRange = R_UseImmediateOpenGL() ? 0.3f : state->depth.farRange;
+	state->depth.nearRangeInv = R_UseImmediateOpenGL() ? 0.7f : state->depth.nearRangeInv;
 
 	state = R_CopyRenderingState(r_state_weaponmodel_powerupshell, r_state_aliasmodel_powerupshell, "weaponmodel-shell");
 	state->depth.farRange = R_UseImmediateOpenGL() ? 0.3f : state->depth.farRange;
+	state->depth.nearRangeInv = R_UseImmediateOpenGL() ? 0.7f : state->depth.nearRangeInv;
 
 	state = R_InitRenderingState(r_state_aliasmodel_notexture_opaque, true, "opaqueAliasModelNoTexture", vao_aliasmodel);
 	state->blendFunc = r_blendfunc_premultiplied_alpha;
@@ -345,14 +347,18 @@ static void R_InitialiseEntityStates(void)
 
 	state = R_CopyRenderingState(r_state_weaponmodel_singletexture_opaque, r_state_aliasmodel_singletexture_opaque, "weaponModelSingleOpaque");
 	state->depth.farRange = R_UseImmediateOpenGL() ? 0.3f : state->depth.farRange;
+	state->depth.nearRangeInv = R_UseImmediateOpenGL() ? 0.7f : state->depth.nearRangeInv;
 	state = R_CopyRenderingState(r_state_weaponmodel_multitexture_opaque, r_state_weaponmodel_singletexture_opaque, "weaponModelMultiOpaque");
 	state->depth.farRange = R_UseImmediateOpenGL() ? 0.3f : state->depth.farRange;
+	state->depth.nearRangeInv = R_UseImmediateOpenGL() ? 0.7f : state->depth.nearRangeInv;
 
 	// transparent
 	state = R_CopyRenderingState(r_state_weaponmodel_singletexture_transparent, r_state_aliasmodel_singletexture_transparent, "weaponModelSingleTransparent");
 	state->depth.farRange = R_UseImmediateOpenGL() ? 0.3f : state->depth.farRange;
+	state->depth.nearRangeInv = R_UseImmediateOpenGL() ? 0.7f : state->depth.nearRangeInv;
 	state = R_CopyRenderingState(r_state_weaponmodel_multitexture_transparent, r_state_weaponmodel_singletexture_transparent, "weaponModelMultiTransparent");
 	state->depth.farRange = R_UseImmediateOpenGL() ? 0.3f : state->depth.farRange;
+	state->depth.nearRangeInv = R_UseImmediateOpenGL() ? 0.7f : state->depth.nearRangeInv;
 	state = R_CopyRenderingState(r_state_weaponmodel_transparent_zpass, r_state_weaponmodel_singletexture_transparent, "weaponModelZPass");
 	R_GLC_TextureUnitSet(state, 0, false, r_texunit_mode_replace);
 	state->colorMask[0] = state->colorMask[1] = state->colorMask[2] = state->colorMask[3] = false;
@@ -360,6 +366,7 @@ static void R_InitialiseEntityStates(void)
 	// additive
 	state = R_CopyRenderingState(r_state_weaponmodel_singletexture_additive, r_state_aliasmodel_singletexture_additive, "weaponModelSingleAdditive");
 	state->depth.farRange = R_UseImmediateOpenGL() ? 0.3f : state->depth.farRange;
+	state->depth.nearRangeInv = R_UseImmediateOpenGL() ? 0.7f : state->depth.nearRangeInv;
 
 	state = R_InitRenderingState(r_state_aliasmodel_shadows, true, "aliasModelShadowState", vao_aliasmodel);
 	state->polygonOffset.option = r_polygonoffset_disabled;

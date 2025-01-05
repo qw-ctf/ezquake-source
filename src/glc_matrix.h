@@ -34,6 +34,7 @@ void GLC_OrthographicProjection(float left, float right, float top, float bottom
 void GLC_PopProjectionMatrix(const float* matrix);
 void GLC_ScaleModelview(float xScale, float yScale, float zScale);
 void GLC_Frustum(double left, double right, double bottom, double top, double zNear, double zFar);
+void GLC_FrustumReverseZ(double left, double right, double bottom, double top, double zNear, double zFar);
 void GLC_PauseMatrixUpdate(void);
 void GLC_ResumeMatrixUpdate(void);
 void GLC_BeginCausticsTextureMatrix(void);

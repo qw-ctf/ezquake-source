@@ -119,6 +119,8 @@ typedef struct rendering_state_s {
 		r_depthfunc_t func;
 		double nearRange;
 		double farRange;
+		double nearRangeInv;
+		double farRangeInv;
 		qbool test_enabled;
 		qbool mask_enabled;
 	} depth;

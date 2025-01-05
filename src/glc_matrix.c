@@ -84,6 +84,26 @@ void GLC_ScaleModelview(float xScale, float yScale, float zScale)
 	}
 }
 
+void GLC_FrustumReverseZ(GLdouble left, GLdouble right,
+                         GLdouble bottom, GLdouble top,
+                         GLdouble zNear, GLdouble zFar)
+{
+	GLdouble A = (right + left) / (right - left);
+	GLdouble B = (top + bottom) / (top - bottom);
+	GLdouble C = -zFar / (zNear - zFar) - 1;
+	GLdouble D = -(zNear * zFar) / (zNear - zFar);
+
+	GLdouble projection[16] = {
+		2 * zNear / (right - left), 0,                          0,                          0,
+		0,                          2 * zNear / (top - bottom), 0,                          0,
+		A,                          B,                          C,                         -1,
+		0,                          0,                          D,                          0
+	};
+
+	glMatrixMode(GL_PROJECTION);
+	glLoadMatrixd(projection);
+}
+
 void GLC_Frustum(double left, double right, double bottom, double top, double zNear, double zFar)
 {
 	R_TraceLogAPICall("%s()", __func__);
