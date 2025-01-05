@@ -364,10 +364,6 @@ void GL_ApplyRenderingState(r_state_id id)
 	rendering_state_t* state = &states[id];
 	extern cvar_t gl_brush_polygonoffset;
 	rendering_state_t* current = &opengl.rendering_state;
-	float zRange[2] = {
-		glConfig.reversed_depth && false ? 1.0f - state->depth.nearRange : state->depth.nearRange,
-		glConfig.reversed_depth && false ? 1.0f - state->depth.farRange : state->depth.farRange,
-	};
 
 	R_TraceEnterRegion(va("GL_ApplyRenderingState(%s)", state->name), true);
 
@@ -382,12 +378,12 @@ void GL_ApplyRenderingState(r_state_id id)
 			R_TraceLogAPICall("glDepthFunc(%s)", txtDepthFunctions[current->depth.func]);
 		}
 	}
-	if (zRange[0] != current->depth.nearRange || zRange[1] != current->depth.farRange) {
+	if (state->depth.nearRange != current->depth.nearRange || state->depth.farRange != current->depth.farRange) {
 		glDepthRange(
-			current->depth.nearRange = zRange[0],
-			current->depth.farRange = zRange[1]
+			current->depth.nearRange = state->depth.nearRange,
+			current->depth.farRange = state->depth.farRange
 		);
-		R_TraceLogAPICall("glDepthRange(%f,%f)", zRange[0], zRange[1]);
+		R_TraceLogAPICall("glDepthRange(%f,%f)", state->depth.nearRange, state->depth.farRange);
 	}
 	if (state->cullface.mode != current->cullface.mode) {
 		glCullFace(glCullFaceValues[current->cullface.mode = state->cullface.mode]);

@@ -281,9 +281,9 @@ void GL_InitialiseFramebufferHandling(void)
 
 	// meag: disabled (classic needs glFrustum replaced, modern needs non-rubbish viewweapon
 	//                 depth hack, and near-plane clipping issues when the player is gibbed)
-	/*if (GL_VersionAtLeast(4, 5) || SDL_GL_ExtensionSupported("GL_ARB_clip_control")) {
+	if (GL_VersionAtLeast(4, 5) || SDL_GL_ExtensionSupported("GL_ARB_clip_control")) {
 		GL_LoadOptionalFunction(glClipControl);
-	}*/
+	}
 
 	memset(framebuffer_data, 0, sizeof(framebuffer_data));
 }
