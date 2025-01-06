@@ -402,6 +402,8 @@ static glm_worldmodel_req_t* GLM_NextBatchRequest(model_t* model, float alpha, i
 	glm_brushmodel_drawcall_t* drawcall = &drawcalls[current_drawcall];
 	float mvMatrix[16];
 
+	glm_brushmodel_drawcall_type desired_type = alpha < 1.0f ? alpha_surfaces : opaque_world;
+
 	R_GetModelviewMatrix(mvMatrix);
 
 	// If user has switched off caustics (or no texture), ignore
@@ -410,7 +412,12 @@ static glm_worldmodel_req_t* GLM_NextBatchRequest(model_t* model, float alpha, i
 	}
 
 	// See if previous batch has same texture & matrix, if so just continue
-	if (drawcall->batch_count) {
+	if (drawcall->type != desired_type)
+	{
+		drawcall = GL_FlushWorldModelBatch();
+		drawcall->type = desired_type;
+	}
+	else if (drawcall->batch_count) {
 		req = &drawcall->worldmodel_requests[drawcall->batch_count - 1];
 
 		if (allow_duplicate && model == req->model && req->samplerMappingCount == num_textures && req->firstTexture == first_texture && drawcall->batch_count < MAX_WORLDMODEL_BATCH && isAlphaTested == req->isAlphaTested) {
@@ -430,7 +437,7 @@ static glm_worldmodel_req_t* GLM_NextBatchRequest(model_t* model, float alpha, i
 		}
 
 		// Try and continue the previous batch
-		if (worldmodel == req->worldmodel && !memcmp(req->mvMatrix, mvMatrix, sizeof(req->mvMatrix)) && polygonOffset == req->polygonOffset && req->flags == flags && req->isAlphaTested == isAlphaTested && ((req->alpha < 1.0f) == (alpha < 1.0f))) {
+		if (worldmodel == req->worldmodel && !memcmp(req->mvMatrix, mvMatrix, sizeof(req->mvMatrix)) && polygonOffset == req->polygonOffset && req->flags == flags && req->isAlphaTested == isAlphaTested && req->alpha == alpha) {
 			if (num_textures == 0) {
 				// We don't care about materials, so can draw with previous batch
 				return req;
@@ -450,19 +457,6 @@ static glm_worldmodel_req_t* GLM_NextBatchRequest(model_t* model, float alpha, i
 
 	if (drawcall->sampler_mappings >= MAX_SAMPLER_MAPPINGS || drawcall->batch_count >= MAX_WORLDMODEL_BATCH) {
 		drawcall = GL_FlushWorldModelBatch();
-	}
-
-	if (alpha < 1.0f)
-	{
-		if (drawcall->type != alpha_surfaces) {
-			drawcall = GL_FlushWorldModelBatch();
-			drawcall->type = alpha_surfaces;
-		}
-	} else {
-		if (drawcall->type != opaque_world) {
-			drawcall = GL_FlushWorldModelBatch();
-			drawcall->type = opaque_world;
-		}
 	}
 
 	req = &drawcall->worldmodel_requests[drawcall->batch_count];
@@ -825,7 +819,6 @@ void GLM_DrawBrushModel(entity_t* ent, qbool polygonOffset, qbool caustics)
 	}
 }
 
-/* TODO: rerenable when respecting alpha
 static int GL_DrawCallComparison(const void* lhs_, const void* rhs_)
 {
 	const glm_worldmodel_req_t* lhs = (glm_worldmodel_req_t*)lhs_;
@@ -847,7 +840,6 @@ static int GL_DrawCallComparison(const void* lhs_, const void* rhs_)
 
 	return lhs->nonDynamicSampler - rhs->nonDynamicSampler;
 }
-*/
 
 static void GL_SortDrawCalls(glm_brushmodel_drawcall_t* drawcall)
 {
@@ -870,7 +862,11 @@ static void GL_SortDrawCalls(glm_brushmodel_drawcall_t* drawcall)
 		}
 	}
 
-	//qsort(drawcall->worldmodel_requests, drawcall->batch_count, sizeof(drawcall->worldmodel_requests[0]), GL_DrawCallComparison);
+	// Translucent bmodels are put into requests based on their distance from view
+	// and sorting here will break that order.
+	if (drawcall->type == opaque_world) {
+		qsort(drawcall->worldmodel_requests, drawcall->batch_count, sizeof(drawcall->worldmodel_requests[0]), GL_DrawCallComparison);
+	}
 
 	for (i = 0; i < drawcall->batch_count; ++i) {
 		glm_worldmodel_req_t* thisReq = &drawcall->worldmodel_requests[i];

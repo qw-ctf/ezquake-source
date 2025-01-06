@@ -203,7 +203,7 @@ void main()
 #endif
 		}
 		else {
-			frag_colour = texColor * waterAlpha;
+			frag_colour = texColor;
 			if ((Flags & EZQ_SURFACE_LIT_TURB) > 0) {
 				frag_colour = vec4(lmColor.rgb, 1) * frag_colour;
 			}
