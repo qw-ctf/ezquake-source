@@ -36,13 +36,13 @@ in vec3 LumaCoord;
 #endif
 in vec3 FlatColor;
 in flat int Flags;
-uniform int SamplerNumber;
 in vec3 Direction;
 #ifdef DRAW_GEOMETRY
 in vec3 Normal;
 in vec4 UnClipped;
 #endif
 
+in flat int sampler_index;
 in float mix_floor;
 in float mix_wall;
 
@@ -121,7 +121,7 @@ void main()
 	);
 #endif
 #if defined(DRAW_LUMA_TEXTURES) || defined(DRAW_LUMA_TEXTURES_FB)
-	vec4 lumaColor = texture(materialTex[SamplerNumber], LumaCoord);
+	vec4 lumaColor = texture(materialTex[sampler_index], LumaCoord);
 #endif
 
 	vec3 tex = TextureCoord;
@@ -130,11 +130,11 @@ void main()
 	tex.t = mix(TextureCoord.t, TextureCoord.t + (sin((TextureCoord.s + time) * 1.5) * 0.125), min(1, Flags & EZQ_SURFACE_TYPE));
 
 	lmColor = texture(lightmapTex, TexCoordLightmap);
-	texColor = texture(materialTex[SamplerNumber], tex);
+	texColor = texture(materialTex[sampler_index], tex);
 
 #ifdef DRAW_ALPHATEST_ENABLED
 	#ifdef DRAW_TEXTURELESS
-		texColor = vec4(texture(materialTex[SamplerNumber], TextureLessCoord).rgb, texColor.a);
+		texColor = vec4(texture(materialTex[sampler_index], TextureLessCoord).rgb, texColor.a);
 	#endif
 	if ((Flags & EZQ_SURFACE_ALPHATEST) == EZQ_SURFACE_ALPHATEST && texColor.a < 0.5) {
 		discard;
