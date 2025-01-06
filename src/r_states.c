@@ -123,8 +123,13 @@ static void R_InitialiseWorldStates(void)
 	state->polygonOffset.option = r_polygonoffset_standard;
 
 	state = R_InitRenderingState(r_state_alpha_surfaces_glm, true, "glmAlphaWorldState", vao_brushmodel);
+	state->depth.test_enabled = true;
 	state->blendingEnabled = true;
 	state->blendFunc = r_blendfunc_premultiplied_alpha;
+	state->polygonOffset.option = r_polygonoffset_standard;
+
+	state = R_CopyRenderingState(r_state_oit_accumulate, r_state_alpha_surfaces_glm, "glmAlphaWorldStateOitAccumulate");
+	state->blendFunc = r_blendfunc_src_one_dest_one;
 	state->polygonOffset.option = r_polygonoffset_standard;
 
 	R_InitRenderingState(r_state_opaque_surfaces_glm, true, "glmWorldState", vao_brushmodel);
@@ -228,6 +233,12 @@ static void R_Initialise2DStates(void)
 	R_GLC_EnableAlphaTesting(state); // really?
 	state->blendingEnabled = true;
 	state->blendFunc = r_blendfunc_premultiplied_alpha;
+
+	state = R_InitRenderingState(r_state_oit_compose, true, "glmOitAlphaCompose", postprocess_vao);
+	state->depth.test_enabled = false;
+	state->depth.mask_enabled = false;
+	state->blendingEnabled = true;
+	state->blendFunc = r_blendfunc_src_alpha_dest_one_minus_src_alpha;
 }
 
 static void R_InitialiseSpriteStates(void)
@@ -384,6 +395,7 @@ static void R_InitialiseEntityStates(void)
 	state = R_CopyRenderingState(r_state_aliasmodel_translucent_batch, r_state_aliasmodel_opaque_batch, "aliasModelTranslucentBatchState");
 	state->blendFunc = r_blendfunc_premultiplied_alpha;
 	state->blendingEnabled = true;
+	state->depth.mask_enabled = false;
 
 	state = R_CopyRenderingState(r_state_aliasmodel_translucent_batch_zpass, r_state_aliasmodel_opaque_batch, "aliasModelTranslucentBatchZPass");
 	state->colorMask[0] = state->colorMask[1] = state->colorMask[2] = state->colorMask[3] = false;
@@ -391,6 +403,7 @@ static void R_InitialiseEntityStates(void)
 	state = R_CopyRenderingState(r_state_aliasmodel_additive_batch, r_state_aliasmodel_opaque_batch, "aliasModelTranslucentBatchState");
 	state->blendFunc = r_blendfunc_additive_blending;
 	state->blendingEnabled = true;
+	state->depth.mask_enabled = false;
 }
 
 static void R_InitialiseBrushModelStates(void)

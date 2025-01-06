@@ -153,6 +153,8 @@ static GLenum glBlendFuncValuesSource[] = {
 	GL_ONE, // r_blendfunc_src_one_dest_zero,
 	GL_ZERO, // r_blendfunc_src_zero_dest_one,
 	GL_ONE, // r_blendfunc_src_one_dest_one_minus_src_color,
+	GL_ONE, // r_blendfunc_src_one_dest_one
+	GL_SRC_ALPHA, // r_blendfunc_src_alpha_dest_one_minus_src_alpha
 };
 static GLenum glBlendFuncValuesDestination[] = {
 	GL_ZERO, // r_blendfunc_overwrite,
@@ -166,6 +168,8 @@ static GLenum glBlendFuncValuesDestination[] = {
 	GL_ZERO, // r_blendfunc_src_one_dest_zero,
 	GL_ONE, // r_blendfunc_src_zero_dest_one,
 	GL_ONE_MINUS_SRC_COLOR, // r_blendfunc_src_one_dest_one_minus_src_color,
+	GL_ONE, // r_blendfunc_src_one_dest_one
+	GL_ONE_MINUS_SRC_ALPHA, // r_blendfunc_src_alpha_dest_one_minus_src_alpha
 };
 static GLenum glPolygonModeValues[] = {
 	GL_FILL, // r_polygonmode_fill,
@@ -217,6 +221,8 @@ static const char* txtBlendFuncNames[] = {
 	"src_one_dest_zero", // r_blendfunc_src_one_dest_zero
 	"src_zero_dest_one", // r_blendfunc_src_zero_dest_one
 	"src_one_dest_one_minus_src_color", // "r_blendfunc_src_one_dest_one_minus_src_color"
+	"src_one_dest_one", // "r_blendfunc_src_one_dest_one"
+	"src_alpha_dest_one_minus_src_alpha", // "r_blendfunc_src_alpha_dest_one_minus_src_alpha"
 };
 static const char* txtPolygonModeValues[] = {
 	"fill", // r_polygonmode_fill,
@@ -359,6 +365,9 @@ rendering_state_t* R_Init3DSpriteRenderingState(r_state_id id, const char* name)
 		current->field = state->field; \
 	}
 
+// TODO
+void GL_OitBlend(void);
+
 void GL_ApplyRenderingState(r_state_id id)
 {
 	rendering_state_t* state = &states[id];
@@ -396,6 +405,10 @@ void GL_ApplyRenderingState(r_state_id id)
 			glBlendFuncValuesDestination[state->blendFunc]
 		);
 		R_TraceLogAPICall("glBlendFunc(%s)", txtBlendFuncNames[state->blendFunc]);
+	}
+	if (state->blendFunc == r_blendfunc_src_one_dest_one)
+	{
+		GL_OitBlend();
 	}
 	if (state->line.width != current->line.width) {
 		glLineWidth(current->line.width = state->line.width);

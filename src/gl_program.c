@@ -1364,6 +1364,7 @@ static void GL_BuildCoreDefinitions(void)
 	GL_DefineProgram_VF(r_program_aliasmodel, "aliasmodel", true, draw_aliasmodel, renderer_modern, GLM_CompileAliasModelProgram, STDOPTIONS_FOG);
 	GL_DefineProgram_VF(r_program_brushmodel, "brushmodel", true, draw_world, renderer_modern, GLM_CompileDrawWorldProgram, STDOPTIONS_FOG);
 	GL_DefineProgram_VF(r_program_brushmodel_alphatested, "brushmodel-alphatested", true, draw_world, renderer_modern, GLM_CompileDrawWorldProgramAlphaTested, STDOPTIONS_FOG);
+	GL_DefineProgram_VF(r_program_brushmodel_translucent, "brushmodel-translucent", true, draw_world, renderer_modern, GLM_CompileDrawWorldProgramTranslucent, STDOPTIONS_FOG);
 	GL_DefineProgram_VF(r_program_sprite3d, "3d-sprites", false, draw_sprites, renderer_modern, GLM_Compile3DSpriteProgram, STDOPTIONS_FOG);
 	GL_DefineProgram_VF(r_program_hud_images, "image-draw", true, hud_draw_image, renderer_modern, GLM_CreateMultiImageProgram, STDOPTIONS_NONE);
 	GL_DefineProgram_VF(r_program_hud_circles, "circle-draw", false, hud_draw_circle, renderer_modern, GLM_CompileHudCircleProgram, STDOPTIONS_NONE);
@@ -1372,6 +1373,7 @@ static void GL_BuildCoreDefinitions(void)
 	GL_DefineProgram_VF(r_program_fx_world_geometry, "world-geometry", true, fx_world_geometry, renderer_modern, GLM_CompileWorldGeometryProgram, STDOPTIONS_NONE);
 	GL_DefineProgram_VF(r_program_simple, "simple", false, simple, renderer_modern, GLM_CompileSimpleProgram, STDOPTIONS_NONE);
 	GL_DefineProgram_VF(r_program_simple3d, "simple3d", false, simple3d, renderer_modern, GLM_CompileSimple3dProgram, STDOPTIONS_NONE);
+	GL_DefineProgram_VF(r_program_wboit_compose, "wboit-compose", true, wboit_compose, renderer_modern, GLM_CompileWorldGeometryProgram, STDOPTIONS_NONE);
 #endif
 
 #ifdef RENDERER_OPTION_CLASSIC_OPENGL

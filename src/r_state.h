@@ -53,7 +53,8 @@ typedef enum {
 	r_blendfunc_src_one_dest_zero,
 	r_blendfunc_src_zero_dest_one,
 	r_blendfunc_src_one_dest_one_minus_src_color,
-
+	r_blendfunc_src_one_dest_one,
+	r_blendfunc_src_alpha_dest_one_minus_src_alpha,
 	r_blendfunc_count
 } r_blendfunc_t;
 
@@ -322,6 +323,9 @@ typedef enum {
 	r_state_drawflat_without_lightmaps_unfogged_glc,
 
 	r_state_fx_world_geometry,
+
+	r_state_oit_accumulate,
+	r_state_oit_compose,
 
 	r_state_count
 } r_state_id;

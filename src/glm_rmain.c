@@ -55,6 +55,21 @@ qbool GLM_CompileWorldGeometryProgram(void)
 	return R_ProgramReady(r_program_fx_world_geometry) && GLM_CompilePostProcessVAO();
 }
 
+// If this returns false then the framebuffer will be blitted instead
+qbool GLM_CompileWboitComposeProgram(void)
+{
+	int post_process_flags = 0;
+
+	if (R_ProgramRecompileNeeded(r_program_wboit_compose, post_process_flags)) {
+		// Initialise program for drawing image
+		R_ProgramCompile(r_program_wboit_compose);
+
+		R_ProgramSetCustomOptions(r_program_wboit_compose, post_process_flags);
+	}
+
+	return R_ProgramReady(r_program_wboit_compose) && GLM_CompilePostProcessVAO();
+}
+
 static void GLM_DrawWorldOutlines(void)
 {
 	texture_ref normals = GL_FramebufferTextureReference(framebuffer_std, fbtex_worldnormals);
@@ -99,6 +114,44 @@ static void GLM_DrawWorldOutlines(void)
 	}
 }
 
+static void GLM_DrawOrderIndependentTransparency(void)
+{
+	texture_ref accum = GL_FramebufferTextureReference(framebuffer_std, fbtex_oit_accumulate);
+	texture_ref reveal = GL_FramebufferTextureReference(framebuffer_std, fbtex_oit_reveal);
+
+	if (R_TextureReferenceIsValid(accum) && R_TextureReferenceIsValid(reveal) && GLM_CompileWboitComposeProgram()) {
+		int viewport[4];
+		int fullscreen_viewport[4];
+
+		R_GetViewport(viewport);
+
+		// If we are only rendering to a section of the screen then that is the only part of the texture that will be filled in
+		if (CL_MultiviewEnabled()) {
+			R_GetFullScreenViewport(fullscreen_viewport);
+			R_Viewport(fullscreen_viewport[0], fullscreen_viewport[1], fullscreen_viewport[2], fullscreen_viewport[3]);
+			R_EnableScissorTest(viewport[0], viewport[1], viewport[2], viewport[3]);
+		} else {
+			// ignore viewsize and allat crap and set the viewport size to the whole window.
+			// previously the viewport was already resized, and then resized again later, making the outlines not align.
+			R_Viewport(0, 0, VID_ScaledWidth3D(), VID_ScaledHeight3D());
+		}
+
+		renderer.TextureUnitBind(0, accum);
+		renderer.TextureUnitBind(1, reveal);
+
+		R_ProgramUse(r_program_wboit_compose);
+		R_ApplyRenderingState(r_state_oit_compose);
+
+		GL_DrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+		// Restore viewport
+		R_Viewport(viewport[0], viewport[1], viewport[2], viewport[3]);
+		if (CL_MultiviewEnabled()) {
+			R_DisableScissorTest();
+		}
+	}
+}
+
 void GLM_RenderView(void)
 {
 	GLM_UploadFrameConstants();
@@ -124,7 +177,16 @@ void GLM_RenderView(void)
 
 	GLM_DrawWorldModelBatch(alpha_surfaces);
 
+	/*
+	GL_FrameBufferStartOrderIndependentTransparency(framebuffer_std);
+	GLM_DrawWorldModelBatch(translucent_surfaces);
+	GL_FrameBufferEndOrderIndependentTransparency(framebuffer_std);
+	*/
+
+	GLM_DrawOrderIndependentTransparency();
+
 	GLM_DrawAliasModelPostSceneBatches();
+
 }
 
 void GLM_PrepareModelRendering(qbool vid_restart)

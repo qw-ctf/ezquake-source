@@ -294,6 +294,8 @@ if(RENDERER_MODERN_OPENGL)
             ${MODERN_GLSL_DIR}/hud_draw_polygon.vertex.glsl
             ${MODERN_GLSL_DIR}/lighting.compute.glsl
             ${MODERN_GLSL_DIR}/lighting_copy.compute.glsl
+            ${MODERN_GLSL_DIR}/wboit_compose.fragment.glsl
+            ${MODERN_GLSL_DIR}/wboit_compose.vertex.glsl
             ${MODERN_GLSL_DIR}/post_process_screen.fragment.glsl
             ${MODERN_GLSL_DIR}/post_process_screen.vertex.glsl
             ${MODERN_GLSL_DIR}/simple.fragment.glsl

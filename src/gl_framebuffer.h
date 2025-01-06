@@ -39,6 +39,8 @@ typedef enum {
 	fbtex_depth,
 	fbtex_bloom,
 	fbtex_worldnormals,
+	fbtex_oit_accumulate,
+	fbtex_oit_reveal,
 	fbtex_count
 } fbtex_id;
 
@@ -60,6 +62,9 @@ qbool GL_FramebufferEnabled3D(void);
 
 qbool GL_FramebufferStartWorldNormals(framebuffer_id id);
 qbool GL_FramebufferEndWorldNormals(framebuffer_id id);
+
+qbool GL_FrameBufferStartOrderIndependentTransparency(framebuffer_id id);
+qbool GL_FrameBufferEndOrderIndependentTransparency(framebuffer_id id);
 
 int GL_FramebufferMultisamples(framebuffer_id framebuffer);
 void GL_FramebufferDeleteAll(void);

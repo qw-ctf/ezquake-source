@@ -30,8 +30,10 @@ typedef enum {
 
 	r_program_fx_world_geometry,
 	r_program_brushmodel_alphatested,
+	r_program_brushmodel_translucent,
 	r_program_simple,
 	r_program_simple3d,
+	r_program_wboit_compose,
 
 	r_program_count
 } r_program_id;

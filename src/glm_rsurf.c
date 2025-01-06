@@ -113,6 +113,9 @@ static void GLM_CheckDrawCallSize(void)
 #define DRAW_DRAWFLAT_BRIGHT       (1 << 12)
 #define DRAW_ALPHATESTED           (1 << 13)
 #define DRAW_SKYWIND               (1 << 14)
+#define DRAW_OIT                   (1 << 15)
+
+#define ENT_ALPHA(x) (x->alpha <= 0.0f ? 1.0f : x->alpha)
 
 static int material_samplers_max;
 static int TEXTURE_UNIT_MATERIAL; // Must always be the first non-standard texture unit
@@ -124,7 +127,7 @@ static int TEXTURE_UNIT_SKYDOME_TEXTURE;
 static int TEXTURE_UNIT_SKYDOME_CLOUD_TEXTURE;
 
 // We re-compile whenever certain options change, to save texture bindings/lookups
-static qbool GLM_CompileDrawWorldProgramImpl(r_program_id program_id, qbool alpha_test)
+static qbool GLM_CompileDrawWorldProgramImpl(r_program_id program_id, qbool alpha_test, qbool oit)
 {
 	extern cvar_t gl_lumatextures;
 	extern cvar_t gl_textureless;
@@ -151,7 +154,8 @@ static qbool GLM_CompileDrawWorldProgramImpl(r_program_id program_id, qbool alph
 		(gl_textureless.integer ? DRAW_TEXTURELESS : 0) |
 		((gl_outline.integer & 2) ? DRAW_GEOMETRY : 0) |
 		(alpha_test ? DRAW_ALPHATESTED : 0) |
-		(skywind ? DRAW_SKYWIND : 0);
+		(skywind ? DRAW_SKYWIND : 0) |
+		(oit ? DRAW_OIT : 0);
 
 	if (R_ProgramRecompileNeeded(program_id, drawworld_desiredOptions)) {
 		static char included_definitions[2048];
@@ -189,6 +193,9 @@ static qbool GLM_CompileDrawWorldProgramImpl(r_program_id program_id, qbool alph
 		}
 		if (drawworld_desiredOptions & DRAW_ALPHATESTED) {
 			strlcat(included_definitions, "#define DRAW_ALPHATEST_ENABLED\n", sizeof(included_definitions));
+		}
+		if (drawworld_desiredOptions & DRAW_OIT) {
+			strlcat(included_definitions, "#define DRAW_OIT\n", sizeof(included_definitions));
 		}
 
 		if (skybox) {
@@ -251,12 +258,17 @@ static qbool GLM_CompileDrawWorldProgramImpl(r_program_id program_id, qbool alph
 
 qbool GLM_CompileDrawWorldProgram(void)
 {
-	return GLM_CompileDrawWorldProgramImpl(r_program_brushmodel, false);
+	return GLM_CompileDrawWorldProgramImpl(r_program_brushmodel, false, false);
 }
 
 qbool GLM_CompileDrawWorldProgramAlphaTested(void)
 {
-	return GLM_CompileDrawWorldProgramImpl(r_program_brushmodel_alphatested, true);
+	return GLM_CompileDrawWorldProgramImpl(r_program_brushmodel_alphatested, true, false);
+}
+
+qbool GLM_CompileDrawWorldProgramTranslucent(void)
+{
+	return GLM_CompileDrawWorldProgramImpl(r_program_brushmodel_translucent, false, true);
 }
 
 static glm_worldmodel_req_t* GLM_CurrentRequest(void)
@@ -301,6 +313,7 @@ void GLM_EnterBatchedWorldRegion(void)
 {
 	GLM_CompileDrawWorldProgram();
 	GLM_CompileDrawWorldProgramAlphaTested();
+	GLM_CompileDrawWorldProgramTranslucent();
 
 	current_drawcall = 0;
 	index_count = 0;
@@ -417,7 +430,7 @@ static glm_worldmodel_req_t* GLM_NextBatchRequest(model_t* model, float alpha, i
 		}
 
 		// Try and continue the previous batch
-		if (worldmodel == req->worldmodel && !memcmp(req->mvMatrix, mvMatrix, sizeof(req->mvMatrix)) && polygonOffset == req->polygonOffset && req->flags == flags && req->isAlphaTested == isAlphaTested) {
+		if (worldmodel == req->worldmodel && !memcmp(req->mvMatrix, mvMatrix, sizeof(req->mvMatrix)) && polygonOffset == req->polygonOffset && req->flags == flags && req->isAlphaTested == isAlphaTested && ((req->alpha < 1.0f) == (alpha < 1.0f))) {
 			if (num_textures == 0) {
 				// We don't care about materials, so can draw with previous batch
 				return req;
@@ -437,6 +450,19 @@ static glm_worldmodel_req_t* GLM_NextBatchRequest(model_t* model, float alpha, i
 
 	if (drawcall->sampler_mappings >= MAX_SAMPLER_MAPPINGS || drawcall->batch_count >= MAX_WORLDMODEL_BATCH) {
 		drawcall = GL_FlushWorldModelBatch();
+	}
+
+	if (alpha < 1.0f)
+	{
+		if (drawcall->type != alpha_surfaces) {
+			drawcall = GL_FlushWorldModelBatch();
+			drawcall->type = alpha_surfaces;
+		}
+	} else {
+		if (drawcall->type != opaque_world) {
+			drawcall = GL_FlushWorldModelBatch();
+			drawcall->type = opaque_world;
+		}
 	}
 
 	req = &drawcall->worldmodel_requests[drawcall->batch_count];
@@ -588,13 +614,17 @@ qbool GLM_CompileSimple3dProgram(void)
 
 static glm_brushmodel_drawcall_t* GL_FlushWorldModelBatch(void)
 {
-	const glm_brushmodel_drawcall_t* prev;
+	glm_brushmodel_drawcall_t* prev = &drawcalls[current_drawcall];
 	glm_brushmodel_drawcall_t* current;
-	int last = current_drawcall++;
+
+	if (prev->batch_count == 0) {
+		return prev;
+	}
+
+	current_drawcall++;
 
 	GLM_CheckDrawCallSize();
 
-	prev = &drawcalls[last];
 	current = &drawcalls[current_drawcall];
 
 	memset(current, 0, sizeof(*current));
@@ -761,12 +791,12 @@ void GLM_DrawBrushModel(entity_t* ent, qbool polygonOffset, qbool caustics)
 	glm_worldmodel_req_t* req = NULL;
 	model_t* model = ent->model;
 
-	if (GLM_DuplicatePreviousRequest(model, 1.0f, model->last_texture_chained - model->first_texture_chained + 1, model->first_texture_chained, polygonOffset, caustics)) {
+	if (GLM_DuplicatePreviousRequest(model, ENT_ALPHA(ent), model->last_texture_chained - model->first_texture_chained + 1, model->first_texture_chained, polygonOffset, caustics)) {
 		return;
 	}
 
 	if (model->drawflat_chain) {
-		req = GLM_NextBatchRequest(model, 1.0f, 0, 0, false, false, false, false);
+		req = GLM_NextBatchRequest(model, ENT_ALPHA(ent), 0, 0, false, false, false, false);
 
 		req = GLM_DrawFlatChain(req, model->drawflat_chain);
 
@@ -784,10 +814,10 @@ void GLM_DrawBrushModel(entity_t* ent, qbool polygonOffset, qbool caustics)
 			continue;
 		}
 
-		req = GLM_NextBatchRequest(model, 1.0f, 1, i, polygonOffset, caustics, false, tex->isAlphaTested);
+		req = GLM_NextBatchRequest(model, ENT_ALPHA(ent), 1, i, polygonOffset, caustics, false, tex->isAlphaTested);
 		tex = R_TextureAnimation(ent, tex);
 		if (!GLM_AssignTexture(i, tex)) {
-			req = GLM_NextBatchRequest(model, 1.0f, 1, i, polygonOffset, caustics, false, tex->isAlphaTested);
+			req = GLM_NextBatchRequest(model, ENT_ALPHA(ent), 1, i, polygonOffset, caustics, false, tex->isAlphaTested);
 			GLM_AssignTexture(i, tex);
 		}
 
@@ -795,6 +825,7 @@ void GLM_DrawBrushModel(entity_t* ent, qbool polygonOffset, qbool caustics)
 	}
 }
 
+/* TODO: rerenable when respecting alpha
 static int GL_DrawCallComparison(const void* lhs_, const void* rhs_)
 {
 	const glm_worldmodel_req_t* lhs = (glm_worldmodel_req_t*)lhs_;
@@ -816,6 +847,7 @@ static int GL_DrawCallComparison(const void* lhs_, const void* rhs_)
 
 	return lhs->nonDynamicSampler - rhs->nonDynamicSampler;
 }
+*/
 
 static void GL_SortDrawCalls(glm_brushmodel_drawcall_t* drawcall)
 {
@@ -838,7 +870,7 @@ static void GL_SortDrawCalls(glm_brushmodel_drawcall_t* drawcall)
 		}
 	}
 
-	qsort(drawcall->worldmodel_requests, drawcall->batch_count, sizeof(drawcall->worldmodel_requests[0]), GL_DrawCallComparison);
+	//qsort(drawcall->worldmodel_requests, drawcall->batch_count, sizeof(drawcall->worldmodel_requests[0]), GL_DrawCallComparison);
 
 	for (i = 0; i < drawcall->batch_count; ++i) {
 		glm_worldmodel_req_t* thisReq = &drawcall->worldmodel_requests[i];

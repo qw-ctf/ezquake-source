@@ -181,7 +181,15 @@ void CL_AddEntityToList(visentlist_t* list, visentlist_entrytype_t vistype, enti
 
 		ent = &list->list[cl_visents.count].ent;
 		list->list[cl_visents.count].type = type;
-		list->list[cl_visents.count].distance = VectorDistanceQuick(cl.simorg, ent->origin);
+		if (ent->alpha < 1.0f && ent->alpha > 0.0f) {
+			vec3_t center;
+			center[0] = (ent->model->mins[0] + ent->model->maxs[0]) / 2.0f;
+			center[1] = (ent->model->mins[1] + ent->model->maxs[1]) / 2.0f;
+			center[2] = (ent->model->mins[2] + ent->model->maxs[2]) / 2.0f;
+			list->list[cl_visents.count].distance = VectorDistance(cl.simorg, center);
+		} else {
+			list->list[cl_visents.count].distance = VectorDistanceQuick(cl.simorg, ent->origin);
+		}
 		list->list[cl_visents.count].draw[vistype] = true;
 
 		ent->outlineScale = 0.5f * (r_refdef2.outlineBase + DotProduct(ent->origin, r_refdef2.outline_vpn));
@@ -234,7 +242,15 @@ void CL_AddEntity(entity_t *ent)
 		ent->renderfx |= RF_NOSHADOW;
 	}
 	else {
-		vistype = visent_normal;
+		if (ent->alpha == 0.0f || ent->alpha == 1.0f)
+		{
+			vistype = visent_normal;
+			ent->alpha = 1.0f;
+		}
+		else
+		{
+			vistype = visent_alpha;
+		}
 	}
 
 	CL_AddEntityToList(&cl_visents, vistype, ent, type, shell);
