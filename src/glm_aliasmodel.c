@@ -48,6 +48,7 @@ typedef enum aliasmodel_draw_type_s {
 	aliasmodel_draw_outlines_spec,
 	aliasmodel_draw_shells,
 	aliasmodel_draw_postscene,
+	aliasmodel_draw_postscene_viewmodel,
 	aliasmodel_draw_postscene_additive,
 	aliasmodel_draw_postscene_shells,
 
@@ -304,7 +305,7 @@ static void GLM_QueueAliasModelDrawImpl(
 		outline = false;
 	}
 	else if ((render_effects & RF_WEAPONMODEL) && color[3] < 1) {
-		type = aliasmodel_draw_postscene;
+		type = aliasmodel_draw_postscene_viewmodel;
 		shelltype = aliasmodel_draw_postscene_shells;
 		outline = false;
 	}
@@ -502,7 +503,7 @@ static void GLM_RenderPreparedEntities(aliasmodel_draw_type_t type)
 		renderer.TextureUnitBind(TEXTURE_UNIT_MATERIAL, shelltexture);
 	}
 
-	if (translucent && !shells) {
+	if (type == aliasmodel_draw_postscene_viewmodel) {
 		GLM_StateBeginAliasModelZPassBatch();
 		for (i = 0; i < instr->num_calls; ++i) {
 			GL_MultiDrawArraysIndirect(
@@ -577,6 +578,7 @@ void GLM_DrawAliasModelBatches(void)
 void GLM_DrawAliasModelPostSceneBatches(void)
 {
 	GLM_RenderPreparedEntities(aliasmodel_draw_postscene);
+	GLM_RenderPreparedEntities(aliasmodel_draw_postscene_viewmodel);
 	GLM_RenderPreparedEntities(aliasmodel_draw_postscene_additive);
 	GLM_RenderPreparedEntities(aliasmodel_draw_postscene_shells);
 }

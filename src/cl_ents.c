@@ -181,7 +181,17 @@ void CL_AddEntityToList(visentlist_t* list, visentlist_entrytype_t vistype, enti
 
 		ent = &list->list[cl_visents.count].ent;
 		list->list[cl_visents.count].type = type;
-		list->list[cl_visents.count].distance = VectorDistanceQuick(cl.simorg, ent->origin);
+		if (vistype == visent_alpha) {
+			int i;
+			vec3_t displacement;
+			for (i = 0; i < 3; i++) {
+				displacement[i] = cl.simorg[i] - ent->origin[i];
+				displacement[i] -= bound(ent->model->mins[i], displacement[i], ent->model->maxs[i]);
+			}
+			list->list[cl_visents.count].distance = DotProduct(displacement, displacement);
+		} else {
+			list->list[cl_visents.count].distance = VectorDistanceQuick(cl.simorg, ent->origin);
+		}
 		list->list[cl_visents.count].draw[vistype] = true;
 
 		ent->outlineScale = 0.5f * (r_refdef2.outlineBase + DotProduct(ent->origin, r_refdef2.outline_vpn));
@@ -232,6 +242,9 @@ void CL_AddEntity(entity_t *ent)
 	else if (ent->model->modhint == MOD_PLAYER || ent->model->modhint == MOD_EYES || ent->renderfx & RF_PLAYERMODEL) {
 		vistype = visent_firstpass;
 		ent->renderfx |= RF_NOSHADOW;
+	}
+	else if (ent->alpha > 0.0f && ent->alpha < 1.0f) {
+		vistype = visent_alpha;
 	}
 	else {
 		vistype = visent_normal;

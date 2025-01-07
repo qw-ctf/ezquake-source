@@ -100,6 +100,8 @@ static const char* framebuffer_texture_names[] = {
 	"depth", // fbtex_depth
 	"env", // fbtex_bloom,
 	"norms", // fbtex_worldnormals,
+	"wboit-accum", // fbtex_oit_accumulate
+	"wboit-reveal", // fbtex_oit_reveal
 };
 static qbool framebuffer_depth_buffer[] = {
 	false, // framebuffer_none
@@ -195,6 +197,7 @@ GL_StaticProcedureDeclaration(glBlitNamedFramebuffer, "readFrameBuffer=%u, drawF
 GL_StaticProcedureDeclaration(glDrawBuffers, "n=%d, bufs=%p", GLsizei n, const GLenum* bufs)
 GL_StaticProcedureDeclaration(glClearBufferfv, "buffer=%u, drawbuffer=%d, value=%p", GLenum buffer, GLint drawbuffer, const GLfloat* value)
 GL_StaticProcedureDeclaration(glClipControl, "origin=%u, depth=%u", GLenum origin, GLenum depth)
+GL_StaticProcedureDeclaration(glBlendFunci, "attachment=%u, src=%u, dst=%u", GLenum attachment, GLenum src, GLenum dst)
 
 // Multi-sampled
 GL_StaticProcedureDeclaration(glRenderbufferStorageMultisample, "target=%x, samples=%d, internalformat=%x, width=%d, height=%d", GLenum target, GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height)
@@ -284,6 +287,8 @@ void GL_InitialiseFramebufferHandling(void)
 	if (GL_VersionAtLeast(4, 5) || SDL_GL_ExtensionSupported("GL_ARB_clip_control")) {
 		GL_LoadOptionalFunction(glClipControl);
 	}
+
+	GL_LoadOptionalFunction(glBlendFunci);
 
 	memset(framebuffer_data, 0, sizeof(framebuffer_data));
 }
@@ -584,6 +589,112 @@ qbool GL_FramebufferEndWorldNormals(framebuffer_id id)
 	}
 	return true;
 }
+
+qbool GL_FrameBufferStartOrderIndependentTransparency(framebuffer_id id)
+{
+	struct oit_s {
+		fbtex_id id;
+		GLenum fmt;
+		GLenum attachment;
+	};
+	framebuffer_data_t* fb = NULL;
+	GLenum buffers[2] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
+	float accumClearValue[] = { 0.0f, 0.0f, 0.0f, 0.0f };
+	float revealClearValue[] = { 1.0f, 1.0f, 1.0f, 1.0f };
+	int i;
+
+	struct oit_s textures[] = {
+		{
+			.id = fbtex_oit_accumulate,
+			.fmt = GL_RGBA16F,
+			.attachment = GL_COLOR_ATTACHMENT0,
+		},
+		{
+			.id = fbtex_oit_reveal,
+			.fmt = GL_R16F,
+			.attachment = GL_COLOR_ATTACHMENT1,
+		},
+	};
+
+	if (!GL_Supported(R_SUPPORT_FRAMEBUFFERS)) {
+		return false;
+	}
+
+	id = VID_MultisampledAlternateId(id);
+	fb = &framebuffer_data[id];
+	if (!fb->glref) {
+		return false;
+	}
+
+	for (i = 0; i < sizeof(textures) / sizeof(textures[0]); i++)	{
+		struct oit_s tex = textures[i];
+
+		if (!R_TextureReferenceIsValid(fb->texture[tex.id])) {
+			char label[128];
+
+			strlcpy(label, framebuffer_names[id], sizeof(label));
+			strlcat(label, "/", sizeof(label));
+			strlcat(label, framebuffer_texture_names[tex.id], sizeof(label));
+
+			if (fb->samples) {
+				GL_CreateTexturesWithIdentifier(texture_type_2d_multisampled, 1, &fb->texture[tex.id], label);
+				if (!R_TextureReferenceIsValid(fb->texture[tex.id])) {
+					return false;
+				}
+				GL_TexStorage2DMultisample(fb->texture[tex.id], fb->samples, tex.fmt, fb->width, fb->height, EZ_USE_FIXED_SAMPLE_LOCATIONS);
+			}
+			else {
+				GL_CreateTexturesWithIdentifier(texture_type_2d, 1, &fb->texture[tex.id], label);
+				if (!R_TextureReferenceIsValid(fb->texture[tex.id])) {
+					return false;
+				}
+				GL_TexStorage2D(fb->texture[tex.id], 1, tex.fmt, fb->width, fb->height, false);
+				renderer.TextureSetFiltering(fb->texture[tex.id], texture_minification_nearest, texture_magnification_nearest);
+				renderer.TextureWrapModeClamp(fb->texture[tex.id]);
+			}
+			R_TextureSetFlag(fb->texture[tex.id], R_TextureGetFlag(fb->texture[tex.id]) | TEX_NO_TEXTUREMODE);
+		}
+
+		GL_FramebufferTexture(fb->glref, tex.attachment, GL_TextureNameFromReference(fb->texture[tex.id]), 0);
+	}
+	GL_Procedure(glDrawBuffers, 2, buffers);
+	GL_Procedure(glClearBufferfv, GL_COLOR, 0, accumClearValue);
+	GL_Procedure(glClearBufferfv, GL_COLOR, 1, revealClearValue);
+
+	return true;
+}
+
+void GL_OitBlend(void) {
+	GL_Procedure(glBlendFunci, 0, GL_ONE, GL_ONE);
+	GL_Procedure(glBlendFunci, 1, GL_ZERO, GL_ONE_MINUS_SRC_COLOR);
+}
+
+qbool GL_FrameBufferEndOrderIndependentTransparency(framebuffer_id id)
+{
+	framebuffer_data_t* fb = NULL;
+	GLenum buffer = GL_COLOR_ATTACHMENT0;
+
+	if (!GL_Supported(R_SUPPORT_FRAMEBUFFERS)) {
+		return false;
+	}
+
+	id = VID_MultisampledAlternateId(id);
+	fb = &framebuffer_data[id];
+	if (!fb->glref) {
+		return false;
+	}
+
+	GL_FramebufferTexture(fb->glref, GL_COLOR_ATTACHMENT0, GL_TextureNameFromReference(fb->texture[fbtex_standard]), 0);
+	GL_FramebufferTexture(fb->glref, GL_COLOR_ATTACHMENT1, 0, 0);
+	GL_Procedure(glDrawBuffers, 1, &buffer);
+
+	if (fb->samples && id == framebuffer_std_ms) {
+		// Resolve multi-samples
+		GL_MultiSamplingResolve(framebuffer_std_ms, framebuffer_std, fbtex_oit_reveal, framebuffer_std_blit_ms, framebuffer_std_blit);
+	}
+	return true;
+}
+
 
 void GL_FramebufferDelete(framebuffer_id id)
 {

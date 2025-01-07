@@ -37,6 +37,7 @@ layout(std140, binding = EZQ_GL_BINDINGPOINT_WORLDMODEL_SURFACES) buffer surface
 out flat int sampler_index;
 out float mix_floor;
 out float mix_wall;
+out float alpha;
 
 layout(std140, binding=EZQ_GL_BINDINGPOINT_BRUSHMODEL_DRAWDATA) buffer WorldCvars {
 	WorldDrawInfo drawInfo[];
@@ -53,6 +54,7 @@ void main()
 	int drawCallFlags = drawInfo[_instanceId].drawFlags;
 	int textureFlags = samplerMapping[drawInfo[_instanceId].samplerBase + materialNumber].flags;
 	sampler_index = drawInfo[_instanceId].sampler;
+	alpha = drawInfo[_instanceId].alpha;
 
 	gl_Position = projectionMatrix * drawInfo[_instanceId].mvMatrix * vec4(position, 1.0);
 #ifdef DRAW_GEOMETRY

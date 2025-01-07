@@ -892,13 +892,18 @@ void R_RenderView(void)
 		renderer.DrawWaterSurfaces();
 	}
 
+	// TODO: probably also alpha stuffs
+	if (R_UseModernOpenGL() || R_UseVulkan()) {
+		R_DrawViewModel();
+	}
+
+	// Draws transparent world surfaces
+	renderer.DrawWaterSurfaces();
+
 	R_DrawEntities();
 
 	// Adds 3d effects (particles, lights, chat icons etc)
 	R_Render3DEffects();
-
-	// Draws transparent world surfaces
-	renderer.DrawWaterSurfaces();
 
 	// Render billboards
 	renderer.Draw3DSpritesInline();
@@ -1124,7 +1129,7 @@ void R_PolyBlend(void)
 	renderer.PolyBlend(v_blend);
 }
 
-static void R_DrawEntities(void)
+static void R_DrawEntities(qbool translucent)
 {
 	visentlist_entrytype_t ent_type;
 
@@ -1144,9 +1149,6 @@ static void R_DrawEntities(void)
 	qsort(cl_visents.list, cl_visents.count, sizeof(cl_visents.list[0]), R_DrawEntitiesSorter);
 	for (ent_type = 0; ent_type < visent_max; ++ent_type) {
 		R_DrawEntitiesOnList(&cl_visents, ent_type);
-	}
-	if (R_UseModernOpenGL() || R_UseVulkan()) {
-		R_DrawViewModel();
 	}
 	R_TraceLeaveNamedRegion();
 }
