@@ -1210,6 +1210,14 @@ void SV_MVD_SendInitialGamestate(mvddest_t* dest)
 
 	MSG_WriteByte(&buf, svc_serverdata);
 
+#ifdef FTE_PEXT_TRANS
+	demo.recorder.fteprotocolextensions |= FTE_PEXT_TRANS;
+#endif
+
+#ifdef FTE_PEXT_COLOURMOD
+	demo.recorder.fteprotocolextensions |= FTE_PEXT_COLOURMOD;
+#endif
+
 #ifdef FTE_PEXT_FLOATCOORDS
 	//fix up extensions to match sv_bigcoords correctly. sorry for old clients not working.
 	if (msg_coordsize == 4)
