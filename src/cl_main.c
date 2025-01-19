@@ -1677,9 +1677,9 @@ static void CL_ReadPackets(void)
 	{
 		if (curtime - cls.netchan.last_received > (cl_timeout.value > 0 ? cl_timeout.value : 60)) 
 		{
-			Com_Printf("\nServer connection timed out.\n");
-			Host_EndGame();
-			return;
+			//Com_Printf("\nServer connection timed out.\n");
+			//Host_EndGame();
+			//return;
 		}
 	}
 }

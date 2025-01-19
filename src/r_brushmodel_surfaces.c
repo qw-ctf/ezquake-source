@@ -369,19 +369,34 @@ void R_DrawWorld(void)
 	}
 	R_TraceLeaveNamedRegion();
 }
+#define VIS_ALIGN			16						// vis buffer size alignment (in bytes)
+#define VIS_ALIGN_MASK		(VIS_ALIGN - 1)			// alignment - 1, to simplify alignment code
 
 void R_MarkLeaves(void)
 {
 	byte *vis;
 	mnode_t *node;
 	int i;
-	byte solid[MAX_MAP_LEAFS / 8];
+	static byte *solid;
+	static size_t solid_capacity;
 	extern cvar_t r_novis;
+	int solidbytes;
 
 	if (!r_novis.value && r_oldviewleaf == r_viewleaf && r_oldviewleaf2 == r_viewleaf2) {
 		// watervis hack
 		return;
 	}
+
+	solidbytes = (cl.worldmodel->numleafs+7)>>3; // ericw -- was +31, assumed to be a bug/typo
+	solidbytes = (solidbytes + VIS_ALIGN_MASK) & ~VIS_ALIGN_MASK; // round up
+	if (solid == NULL || solidbytes > solid_capacity)
+	{
+		solid_capacity = solidbytes;
+		solid = (byte *) realloc (solid, solid_capacity);
+		if (!solid)
+			Sys_Error ("SV_FatPVS: realloc() failed on %d bytes", solid_capacity);
+	}
+
 
 	r_visframecount++;
 	r_oldviewleaf = r_viewleaf;

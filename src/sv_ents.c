@@ -159,7 +159,7 @@ void SV_WriteDelta(client_t* client, entity_state_t *from, entity_state_t *to, s
 		bits |= U_MODEL;
 #ifdef FTE_PEXT_ENTITYDBL
 		if (to->modelindex > 255) {
-			if (to->modelindex > 512) {
+			if (to->modelindex >= 512) {
 				bits &= ~U_MODEL;
 			}
 			evenmorebits |= U_FTE_MODELDBL;

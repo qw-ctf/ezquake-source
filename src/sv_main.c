@@ -294,10 +294,11 @@ void SV_Error (char *error, ...)
 	vsnprintf (string, sizeof (string), error, argptr);
 	va_end (argptr);
 
-	SV_Shutdown (va ("SV_Error: %s\n", string));
+	//SV_Shutdown (va ("SV_Error: %s\n", string));
+	Con_Printf (va ("SV_Error: %s\n", string));
 
-	Host_EndGame();
-	Host_Error("SV_Error: %s", string);
+	//Host_EndGame();
+	//Host_Error("SV_Error: %s", string);
 }
 
 static void SV_FreeHeadDelayedPacket(client_t *cl) {

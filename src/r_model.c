@@ -46,7 +46,7 @@ void Mod_AddModelFlags(model_t *mod);
 
 byte	mod_novis[MAX_MAP_LEAFS/8];
 
-#define	MAX_MOD_KNOWN	512
+#define	MAX_MOD_KNOWN	4096
 model_t	mod_known[MAX_MOD_KNOWN];
 int		mod_numknown;
 
@@ -94,13 +94,23 @@ mleaf_t *Mod_PointInLeaf(vec3_t p, model_t *model)
 	return NULL;	// never reached
 }
 
+#define VIS_ALIGN			16						// vis buffer size alignment (in bytes)
+#define VIS_ALIGN_MASK		(VIS_ALIGN - 1)			// alignment - 1, to simplify alignment code
+
 byte *Mod_DecompressVis(byte *in, model_t *model)
 {
-	static byte	decompressed[MAX_MAP_LEAFS / 8];
+	static byte	*decompressed;
+	static size_t decompressed_capacity;
 	int c, row;
 	byte *out;
 
 	row = (model->numleafs + 7) >> 3;
+	if (decompressed == NULL || row > decompressed_capacity)
+	{
+		decompressed_capacity = (row + VIS_ALIGN_MASK) & ~VIS_ALIGN_MASK;
+		decompressed = (byte *) Q_realloc (decompressed, decompressed_capacity);
+	}
+
 	out = decompressed;
 
 	if (!in) {	// no vis info, so make all visible

@@ -452,8 +452,9 @@ crosses a waterline.
 =============================================================================
 */
 
-static int	fatbytes;
-static byte	fatpvs[MAX_MAP_LEAFS/8];
+static int	fatbytes = 0;
+static byte	*fatpvs = NULL;
+static size_t fatpvs_capacity;
 static vec3_t	fatpvs_org;
 
 static void AddToFatPVS_r (cnode_t *node)
@@ -498,11 +499,23 @@ Calculates a PVS that is the inclusive or of all leafs within 8 pixels of the
 given point.
 =============
 */
+#define VIS_ALIGN			16						// vis buffer size alignment (in bytes)
+#define VIS_ALIGN_MASK		(VIS_ALIGN - 1)			// alignment - 1, to simplify alignment code
 byte *CM_FatPVS (vec3_t org)
 {
 	VectorCopy (org, fatpvs_org);
 
-	fatbytes = (visleafs+31)>>3;
+	fatbytes = (visleafs+7)>>3; // ericw -- was +31, assumed to be a bug/typo
+	fatbytes = (fatbytes + VIS_ALIGN_MASK) & ~VIS_ALIGN_MASK; // round up
+	if (fatpvs == NULL || fatbytes > fatpvs_capacity)
+	{
+		fatpvs_capacity = fatbytes;
+		fatpvs = (byte *) realloc (fatpvs, fatpvs_capacity);
+		if (!fatpvs)
+			Sys_Error ("SV_FatPVS: realloc() failed on %d bytes", fatpvs_capacity);
+	}
+
+	//fatbytes = (visleafs+31)>>3;
 	memset (fatpvs, 0, fatbytes);
 	AddToFatPVS_r (map_nodes);
 	return fatpvs;
@@ -1071,14 +1084,24 @@ static void CM_LoadPlanes(byte *buffer, size_t length)
 /*
 ** DecompressVis
 */
+#define VIS_ALIGN			16						// vis buffer size alignment (in bytes)
+#define VIS_ALIGN_MASK		(VIS_ALIGN - 1)			// alignment - 1, to simplify alignment code
+
 static byte *DecompressVis(byte *in)
 {
-	static byte decompressed[MAX_MAP_LEAFS / 8];
+	static byte *decompressed = NULL;
+	static size_t decompressed_capacity = 0;
 	int c, row;
-	byte *out;
+	byte *out, *outend;
 
 	row = (visleafs + 7) >> 3;
+	if (decompressed == NULL || row > decompressed_capacity)
+	{
+		decompressed_capacity = (row + VIS_ALIGN_MASK) & ~VIS_ALIGN_MASK;
+		decompressed = (byte *) Q_realloc (decompressed, decompressed_capacity);
+	}
 	out = decompressed;
+	outend = decompressed + row;
 
 	if (!in) { // no vis info, so make all visible
 		while (row) {
@@ -1097,6 +1120,11 @@ static byte *DecompressVis(byte *in)
 		c = in[1];
 		in += 2;
 		while (c) {
+			if (out == outend)
+			{
+				Con_Printf("Mod_DecompressVis: output overrun on model\n");
+				return decompressed;
+			}
 			*out++ = 0;
 			c--;
 		}
