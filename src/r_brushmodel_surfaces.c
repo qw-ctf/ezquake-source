@@ -372,15 +372,24 @@ void R_DrawWorld(void)
 
 void R_MarkLeaves(void)
 {
+	static byte *solid;
+	static size_t solid_capacity;
 	byte *vis;
 	mnode_t *node;
 	int i;
-	byte solid[MAX_MAP_LEAFS / 8];
 	extern cvar_t r_novis;
+	int solidbytes;
 
 	if (!r_novis.value && r_oldviewleaf == r_viewleaf && r_oldviewleaf2 == r_viewleaf2) {
 		// watervis hack
 		return;
+	}
+
+ 	solidbytes = (cl.worldmodel->numleafs+7)>>3;
+	if (solid == NULL || solidbytes > solid_capacity) {
+		solid_capacity = (max(MAX_MAP_LEAFS / 8, solidbytes) + VIS_ALIGN_MASK) & ~VIS_ALIGN_MASK;
+		solid = (byte *)Q_realloc(solid, solid_capacity);
+		memset(solid, 0xff, solid_capacity);
 	}
 
 	r_visframecount++;

@@ -77,6 +77,9 @@ typedef enum
 #define MAX_VWEP_MODELS         32	    // could be increased to 256
 #define MAX_SOUNDS              256	    // so they cannot be blindly increased
 
+#define VIS_ALIGN			16						// vis buffer size alignment (in bytes)
+#define VIS_ALIGN_MASK		(VIS_ALIGN - 1)			// alignment - 1, to simplify alignment code
+
 #define	SAVEGAME_COMMENT_LENGTH 39
 
 //============================================================================

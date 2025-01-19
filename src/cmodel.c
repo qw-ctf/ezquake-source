@@ -453,7 +453,8 @@ crosses a waterline.
 */
 
 static int	fatbytes;
-static byte	fatpvs[MAX_MAP_LEAFS/8];
+static byte	*fatpvs;
+static size_t fatpvs_capacity;
 static vec3_t	fatpvs_org;
 
 static void AddToFatPVS_r (cnode_t *node)
@@ -502,7 +503,13 @@ byte *CM_FatPVS (vec3_t org)
 {
 	VectorCopy (org, fatpvs_org);
 
-	fatbytes = (visleafs+31)>>3;
+	fatbytes = (visleafs+7)>>3;
+	fatbytes = (fatbytes + VIS_ALIGN_MASK) & ~VIS_ALIGN_MASK;
+	if (fatpvs == NULL || fatbytes > fatpvs_capacity) {
+		fatpvs_capacity = fatbytes;
+		fatpvs = (byte *)Q_realloc(fatpvs, fatpvs_capacity);
+	}
+
 	memset (fatpvs, 0, fatbytes);
 	AddToFatPVS_r (map_nodes);
 	return fatpvs;
@@ -1073,12 +1080,19 @@ static void CM_LoadPlanes(byte *buffer, size_t length)
 */
 static byte *DecompressVis(byte *in)
 {
-	static byte decompressed[MAX_MAP_LEAFS / 8];
+	static byte *decompressed;
+	static size_t decompressed_capacity;
 	int c, row;
-	byte *out;
+	byte *out, *outend;
 
 	row = (visleafs + 7) >> 3;
+	if (decompressed == NULL || row > decompressed_capacity) {
+		decompressed_capacity = (max(MAX_MAP_LEAFS / 8, row) + VIS_ALIGN_MASK) & ~VIS_ALIGN_MASK;
+		decompressed = (byte *)Q_realloc(decompressed, decompressed_capacity);
+		memset(decompressed, 0xff, decompressed_capacity);
+	}
 	out = decompressed;
+	outend = decompressed + row;
 
 	if (!in) { // no vis info, so make all visible
 		while (row) {
@@ -1096,7 +1110,18 @@ static byte *DecompressVis(byte *in)
 
 		c = in[1];
 		in += 2;
+
+		// now that we're dynamically allocating pvs buffers, we have to be more
+		// careful to avoid heap overflows with buggy maps.
+		if (c > row - (out - decompressed)) {
+			c = row - (out - decompressed);
+		}
+
 		while (c) {
+			if (out == outend) {
+				Con_DPrintf("Mod_DecompressVis: output overrun on model\n");
+				return decompressed;
+			}
 			*out++ = 0;
 			c--;
 		}
