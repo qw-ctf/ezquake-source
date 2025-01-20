@@ -63,17 +63,6 @@ void main()
 	if (mode != EZQ_ALIAS_MODE_OUTLINES && mode != EZQ_ALIAS_MODE_OUTLINES_SPEC) {
 		vec4 tex = texture(samplers[fsMaterialSampler], fsTextureCoord.st);
 		vec4 altTex = texture(samplers[fsMaterialSampler], fsAltTextureCoord.st);
-#ifdef DRAW_CAUSTIC_TEXTURES
-		vec4 caustic = texture(
-			causticsTex,
-			vec2(
-				// Using multipler of 3 here - not in other caustics logic but range
-				//   isn't enough otherwise, effect too subtle
-				(fsTextureCoord.s + sin(0.465 * (time + fsTextureCoord.t))) * 3 * -0.1234375,
-				(fsTextureCoord.t + sin(0.465 * (time + fsTextureCoord.s))) * 3 * -0.1234375
-			)
-		);
-#endif
 
 		if (mode == EZQ_ALIAS_MODE_SHELLS) {
 			vec4 color1 = vec4(
@@ -99,6 +88,13 @@ void main()
 
 #ifdef DRAW_CAUSTIC_TEXTURES
 			if ((fsFlags & AMF_CAUSTICS) == AMF_CAUSTICS) {
+				vec4 caustic = texture(causticsTex, vec2(
+					// Using multipler of 3 here - not in other caustics logic but range
+					//   isn't enough otherwise, effect too subtle
+					(fsTextureCoord.s + sin(0.465 * (time + fsTextureCoord.t))) * 3 * -0.1234375,
+					(fsTextureCoord.t + sin(0.465 * (time + fsTextureCoord.s))) * 3 * -0.1234375
+				));
+
 				// FIXME: Do proper GL_DECAL etc
 				frag_colour = vec4(caustic.rgb * frag_colour.rgb * 1.8, frag_colour.a);
 			}

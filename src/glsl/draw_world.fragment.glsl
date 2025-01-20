@@ -112,15 +112,7 @@ void main()
 #ifdef DRAW_DETAIL_TEXTURES
 	vec4 detail = texture(detailTex, DetailCoord);
 #endif
-#ifdef DRAW_CAUSTIC_TEXTURES
-	vec4 caustic = texture(
-		causticsTex,
-		vec2(
-			(TextureCoord.s + sin(0.465 * (time + TextureCoord.t))) * -0.1234375,
-			(TextureCoord.t + sin(0.465 * (time + TextureCoord.s))) * -0.1234375
-		)
-	);
-#endif
+
 #if defined(DRAW_LUMA_TEXTURES) || defined(DRAW_LUMA_TEXTURES_FB)
 	vec4 lumaColor = texture(materialTex[SamplerNumber], LumaCoord);
 #endif
@@ -245,7 +237,13 @@ void main()
 #endif
 
 #ifdef DRAW_CAUSTIC_TEXTURES
-		frag_colour = vec4(mix(frag_colour.rgb, caustic.rgb * frag_colour.rgb * 2.0, min(1, Flags & EZQ_SURFACE_UNDERWATER)), frag_colour.a);
+		if ((Flags & EZQ_SURFACE_UNDERWATER) != 0) {
+			vec4 caustic = texture(causticsTex, vec2(
+				(TextureCoord.s + sin(0.465 * (time + TextureCoord.t))) * -0.1234375,
+				(TextureCoord.t + sin(0.465 * (time + TextureCoord.s))) * -0.1234375
+			));
+			frag_colour = vec4(caustic.rgb * frag_colour.rgb * 2.0, frag_colour.a);
+		}
 #endif
 
 #ifdef DRAW_DETAIL_TEXTURES
