@@ -245,6 +245,10 @@ static void GLC_AliasModelLightPoint(float color[4], entity_t* ent, vbo_model_ve
 //#define DRAWFLAGS_FLATSHADING  16     // Disabled until we can specify GLSL 1.3 dynamically, MESA drivers very strict
 #define DRAWFLAGS_MAXIMUM      (DRAWFLAGS_CAUSTICS | DRAWFLAGS_TEXTURED | DRAWFLAGS_FULLBRIGHT | DRAWFLAGS_MUZZLEHACK /* | DRAWFLAGS_FLATSHADING*/)
 
+#ifdef C_ASSERT
+C_ASSERT((MAX_SUBPROGRAMS-1) == DRAWFLAGS_MAXIMUM);
+#endif
+
 int GLC_AliasModelSubProgramIndex(qbool textured, qbool fullbright, qbool caustics, qbool muzzlehack)
 {
 	// gl_smoothmodels disabled for now

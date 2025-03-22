@@ -166,6 +166,9 @@ int R_ProgramUniformGet1i(r_program_uniform_id uniform_id, int default_value);
 
 int R_ProgramAttributeLocation(r_program_attribute_id attr_id);
 
+// Max number of sub programs
+#define MAX_SUBPROGRAMS 16
+
 // Check if a program needs to be recompiled
 qbool R_ProgramRecompileNeeded(r_program_id program_id, unsigned int options);
 

@@ -47,7 +47,7 @@ typedef enum {
 		extern qbool compile_function(void); \
 		int i; \
 \
-		for (i = 0; i < MAX_SUBPROGRAMS; ++i) { \
+		for (i = 0; i < MAX_SUBPROGRAMS_USED; ++i) { \
 			gl_program_t* prog = R_SpecificSubProgram((program_id), i); \
 			memset(&prog->shaders, 0, sizeof(prog->shaders)); \
 			strlcpy(prog->friendly_name, va("%s[%d]", (name), i), sizeof(prog->friendly_name)); \
@@ -70,7 +70,7 @@ typedef enum {
 		extern qbool compile_function(void); \
 		int i; \
 \
-		for (i = 0; i < MAX_SUBPROGRAMS; ++i) { \
+		for (i = 0; i < MAX_SUBPROGRAMS_USED; ++i) { \
 			gl_program_t* prog = R_SpecificSubProgram((program_id), i); \
 			memset(prog->shaders, 0, sizeof(prog->shaders)); \
 			strlcat(prog->friendly_name, name, sizeof(prog->friendly_name)); \
@@ -111,7 +111,7 @@ typedef struct gl_shader_def_s {
 
 typedef qbool(*program_compile_func_t)(void);
 
-#define MAX_SUBPROGRAMS 32
+#define MAX_SUBPROGRAMS_USED (R_UseModernOpenGL() ? 1 : MAX_SUBPROGRAMS)
 #define R_CurrentSubProgram(program_id) (&program_data[(program_id)][program_currentSubProgram[(program_id)]])
 #define R_SpecificSubProgram(program_id, sub_id) (&program_data[(program_id)][(sub_id)])
 
@@ -796,7 +796,7 @@ void GL_ProgramsShutdown(qbool restarting)
 
 	// Detach & delete shaders
 	for (p = r_program_none; p < r_program_count; ++p) {
-		for (sub_program = 0; sub_program < MAX_SUBPROGRAMS; ++sub_program) {
+		for (sub_program = 0; sub_program < MAX_SUBPROGRAMS_USED; ++sub_program) {
 			int i;
 
 			prog = R_SpecificSubProgram(p, sub_program);
@@ -808,7 +808,7 @@ void GL_ProgramsShutdown(qbool restarting)
 	}
 
 	for (p = r_program_none; p < r_program_count; ++p) {
-		for (sub_program = 0; sub_program < MAX_SUBPROGRAMS; ++sub_program) {
+		for (sub_program = 0; sub_program < MAX_SUBPROGRAMS_USED; ++sub_program) {
 			prog = R_SpecificSubProgram(p, sub_program);
 			if (prog->program) {
 				GL_Procedure(glDeleteProgram, prog->program);
@@ -853,14 +853,14 @@ void GL_ProgramsInitialise(void)
 
 	GL_BuildCoreDefinitions();
 
-	for (i = 0; i < MAX_SUBPROGRAMS; ++i) {
+	for (i = 0; i < MAX_SUBPROGRAMS_USED; ++i) {
 		gl_program_t* prog = R_SpecificSubProgram(r_program_none, i);
 
 		strlcpy(prog->friendly_name, "(none)", sizeof(prog->friendly_name));
 	}
 
 	for (p = r_program_none; p < r_program_count; ++p) {
-		for (i = 0; i < MAX_SUBPROGRAMS; ++i) {
+		for (i = 0; i < MAX_SUBPROGRAMS_USED; ++i) {
 			gl_program_t* prog = R_SpecificSubProgram(p, i);
 
 			if (!GL_AppropriateRenderer(prog->renderer_id)) {
@@ -899,7 +899,7 @@ void GL_CvarForceRecompile(cvar_t* cvar)
 	int i;
 
 	for (p = r_program_none; p < r_program_count; ++p) {
-		for (i = 0; i < MAX_SUBPROGRAMS; ++i) {
+		for (i = 0; i < MAX_SUBPROGRAMS_USED; ++i) {
 			R_SpecificSubProgram(p, i)->force_recompile = true;
 		}
 	}
@@ -1454,7 +1454,7 @@ void R_ProgramCompileAll(void)
 	int sub_program;
 
 	for (i = 0; i < r_program_count; ++i) {
-		for (sub_program = 0; sub_program < MAX_SUBPROGRAMS; ++sub_program) {
+		for (sub_program = 0; sub_program < MAX_SUBPROGRAMS_USED; ++sub_program) {
 			gl_program_t* prog = R_SpecificSubProgram(i, sub_program);
 
 			R_ProgramSetSubProgram(i, sub_program);
