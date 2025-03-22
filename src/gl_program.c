@@ -999,7 +999,7 @@ void GL_LoadProgramFunctions(void)
 		GL_LoadOptionalFunction(glProgramUniformMatrix4fv);
 	}
 
-	if (SDL_GL_ExtensionSupported("GL_ARB_compute_shader") && SDL_GL_ExtensionSupported("GL_ARB_shader_image_load_store")) {
+	if (GL_VersionAtLeast(4, 3) || (SDL_GL_ExtensionSupported("GL_ARB_compute_shader") && SDL_GL_ExtensionSupported("GL_ARB_shader_image_load_store"))) {
 		qbool compute_shaders_support = true;
 
 		GL_LoadMandatoryFunctionExtension(glDispatchCompute, compute_shaders_support);
