@@ -690,6 +690,46 @@ static int GL_InsertDefinitions(
 	return 1;
 }
 
+static void GL_DumpShader(const char *name, const char *suffix, int components, const char* strings[], GLint lengths[])
+{
+	char filename[MAX_OSPATH];
+	char buf[256];
+	int i;
+	FILE *fd;
+
+	if (strings[0] == NULL) {
+		return;
+	}
+
+	snprintf(filename, sizeof(filename), "%s/qw/shaders", com_basedir);
+	Sys_mkdir(filename);
+	snprintf(filename, sizeof(filename), "%s/qw/shaders/%s.%s", com_basedir, name, suffix);
+
+	fd = fopen(filename, "wt");
+	if (!fd) {
+		Sys_Error("Could not open %s for writing\n", filename);
+	}
+
+	for (i = 0; i < components; i++) {
+		if (!lengths[i]) {
+			continue;
+		}
+		// Original source up to #ezquake-definitions, likely just "#version ..."
+		if (i == 0) {
+			if (sizeof(buf) <= lengths[0]) {
+				Sys_Error("Unexpected shader preamble size (%d, max %d)\n", lengths[0], sizeof(buf));
+			}
+			strlcpy(buf, strings[0], lengths[0]);
+			fprintf(fd, "%s\n", buf);
+		}
+		else {
+			fprintf(fd, "%s\n", strings[i]);
+		}
+	}
+
+	fclose(fd);
+}
+
 static qbool GL_CompileProgram(
 	gl_program_t* program
 )
@@ -716,6 +756,12 @@ static qbool GL_CompileProgram(
 	vertex_components = GL_InsertDefinitions(vertex_shader_text, vertex_shader_text_length, program->included_definitions);
 	geometry_components = GL_InsertDefinitions(geometry_shader_text, geometry_shader_text_length, program->included_definitions);
 	fragment_components = GL_InsertDefinitions(fragment_shader_text, fragment_shader_text_length, program->included_definitions);
+
+	if (COM_CheckParm(cmdline_param_client_video_r_dump_shaders)) {
+		GL_DumpShader(program->friendly_name, "vert", vertex_components, vertex_shader_text, vertex_shader_text_length);
+		GL_DumpShader(program->friendly_name, "frag", fragment_components, fragment_shader_text, fragment_shader_text_length);
+		GL_DumpShader(program->friendly_name, "geom", geometry_components, geometry_shader_text, geometry_shader_text_length);
+	}
 
 	if (GL_CompileShader(vertex_components, vertex_shader_text, vertex_shader_text_length, GL_VERTEX_SHADER, &shaders[shadertype_vertex])) {
 		if (geometry_shader_text[0] == NULL || GL_CompileShader(geometry_components, geometry_shader_text, geometry_shader_text_length, GL_GEOMETRY_SHADER, &shaders[shadertype_geometry])) {
