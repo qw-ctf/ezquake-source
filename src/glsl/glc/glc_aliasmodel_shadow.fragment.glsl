@@ -1,12 +1,16 @@
-#version 120
-
 #ezquake-definitions
+
+#if __VERSION__ >= 330
+out vec4 fragColor;
+#else
+#define fragColor gl_FragColor
+#endif
 
 void main()
 {
-	gl_FragColor = vec4(0, 0, 0, 0.5);
+	fragColor = vec4(0, 0, 0, 0.5);
 
 #ifdef DRAW_FOG
-	gl_FragColor = applyFog(gl_FragColor, gl_FragCoord.z / gl_FragCoord.w);
+	fragColor = applyFog(fragColor, gl_FragCoord.z / gl_FragCoord.w);
 #endif
 }

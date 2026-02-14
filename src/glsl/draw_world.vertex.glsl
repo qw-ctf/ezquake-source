@@ -1,5 +1,3 @@
-#version 430
-
 #ezquake-definitions
 
 layout(location = 0) in vec3 position;
@@ -23,27 +21,38 @@ out vec3 LumaCoord;
 out vec2 DetailCoord;
 #endif
 out vec3 FlatColor;
-out flat int Flags;
+flat out int Flags;
+#if defined(DRAW_SKYDOME) || defined(DRAW_SKYBOX)
 out vec3 Direction;
+#endif
 #ifdef DRAW_GEOMETRY
 out vec3 Normal;
 out vec4 UnClipped;
 
-layout(std140, binding = EZQ_GL_BINDINGPOINT_WORLDMODEL_SURFACES) buffer surface_data {
-	model_surface surfaces[];
+//layout(std140, binding = EZQ_GL_BINDINGPOINT_WORLDMODEL_SURFACES) buffer surface_data {
+layout(std140) uniform surface_data {
+	model_surface surfaces[8192];
 };
 #endif
 
+#ifdef DRAW_FLATFLOORS
 out float mix_floor;
+#endif
+#ifdef DRAW_FLATFWALLS
 out float mix_wall;
+#endif
+#ifdef DRAW_ALPHATEST_ENABLED
 out float alpha;
-out flat int SamplerNumber;
+#endif
+flat out int SamplerNumber;
 
-layout(std140, binding=EZQ_GL_BINDINGPOINT_BRUSHMODEL_DRAWDATA) buffer WorldCvars {
-	WorldDrawInfo drawInfo[];
+//layout(std140, binding=EZQ_GL_BINDINGPOINT_BRUSHMODEL_DRAWDATA) buffer WorldCvars {
+layout(std140) uniform WorldCvars {
+	WorldDrawInfo drawInfo[512];
 };
-layout(std140, binding=EZQ_GL_BINDINGPOINT_BRUSHMODEL_SAMPLERS) buffer SamplerMappingsBuffer {
-	SamplerMapping samplerMapping[];
+//layout(std140, binding=EZQ_GL_BINDINGPOINT_BRUSHMODEL_SAMPLERS) buffer SamplerMappingsBuffer {
+layout(std140) uniform SamplerMappingsBuffer {
+	SamplerMapping samplerMapping[256];
 };
 
 
@@ -53,7 +62,9 @@ void main()
 	float materialArrayIndex = samplerMapping[drawInfo[_instanceId].samplerBase + materialNumber].layer;
 	int drawCallFlags = drawInfo[_instanceId].drawFlags;
 	int textureFlags = samplerMapping[drawInfo[_instanceId].samplerBase + materialNumber].flags;
+#ifdef DRAW_ALPHATEST_ENABLED
 	alpha = drawInfo[_instanceId].alpha;
+#endif
 	SamplerNumber = drawInfo[_instanceId].sampler;
 
 	gl_Position = projectionMatrix * drawInfo[_instanceId].mvMatrix * vec4(position, 1.0);
@@ -68,7 +79,9 @@ void main()
 	if (lightmapCoord.z < 0) {
 		TextureCoord = vec3(tex.xy, materialArrayIndex);
 		TexCoordLightmap = vec3(0, 0, 0);
+#ifdef DRAW_SKYDOME
 		Direction = (position - cameraPosition);
+#endif
 #if defined(DRAW_SKYBOX)
 		Direction = vec3(-Direction.y, Direction.z, Direction.x);
 #endif
@@ -79,8 +92,12 @@ void main()
 		LumaCoord = TextureCoord;
 #endif
 
+#ifdef DRAW_FLATFLOORS
 		mix_floor = 0;
+#endif
+#ifdef DRAW_FLATWALLS
 		mix_wall = 0;
+#endif
 	}
 	else {
 #if defined(DRAW_TEXTURELESS) && !defined(DRAW_ALPHATEST_ENABLED)
@@ -100,7 +117,11 @@ void main()
 		DetailCoord = detailCoord;
 #endif
 
+#ifdef DRAW_FLATFLOORS
 		mix_floor = min(1, (Flags & EZQ_SURFACE_WORLD) * (Flags & EZQ_SURFACE_IS_FLOOR));
+#endif
+#ifdef DRAW_FLATWALLS
 		mix_wall = min(1, (Flags & EZQ_SURFACE_WORLD) * (1 - mix_floor));
+#endif
 	}
 }

@@ -1,5 +1,3 @@
-#version 430
-
 #ezquake-definitions
 
 uniform int mode;
@@ -12,8 +10,9 @@ layout(location = 3) in int _instanceId;
 layout(location = 4) in vec3 vboDirection;
 layout(location = 5) in int vboFlags;
 
-layout(std140, binding=EZQ_GL_BINDINGPOINT_ALIASMODEL_DRAWDATA) buffer AliasModelData {
-	AliasModel models[];
+//layout(std140, binding=EZQ_GL_BINDINGPOINT_ALIASMODEL_DRAWDATA) buffer AliasModelData {
+layout(std140) uniform AliasModelData {
+	AliasModel models[64];
 };
 
 out vec2 fsTextureCoord;

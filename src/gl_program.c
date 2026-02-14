@@ -350,6 +350,20 @@ static r_program_uniform_t program_uniforms[] = {
 	{ r_program_aliasmodel, "outline_use_player_color", 1, false },
 	// r_program_uniform_aliasmodel_outline_scale
 	{ r_program_aliasmodel, "outline_scale", 1, false },
+	// r_program_uniform_brushmodel_detailtex
+	{ r_program_brushmodel, "detailTex", 1, false },
+	// r_program_uniform_brushmodel_causticstex
+	{ r_program_brushmodel, "causticsTex", 1, false },
+	// r_program_uniform_brushmodel_skytex
+	{ r_program_brushmodel, "skyTex", 1, false },
+	// r_program_uniform_brushmodel_skydometex
+	{ r_program_brushmodel, "skyDomeTex", 1, false },
+	// r_program_uniform_brushmodel_skydomecloudtex
+	{ r_program_brushmodel, "skyDomeCloudTex", 1, false },
+	// r_program_uniform_brushmodel_lightmaptex
+	{ r_program_brushmodel, "lightmapTex", 1, false },
+	// r_program_uniform_brushmodel_materialtex
+	{ r_program_brushmodel, "materialTex", 1, false },
 };
 
 #ifdef C_ASSERT
@@ -576,6 +590,19 @@ static qbool GL_CompileShader(GLsizei shaderComponents, const char* shaderText[]
 		GL_Procedure(glDeleteShader, shader);
 	}
 	else {
+		switch (shaderType) {
+			case GL_VERTEX_SHADER:
+				printf("vertex shader\n");
+				break;
+			case GL_FRAGMENT_SHADER:
+				printf("fragment shader\n");
+				break;
+			case GL_COMPUTE_SHADER:
+				printf("compute shader\n");
+				break;
+			default:
+				break;
+		}
 		Con_Printf("glCreateShader failed\n");
 	}
 	return false;
@@ -676,6 +703,13 @@ static int GL_InsertDefinitions(
 		strings[2] = (const char*)glsl_common_glsl;
 		strings[1] = (const char*)glsl_constants_glsl;
 
+		strings[0] = R_UseModernOpenGL() ? (
+			"#version 410\n\n"
+		) : (
+			"#version 330\n\n"
+		);
+		lengths[0] = strlen(strings[0]);
+
 		// Some drivers interpret length 0 as nul terminated
 		// spec is < 0 (https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glShaderSource.xhtml)
 		for (i = 0; i < MAX_SHADER_COMPONENTS; ++i) {
@@ -718,7 +752,7 @@ static qbool GL_CompileProgram(
 	fragment_components = GL_InsertDefinitions(fragment_shader_text, fragment_shader_text_length, program->included_definitions);
 
 	if (GL_CompileShader(vertex_components, vertex_shader_text, vertex_shader_text_length, GL_VERTEX_SHADER, &shaders[shadertype_vertex])) {
-		if (geometry_shader_text[0] == NULL || GL_CompileShader(geometry_components, geometry_shader_text, geometry_shader_text_length, GL_GEOMETRY_SHADER, &shaders[shadertype_geometry])) {
+		//if (geometry_shader_text[0] == NULL || GL_CompileShader(geometry_components, geometry_shader_text, geometry_shader_text_length, GL_GEOMETRY_SHADER, &shaders[shadertype_geometry])) {
 			if (GL_CompileShader(fragment_components, fragment_shader_text, fragment_shader_text_length, GL_FRAGMENT_SHADER, &shaders[shadertype_fragment])) {
 				Con_DPrintf("Shader compilation completed successfully\n");
 
@@ -755,10 +789,10 @@ static qbool GL_CompileProgram(
 			else {
 				Con_Printf("FragmentShader.Compile(%s) failed\n", program->friendly_name);
 			}
-		}
-		else {
-			Con_Printf("GeometryShader.Compile(%s) failed\n", program->friendly_name);
-		}
+		//}
+		//else {
+		//	Con_Printf("GeometryShader.Compile(%s) failed\n", program->friendly_name);
+		//}
 	}
 	else {
 		Con_Printf("VertexShader.Compile(%s) failed\n", program->friendly_name);
@@ -893,6 +927,11 @@ qbool R_ProgramRecompileNeeded(r_program_id program_id, unsigned int options)
 	return (!program->program) || program->force_recompile || program->custom_options != options || program->standard_options != standard_options;
 }
 
+GLuint R_ProgramId(r_program_id program_id)
+{
+	return R_CurrentSubProgram(program_id)->program;
+}
+
 void GL_CvarForceRecompile(cvar_t* cvar)
 {
 	r_program_id p;
@@ -909,6 +948,7 @@ void GL_CvarForceRecompile(cvar_t* cvar)
 
 static qbool GL_CompileComputeShaderProgram(gl_program_t* program, const char* shadertext, unsigned int length)
 {
+	return false;
 	const char* shader_text[MAX_SHADER_COMPONENTS] = { shadertext, "", "", "", "", "" };
 	GLint shader_text_length[MAX_SHADER_COMPONENTS] = { length, 0, 0, 0, 0, 0 };
 	int components;
@@ -999,7 +1039,7 @@ void GL_LoadProgramFunctions(void)
 		GL_LoadOptionalFunction(glProgramUniformMatrix4fv);
 	}
 
-	if (SDL_GL_ExtensionSupported("GL_ARB_compute_shader") && SDL_GL_ExtensionSupported("GL_ARB_shader_image_load_store")) {
+	if (GL_VersionAtLeast(4, 3) || (SDL_GL_ExtensionSupported("GL_ARB_compute_shader") && SDL_GL_ExtensionSupported("GL_ARB_shader_image_load_store"))) {
 		qbool compute_shaders_support = true;
 
 		GL_LoadMandatoryFunctionExtension(glDispatchCompute, compute_shaders_support);

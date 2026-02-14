@@ -80,7 +80,11 @@ static GLenum GL_BufferTypeToTarget(buffertype_t type)
 		case buffertype_indirect:
 			return GL_DRAW_INDIRECT_BUFFER;
 		case buffertype_storage:
+#ifdef __APPLE__
+			return GL_UNIFORM_BUFFER;
+#else
 			return GL_SHADER_STORAGE_BUFFER;
+#endif
 		case buffertype_vertex:
 			return GL_ARRAY_BUFFER;
 		case buffertype_uniform:
@@ -133,6 +137,9 @@ GL_StaticFunctionWrapperBody(glFenceSync, GLsync, condition, flags)
 GL_StaticFunctionDeclaration(glClientWaitSync, "sync=%p, flags=%u, timeout=%UI64", "returns %u", GLenum, GLsync sync, GLbitfield flags, GLuint64 timeout)
 GL_StaticFunctionWrapperBody(glClientWaitSync, GLenum, sync, flags, timeout)
 GL_StaticProcedureDeclaration(glDeleteSync, "sync=%p", GLsync sync)
+
+GL_StaticProcedureDeclaration(glGetBufferParameteriv, "target=%u, value=%u, data=%p", GLenum target, GLenum value, GLint *data)
+
 
 // Cache OpenGL state
 static struct {
@@ -579,6 +586,16 @@ static void GL_BufferEndFrame(void)
 	}
 }
 
+
+
+typedef struct DrawElementsIndirectCommand {
+	GLuint count;        // Number of indices to draw
+	GLuint instanceCount; // Number of instances (set to 1 if not instancing)
+	GLuint firstIndex;   // Starting index in the index buffer
+	GLint  baseVertex;   // Base vertex offset (typically 0 if not used)
+	GLuint baseInstance; // Base instance number (typically 0 if not used)
+} DrawElementsIndirectCommand;
+
 static uintptr_t GL_BufferOffset(r_buffer_id id)
 {
 	return glBufferState.buffers[id].persistent_mapped_ptr ? glBufferState.buffers[id].size * glConfig.tripleBufferIndex : 0;
@@ -650,9 +667,8 @@ void GL_InitialiseBufferHandling(api_buffers_t* api)
 		GL_LoadOptionalFunction(glBindBufferRange);
 	}
 
-	// OpenGL 4.4, persistent mapping of buffers
 	glBufferState.tripleBuffer_supported = !COM_CheckParm(cmdline_param_client_notriplebuffering);
-	if (SDL_GL_ExtensionSupported("GL_ARB_sync")) {
+	if (GL_VersionAtLeast(3, 2) || SDL_GL_ExtensionSupported("GL_ARB_sync")) {
 		GL_LoadMandatoryFunctionExtension(glFenceSync, glBufferState.tripleBuffer_supported);
 		GL_LoadMandatoryFunctionExtension(glClientWaitSync, glBufferState.tripleBuffer_supported);
 		GL_LoadMandatoryFunctionExtension(glDeleteSync, glBufferState.tripleBuffer_supported);
@@ -660,7 +676,8 @@ void GL_InitialiseBufferHandling(api_buffers_t* api)
 	else {
 		glBufferState.tripleBuffer_supported = false;
 	}
-	if (SDL_GL_ExtensionSupported("GL_ARB_buffer_storage")) {
+	// OpenGL 4.4, persistent mapping of buffers
+	if (GL_VersionAtLeast(4, 4) || SDL_GL_ExtensionSupported("GL_ARB_buffer_storage")) {
 		GL_LoadMandatoryFunctionExtension(glBufferStorage, glBufferState.tripleBuffer_supported);
 	}
 	else {
@@ -674,7 +691,7 @@ void GL_InitialiseBufferHandling(api_buffers_t* api)
 	}
 
 	// OpenGL 4.5 onwards, update directly
-	if (GL_UseDirectStateAccess()) {
+	if (GL_VersionAtLeast(4, 5) || GL_UseDirectStateAccess()) {
 		GL_LoadOptionalFunction(glNamedBufferSubData);
 		GL_LoadOptionalFunction(glNamedBufferData);
 		GL_LoadOptionalFunction(glUnmapNamedBuffer);
@@ -683,7 +700,7 @@ void GL_InitialiseBufferHandling(api_buffers_t* api)
 	glBufferState.tripleBuffer_supported &= buffers_supported;
 
 	api->supported = buffers_supported;
-	if (!api->supported) {
+	if (false && !api->supported) {
 		api->FrameReady = R_Stub_True;
 		api->IsValid = R_Stub_BufferNotValid;
 		api->InitialiseState = api->Shutdown = R_Stub_NoOperation;

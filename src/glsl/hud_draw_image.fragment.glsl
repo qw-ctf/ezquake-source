@@ -1,11 +1,11 @@
-#version 430
-
 #ezquake-definitions
 
 #ifdef MIXED_SAMPLING
-layout(binding=0) uniform sampler2D tex[2];
+//layout(binding=0) uniform sampler2D tex[2];
+uniform sampler2D tex[2];
 #else
-layout(binding=0) uniform sampler2D tex;
+//layout(binding=0) uniform sampler2D tex;
+uniform sampler2D tex;
 #endif
 
 in vec2 TextureCoord;

@@ -1,5 +1,3 @@
-#version 120
-
 #ezquake-definitions
 
 uniform sampler2D base;

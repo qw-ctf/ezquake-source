@@ -480,6 +480,7 @@ static void GLM_CopyTexturesToArray(texture_ref array_ref, int flagged_type, int
 	// texture created ok
 	if (flagged_type == TEXTURETYPES_SPRITES) {
 		renderer.TextureWrapModeClamp(array_ref);
+		renderer.TextureSetFiltering(array_ref, texture_minification_nearest, texture_magnification_nearest);
 	}
 
 	// Copy the 2D textures across

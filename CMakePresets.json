@@ -186,7 +186,8 @@
                 "rhs": "Darwin"
             },
             "cacheVariables": {
-                "RENDERER_MODERN_OPENGL": "OFF"
+                "RENDERER_MODERN_OPENGL": "ON",
+				"RENDERER_CLASSIC_OPENGL": "ON"
             }
         },
         {

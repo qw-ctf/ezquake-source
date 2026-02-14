@@ -39,7 +39,7 @@ static void GL_SDL_SetupAttributes(const opengl_version_t* version)
 
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, version->majorVersion);
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, version->minorVersion);
-		SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, version->core ? SDL_GL_CONTEXT_PROFILE_CORE : SDL_GL_CONTEXT_PROFILE_COMPATIBILITY);
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, !version->core ? SDL_GL_CONTEXT_PROFILE_CORE : SDL_GL_CONTEXT_PROFILE_COMPATIBILITY);
 
 #ifdef __APPLE__
 		// https://www.khronos.org/opengl/wiki/OpenGL_Context
@@ -50,7 +50,7 @@ static void GL_SDL_SetupAttributes(const opengl_version_t* version)
 		contextFlags |= version->core && COM_CheckParm(cmdline_param_client_forwardonlyprofile) ? SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG : 0;
 #endif
 		contextFlags |= R_DebugProfileContext() ? SDL_GL_CONTEXT_DEBUG_FLAG : 0;
-		SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, contextFlags);
+		//SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, contextFlags);
 	}
 }
 

@@ -1,5 +1,3 @@
-#version 120
-
 #ezquake-definitions
 
 #ifdef DRAW_SKYBOX

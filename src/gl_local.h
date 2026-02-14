@@ -237,7 +237,11 @@ void GL_DrawElements(GLenum mode, GLsizei count, GLenum type, const GLvoid* indi
 void GL_MultiDrawArraysIndirect(GLenum mode, const void* indirect, GLsizei drawcount, GLsizei stride);
 void GL_MultiDrawElementsIndirect(GLenum mode, GLenum type, const void* indirect, GLsizei drawcount, GLsizei stride);
 void GL_DrawElementsInstancedBaseVertexBaseInstance(GLenum mode, GLsizei count, GLenum type, GLvoid* indices, GLsizei primcount, GLint basevertex, GLuint baseinstance);
+void GL_DrawElementsIndirect(GLenum mode, GLenum type, GLvoid* indirect);
 qbool GL_DrawElementsBaseVertexAvailable(void);
+
+GLuint GL_GetUniformBlockIndex(GLuint program, const GLchar *uniformBlockName);
+void GL_UniformBlockBinding(GLuint program, GLuint uniformBlockIndex, GLuint uniformBlockBinding);
 
 void GL_BindImageTexture(GLuint unit, texture_ref texture, GLint level, GLboolean layered, GLint layer, GLenum access, GLenum format);
 GLenum GL_ProcessAllErrors(const char* message);
@@ -253,7 +257,7 @@ GLenum GL_ProcessAllErrors(const char* message);
 #define GL_LoadOptionalFunction(functionName)    { q##functionName##_impl = (functionName##_t)SDL_GL_GetProcAddress(#functionName); }
 #define GL_LoadOptionalFunctionEXT(functionName) { q##functionName##_impl = (functionName##_t)SDL_GL_GetProcAddress(#functionName "EXT"); }
 #define GL_LoadOptionalFunctionARB(functionName) { q##functionName##_impl = (functionName##_t)SDL_GL_GetProcAddress(#functionName "ARB"); }
-#define GL_UseDirectStateAccess() (SDL_GL_ExtensionSupported("GL_ARB_direct_state_access"))
+#define GL_UseDirectStateAccess() (GL_VersionAtLeast(4, 5) || SDL_GL_ExtensionSupported("GL_ARB_direct_state_access"))
 #define GL_StaticProcedureDeclaration(name, formatString, ...) \
 	typedef void (APIENTRY *name ## _t)(__VA_ARGS__); \
 	static name ## _t    q ## name ## _impl; \
@@ -385,7 +389,7 @@ GLenum GL_ProcessAllErrors(const char* message);
 #define GL_LoadOptionalFunction(functionName) { q##functionName##_impl = (functionName##_t)SDL_GL_GetProcAddress(#functionName); }
 #define GL_LoadOptionalFunctionEXT(functionName) { q##functionName##_impl = (functionName##_t)SDL_GL_GetProcAddress(#functionName "EXT"); }
 #define GL_LoadOptionalFunctionARB(functionName) { q##functionName##_impl = (functionName##_t)SDL_GL_GetProcAddress(#functionName "ARB"); }
-#define GL_UseDirectStateAccess() (SDL_GL_ExtensionSupported("GL_ARB_direct_state_access"))
+#define GL_UseDirectStateAccess() (GL_VersionAtLeast(4, 5) || SDL_GL_ExtensionSupported("GL_ARB_direct_state_access"))
 #else
 #define GL_LoadMandatoryFunction(functionName,testFlag) { q##functionName##_impl = NULL; testFlag = false; }
 #define GL_LoadMandatoryFunctionEXT(functionName,testFlag) { q##functionName##_impl = NULL; testFlag = false; }

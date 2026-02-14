@@ -1,6 +1,9 @@
-#version 120
-
 #ezquake-definitions
+
+#if __VERSION__ >= 330
+#define attribute in
+#define varying out
+#endif
 
 attribute float style;
 varying vec4 color;
@@ -22,7 +25,7 @@ uniform vec4 telecolor;
 
 void main()
 {
-	gl_Position = ftransform();
+	gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex; // ftransform();
 #ifdef EZ_USE_TEXTURE_ARRAYS
 	TextureCoord = gl_MultiTexCoord0.xyz;
 #else

@@ -1,30 +1,41 @@
-#version 430
-
 #ezquake-definitions
 
 uniform int draw_outlines;
 
 #ifdef DRAW_DETAIL_TEXTURES
-layout(binding=SAMPLER_DETAIL_TEXTURE) uniform sampler2D detailTex;
+//layout(binding=SAMPLER_DETAIL_TEXTURE) uniform sampler2D detailTex;
+uniform sampler2D detailTex;
 #endif
 #ifdef DRAW_CAUSTIC_TEXTURES
-layout(binding=SAMPLER_CAUSTIC_TEXTURE) uniform sampler2D causticsTex;
+//layout(binding=SAMPLER_CAUSTIC_TEXTURE) uniform sampler2D causticsTex;
+uniform sampler2D causticsTex;
 #endif
 #if defined(DRAW_SKYBOX)
-layout(binding=SAMPLER_SKYBOX_TEXTURE) uniform samplerCube skyTex;
+//layout(binding=SAMPLER_SKYBOX_TEXTURE) uniform samplerCube skyTex;
+uniform samplerCube skyTex;
 #elif defined(DRAW_SKYDOME)
-layout(binding=SAMPLER_SKYDOME_TEXTURE) uniform sampler2D skyDomeTex;
-layout(binding=SAMPLER_SKYDOME_CLOUDTEXTURE) uniform sampler2D skyDomeCloudTex;
+//layout(binding=SAMPLER_SKYDOME_TEXTURE) uniform sampler2D skyDomeTex;
+//layout(binding=SAMPLER_SKYDOME_CLOUDTEXTURE) uniform sampler2D skyDomeCloudTex;
+uniform sampler2D skyDomeTex;
+uniform sampler2D skyDomeCloudTex;
 #endif
-layout(binding=SAMPLER_LIGHTMAP_TEXTURE) uniform sampler2DArray lightmapTex;
-layout(binding=SAMPLER_MATERIAL_TEXTURE_START) uniform sampler2DArray materialTex[SAMPLER_MATERIAL_TEXTURE_COUNT];
+//layout(binding=SAMPLER_LIGHTMAP_TEXTURE) uniform sampler2DArray lightmapTex;
+//layout(binding=SAMPLER_MATERIAL_TEXTURE_START) uniform sampler2DArray materialTex[SAMPLER_MATERIAL_TEXTURE_COUNT];
+uniform sampler2DArray lightmapTex;
+uniform sampler2DArray materialTex[SAMPLER_MATERIAL_TEXTURE_COUNT];
 
-layout(std140, binding=EZQ_GL_BINDINGPOINT_BRUSHMODEL_DRAWDATA) buffer WorldCvars {
-	WorldDrawInfo drawInfo[];
-};
-layout(std140, binding=EZQ_GL_BINDINGPOINT_BRUSHMODEL_SAMPLERS) buffer SamplerMappingsBuffer {
-	SamplerMapping samplerMapping[];
-};
+//layout(std140, binding=EZQ_GL_BINDINGPOINT_BRUSHMODEL_DRAWDATA) buffer WorldCvars {
+//	WorldDrawInfo drawInfo[];
+//};
+//layout(std140, binding=EZQ_GL_BINDINGPOINT_BRUSHMODEL_SAMPLERS) buffer SamplerMappingsBuffer {
+//	SamplerMapping samplerMapping[];
+//};
+//layout(std140) uniform WorldCvars {
+//	WorldDrawInfo drawInfo[64];
+//};
+//layout(std140) uniform SamplerMappingsBuffer {
+//	SamplerMapping samplerMapping[256];
+//};
 
 in vec3 TextureCoord;
 in vec3 TexCoordLightmap;
@@ -35,17 +46,26 @@ in vec2 DetailCoord;
 in vec3 LumaCoord;
 #endif
 in vec3 FlatColor;
-in flat int Flags;
+flat in int Flags;
+//uniform int SamplerNumber;
+#if defined(DRAW_SKYBOX) || defined(DRAW_SKYDOME)
 in vec3 Direction;
+#endif
 #ifdef DRAW_GEOMETRY
 in vec3 Normal;
 in vec4 UnClipped;
 #endif
 
+#if defined(DRAW_FLATFLOORS)
 in float mix_floor;
+#endif
+#if defined(DRAW_FLATWALLS)
 in float mix_wall;
+#endif
+#if defined(DRAW_ALPHATEST_ENABLED)
 in float alpha;
-in flat int SamplerNumber;
+#endif
+flat in int SamplerNumber;
 
 layout(location=0) out vec4 frag_colour;
 #ifdef DRAW_GEOMETRY

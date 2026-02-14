@@ -199,7 +199,7 @@ static qbool GLM_CompileDrawWorldProgramImpl(r_program_id program_id, qbool alph
 			strlcat(included_definitions, va("#define SAMPLER_SKYBOX_TEXTURE %d\n", TEXTURE_UNIT_SKYBOX), sizeof(included_definitions));
 
 		}
-		else if (skydome) {
+		else if (false && skydome) {
 			TEXTURE_UNIT_SKYDOME_TEXTURE = samplers++;
 			TEXTURE_UNIT_SKYDOME_CLOUD_TEXTURE = samplers++;
 
@@ -231,6 +231,38 @@ static qbool GLM_CompileDrawWorldProgramImpl(r_program_id program_id, qbool alph
 		R_ProgramCompileWithInclude(program_id, included_definitions);
 
 		R_ProgramSetCustomOptions(program_id, drawworld_desiredOptions);
+
+		if (gl_outline.integer & 2) {
+			GLuint index = GL_GetUniformBlockIndex(R_ProgramId(program_id), "surface_data");
+			GL_UniformBlockBinding(R_ProgramId(program_id), index, EZQ_GL_BINDINGPOINT_WORLDMODEL_SURFACES);
+		}
+		{
+			GLuint index = GL_GetUniformBlockIndex(R_ProgramId(program_id), "GlobalState");
+			GL_UniformBlockBinding(R_ProgramId(program_id), index, EZQ_GL_BINDINGPOINT_FRAMECONSTANTS);
+		}
+		{
+			GLuint index = GL_GetUniformBlockIndex(R_ProgramId(program_id), "WorldCvars");
+			GL_UniformBlockBinding(R_ProgramId(program_id), index, EZQ_GL_BINDINGPOINT_BRUSHMODEL_DRAWDATA);
+		}
+		{
+			GLuint index = GL_GetUniformBlockIndex(R_ProgramId(program_id), "SamplerMappingsBuffer");
+			GL_UniformBlockBinding(R_ProgramId(program_id), index, EZQ_GL_BINDINGPOINT_BRUSHMODEL_SAMPLERS);
+		}
+		if (detail_textures) {
+			R_ProgramUniform1i(r_program_uniform_brushmodel_detailtex, TEXTURE_UNIT_DETAIL);
+		}
+		if (caustic_textures) {
+			R_ProgramUniform1i(r_program_uniform_brushmodel_causticstex, TEXTURE_UNIT_CAUSTICS);
+		}
+		if (skybox) {
+			R_ProgramUniform1i(r_program_uniform_brushmodel_skytex, TEXTURE_UNIT_SKYBOX);
+		}
+		if (skydome) {
+			R_ProgramUniform1i(r_program_uniform_brushmodel_skydometex, TEXTURE_UNIT_SKYDOME_TEXTURE);
+			R_ProgramUniform1i(r_program_uniform_brushmodel_skydomecloudtex, TEXTURE_UNIT_SKYDOME_CLOUD_TEXTURE);
+		}
+		R_ProgramUniform1i(r_program_uniform_brushmodel_lightmaptex, TEXTURE_UNIT_LIGHTMAPS);
+		R_ProgramUniform1i(r_program_uniform_brushmodel_materialtex, TEXTURE_UNIT_MATERIAL);
 	}
 
 	if (!R_BufferReferenceIsValid(r_buffer_brushmodel_drawcall_data)) {
@@ -657,29 +689,37 @@ void GLM_PrepareWorldModelBatch(void)
 	R_TraceLeaveNamedRegion();
 }
 
+
 static void GLM_DrawWorldExecuteCalls(glm_brushmodel_drawcall_t* drawcall, uintptr_t offset, int begin, int count)
 {
 	int i;
+	int prevSampler = -1;
 	qbool prev_alphaTested = false;
 
 	for (i = begin; i < begin + count; ++i) {
 		glm_worldmodel_req_t* req = &drawcall->worldmodel_requests[i];
 		int batchCount = 1;
+		int sampler = req->nonDynamicSampler;
 
-		if (req->isAlphaTested != prev_alphaTested) {
+		if (prevSampler != sampler || req->isAlphaTested != prev_alphaTested) {
 			if (req->isAlphaTested) {
 				R_ProgramUse(r_program_brushmodel_alphatested);
+				R_ProgramUniform1i(r_program_uniform_brushmodel_alphatested_sampler, prevSampler = sampler);
 			}
 			else {
 				R_ProgramUse(r_program_brushmodel);
+				R_ProgramUniform1i(r_program_uniform_brushmodel_sampler, prevSampler = sampler);
 			}
 			prev_alphaTested = req->isAlphaTested;
 		}
 
+		/*
 		while (i + batchCount < begin + count && drawcall->worldmodel_requests[i + batchCount].isAlphaTested == req->isAlphaTested) {
 			++batchCount;
 		}
+		*/
 
+#ifndef __APPLE__
 		if (batchCount == 1) {
 			GL_DrawElementsInstancedBaseVertexBaseInstance(
 				GL_TRIANGLE_STRIP,
@@ -695,6 +735,29 @@ static void GLM_DrawWorldExecuteCalls(glm_brushmodel_drawcall_t* drawcall, uintp
 			GL_MultiDrawElementsIndirect(GL_TRIANGLE_STRIP, GL_UNSIGNED_INT, (void*)(offset + (i - begin) * sizeof(drawcall->worldmodel_requests[0])), batchCount, sizeof(drawcall->worldmodel_requests[0]));
 			i += batchCount - 1;
 		}
+#else
+
+		//R_BindVertexArray(vao_brushmodel);
+		//buffers.Bind(r_buffer_brushmodel_index_data);
+		//buffers.Bind(r_buffer_brushmodel_drawcall_indirect);
+		//GL_DrawElements(GL_TRIANGLE_STRIP, req->count, GL_UNSIGNED_INT, modelIndexes + req->firstIndex);
+
+		GL_DrawElementsIndirect(
+				GL_TRIANGLE_STRIP,
+				GL_UNSIGNED_INT,
+				(void*)(offset + (i - begin) * sizeof(drawcall->worldmodel_requests[0]))
+			);
+
+		/*
+		for (int i = 0; i < drawcall->batch_count; i++) {
+			GL_DrawElements(GL_TRIANGLE_STRIP, )
+			GL_DrawElementsIndirect(
+				GL_TRIANGLE_STRIP,
+				GL_UNSIGNED_INT,
+				(void*)(buffers.BufferOffset(r_buffer_brushmodel_drawcall_indirect) + i * sizeof(drawcall->worldmodel_requests[0]))
+			);
+		}*/
+#endif
 	}
 }
 
@@ -715,6 +778,7 @@ void GLM_DrawWorldModelBatch(glm_brushmodel_drawcall_type type)
 		if (first) {
 			R_TraceEnterNamedRegion(__func__);
 			GL_StartWorldBatch(alphablended);
+//			R_BindVertexArray(vao_brushmodel);
 			buffers.Bind(r_buffer_brushmodel_index_data);
 			buffers.Bind(r_buffer_brushmodel_drawcall_indirect);
 			extra_offset = buffers.BufferOffset(r_buffer_brushmodel_drawcall_indirect);

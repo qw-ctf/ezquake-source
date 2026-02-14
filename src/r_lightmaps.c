@@ -491,7 +491,7 @@ void R_UploadChangedLightmaps(void)
 		}
 #ifdef RENDERER_OPTION_MODERN_OPENGL
 		else if (R_UseModernOpenGL()) {
-			GLM_ComputeLightmaps();
+			//GLM_ComputeLightmaps();
 		}
 #endif
 	}

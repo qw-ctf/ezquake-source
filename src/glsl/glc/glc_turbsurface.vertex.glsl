@@ -1,6 +1,9 @@
-#version 120
-
 #ezquake-definitions
+
+#if __VERSION__ >= 330
+#define attribute in
+#define varying out
+#endif
 
 #ifndef FLAT_COLOR
 varying vec2 TextureCoord;
@@ -8,7 +11,7 @@ varying vec2 TextureCoord;
 
 void main()
 {
-	gl_Position = ftransform();
+	gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex; // ftransform();
 #ifndef FLAT_COLOR
 	TextureCoord = gl_MultiTexCoord0.st;
 #endif

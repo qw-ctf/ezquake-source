@@ -1,8 +1,7 @@
-#version 430
-
 #ezquake-definitions
 
-layout(binding=0) uniform sampler2DArray materialTex;
+//layout(binding=0) uniform sampler2DArray materialTex;
+uniform sampler2DArray materialTex;
 uniform bool alpha_test;
 
 in vec3 TextureCoord;

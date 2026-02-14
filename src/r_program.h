@@ -120,6 +120,13 @@ typedef enum {
 	r_program_uniform_aliasmodel_outline_color_enemy,
 	r_program_uniform_aliasmodel_outline_use_player_color,
 	r_program_uniform_aliasmodel_outline_scale,
+	r_program_uniform_brushmodel_detailtex,
+	r_program_uniform_brushmodel_causticstex,
+	r_program_uniform_brushmodel_skytex,
+	r_program_uniform_brushmodel_skydometex,
+	r_program_uniform_brushmodel_skydomecloudtex,
+	r_program_uniform_brushmodel_lightmaptex,
+	r_program_uniform_brushmodel_materialtex,
 	r_program_uniform_count
 } r_program_uniform_id;
 
@@ -168,6 +175,9 @@ int R_ProgramAttributeLocation(r_program_attribute_id attr_id);
 
 // Check if a program needs to be recompiled
 qbool R_ProgramRecompileNeeded(r_program_id program_id, unsigned int options);
+
+// Ehm....
+unsigned int R_ProgramId(r_program_id program_id);
 
 // Compiles a simple program
 qbool R_ProgramCompile(r_program_id program_id);

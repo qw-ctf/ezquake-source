@@ -1,8 +1,7 @@
-#version 430
-
 #ezquake-definitions
 
-layout(binding = 0) uniform sampler2D normal_texture;
+//layout(binding = 0) uniform sampler2D normal_texture;
+uniform sampler2D normal_texture;
 
 uniform vec3 outline_color;
 uniform float outline_scale;

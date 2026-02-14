@@ -1,6 +1,8 @@
-#version 120
-
 #ezquake-definitions
+
+#if __VERSION__ >= 330
+#define attribute in
+#endif
 
 attribute float flags;
 

@@ -244,7 +244,7 @@ void GL_InitialiseFramebufferHandling(void)
 			glConfig.supported_features |= R_SUPPORT_DEPTH32F;
 		}
 	}
-	else if (SDL_GL_ExtensionSupported("GL_EXT_framebuffer_object") && SDL_GL_ExtensionSupported("GL_ARB_depth_texture")) {
+	else if (GL_VersionAtLeast(3, 0) || (SDL_GL_ExtensionSupported("GL_EXT_framebuffer_object") && SDL_GL_ExtensionSupported("GL_ARB_depth_texture"))) {
 		GL_LoadMandatoryFunctionEXT(glGenFramebuffers, framebuffers_supported);
 		GL_LoadMandatoryFunctionEXT(glDeleteFramebuffers, framebuffers_supported);
 		GL_LoadMandatoryFunctionEXT(glBindFramebuffer, framebuffers_supported);
@@ -254,21 +254,24 @@ void GL_InitialiseFramebufferHandling(void)
 		GL_LoadMandatoryFunctionEXT(glBindRenderbuffer, framebuffers_supported);
 		GL_LoadMandatoryFunctionEXT(glRenderbufferStorage, framebuffers_supported);
 		GL_LoadMandatoryFunctionEXT(glFramebufferRenderbuffer, framebuffers_supported);
-		if (SDL_GL_ExtensionSupported("GL_EXT_framebuffer_blit")) {
+		if (GL_VersionAtLeast(3, 0) || SDL_GL_ExtensionSupported("GL_EXT_framebuffer_blit")) {
 			GL_LoadOptionalFunctionEXT(glBlitFramebuffer);
 		}
+
+		// 2.0
 		GL_LoadMandatoryFunctionEXT(glDrawBuffers, framebuffers_supported);
 
+		// 3.2
 		GL_LoadMandatoryFunctionEXT(glFramebufferTexture, framebuffers_supported);
 		GL_LoadMandatoryFunctionEXT(glCheckFramebufferStatus, framebuffers_supported);
 		GL_LoadMandatoryFunctionEXT(glClearBufferfv, framebuffers_supported);
 
 		glConfig.supported_features |= (framebuffers_supported ? (R_SUPPORT_FRAMEBUFFERS) : 0);
 		glConfig.supported_features |= (framebuffers_supported && GL_Available(glBlitFramebuffer) ? (R_SUPPORT_FRAMEBUFFERS_BLIT) : 0);
-		glConfig.supported_features |= SDL_GL_ExtensionSupported("GL_ARB_depth_buffer_float") ? R_SUPPORT_DEPTH32F : 0;
+		glConfig.supported_features |= GL_VersionAtLeast(3, 3) || SDL_GL_ExtensionSupported("GL_ARB_depth_buffer_float") ? R_SUPPORT_DEPTH32F : 0;
 	}
 
-	glConfig.supported_features |= SDL_GL_ExtensionSupported("GL_ARB_framebuffer_sRGB") ? R_SUPPORT_FRAMEBUFFERS_SRGB : 0;
+	glConfig.supported_features |= GL_VersionAtLeast(3, 0) || SDL_GL_ExtensionSupported("GL_ARB_framebuffer_sRGB") ? R_SUPPORT_FRAMEBUFFERS_SRGB : 0;
 
 	if (GL_UseDirectStateAccess()) {
 		GL_LoadOptionalFunction(glNamedRenderbufferStorage);
