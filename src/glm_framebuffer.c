@@ -106,7 +106,7 @@ qbool GLM_CompilePostProcessProgram(void)
 		}
 		if (post_process_flags & POST_PROCESS_FXAA) {
 			extern const unsigned char fxaa_h_glsl[];
-			char buffer[33];
+			char buffer[64] = {0};
 			const char *settings =
 					"#define EZ_POSTPROCESS_FXAA\n" \
 					"#define FXAA_PC 1\n" \

@@ -521,7 +521,7 @@ static void GLM_RenderPreparedEntities(aliasmodel_draw_type_t type)
 	qbool translucent = (type != aliasmodel_draw_std && type != aliasmodel_draw_postscene_additive);
 	qbool additive = (type == aliasmodel_draw_postscene_additive);
 	qbool shells = (type == aliasmodel_draw_shells || type == aliasmodel_draw_postscene_shells);
-	qbool no_base_instance = !GL_Supported(R_SUPPORT_INSTANCED_RENDERING);
+	qbool no_base_instance = true; // !GL_Supported(R_SUPPORT_INSTANCED_RENDERING);
 
 	if (!instr->num_calls || !GLM_CompileAliasModelProgram()) {
 		return;

@@ -84,7 +84,7 @@ qbool GLC_CompilePostProcessProgram(void)
 			if (supported)
 			{
 				extern const unsigned char fxaa_h_glsl[];
-				char buffer[33];
+				char buffer[64] = {0};
 				const char *settings;
 				if (glConfig.core_profile) {
 					settings =

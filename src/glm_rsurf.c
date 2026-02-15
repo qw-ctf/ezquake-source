@@ -682,7 +682,7 @@ static void GLM_DrawWorldExecuteCalls(glm_brushmodel_drawcall_t* drawcall, uintp
 {
 	int i;
 	qbool prev_alphaTested = false;
-	qbool no_base_instance = !GL_Supported(R_SUPPORT_INSTANCED_RENDERING);
+	qbool no_base_instance = true; // !GL_Supported(R_SUPPORT_INSTANCED_RENDERING);
 
 	for (i = begin; i < begin + count; ++i) {
 		glm_worldmodel_req_t* req = &drawcall->worldmodel_requests[i];
