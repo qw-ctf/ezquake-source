@@ -80,7 +80,7 @@ static GLenum GL_BufferTypeToTarget(buffertype_t type)
 		case buffertype_indirect:
 			return GL_DRAW_INDIRECT_BUFFER;
 		case buffertype_storage:
-			return GL_SHADER_STORAGE_BUFFER;
+			return GL_VersionAtLeast(4, 3) ? GL_SHADER_STORAGE_BUFFER : GL_UNIFORM_BUFFER;
 		case buffertype_vertex:
 			return GL_ARRAY_BUFFER;
 		case buffertype_uniform:
@@ -652,7 +652,7 @@ void GL_InitialiseBufferHandling(api_buffers_t* api)
 
 	// OpenGL 4.4, persistent mapping of buffers
 	glBufferState.tripleBuffer_supported = !COM_CheckParm(cmdline_param_client_notriplebuffering);
-	if (SDL_GL_ExtensionSupported("GL_ARB_sync")) {
+	if (GL_VersionAtLeast(3, 2) || SDL_GL_ExtensionSupported("GL_ARB_sync")) {
 		GL_LoadMandatoryFunctionExtension(glFenceSync, glBufferState.tripleBuffer_supported);
 		GL_LoadMandatoryFunctionExtension(glClientWaitSync, glBufferState.tripleBuffer_supported);
 		GL_LoadMandatoryFunctionExtension(glDeleteSync, glBufferState.tripleBuffer_supported);
@@ -660,7 +660,7 @@ void GL_InitialiseBufferHandling(api_buffers_t* api)
 	else {
 		glBufferState.tripleBuffer_supported = false;
 	}
-	if (SDL_GL_ExtensionSupported("GL_ARB_buffer_storage")) {
+	if (GL_VersionAtLeast(4, 4) || SDL_GL_ExtensionSupported("GL_ARB_buffer_storage")) {
 		GL_LoadMandatoryFunctionExtension(glBufferStorage, glBufferState.tripleBuffer_supported);
 	}
 	else {

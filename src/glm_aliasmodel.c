@@ -22,6 +22,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "quakedef.h"
 #include "gl_model.h"
+#include "gl_local.h"
 #include "r_aliasmodel.h"
 #include "tr_types.h"
 #include "glsl/constants.glsl"
@@ -188,6 +189,16 @@ qbool GLM_CompileAliasModelProgram(void)
 
 		// Initialise program for drawing image
 		R_ProgramCompileWithInclude(r_program_aliasmodel, included_definitions);
+
+		// Set sampler uniforms for GL < 4.2 (no layout(binding=N) support)
+		if (!GL_VersionAtLeast(4, 2) && R_ProgramReady(r_program_aliasmodel)) {
+			R_ProgramUse(r_program_aliasmodel);
+			if (drawAlias_desiredOptions & DRAW_CAUSTIC_TEXTURES) {
+				R_ProgramUniform1i(r_program_uniform_aliasmodel_causticstex, TEXTURE_UNIT_CAUSTICS);
+			}
+			R_ProgramUniform1iArrayBase(r_program_uniform_aliasmodel_samplers, material_samplers_max, TEXTURE_UNIT_MATERIAL);
+		}
+
 		R_ProgramSetCustomOptions(r_program_aliasmodel, drawAlias_desiredOptions);
 	}
 	cached_mode = R_ProgramUniformGet1i(r_program_uniform_aliasmodel_drawmode, 0);
@@ -450,7 +461,7 @@ void GLM_PrepareAliasModelBatches(void)
 
 	// Update VBO with data about each entity
 	buffers.Update(r_buffer_aliasmodel_model_data, sizeof(aliasdata.models[0]) * alias_draw_count, aliasdata.models);
-	buffers.BindRange(r_buffer_aliasmodel_model_data, EZQ_GL_BINDINGPOINT_ALIASMODEL_DRAWDATA, buffers.BufferOffset(r_buffer_aliasmodel_model_data), sizeof(aliasdata.models[0]) * alias_draw_count);
+	buffers.BindRange(r_buffer_aliasmodel_model_data, EZQ_STORAGE_BLOCK_BINDING(EZQ_GL_BINDINGPOINT_ALIASMODEL_DRAWDATA), buffers.BufferOffset(r_buffer_aliasmodel_model_data), sizeof(aliasdata.models[0]) * alias_draw_count);
 
 	// Build & update list of indirect calls
 	{
@@ -480,6 +491,27 @@ void GLM_PrepareAliasModelBatches(void)
 	R_TraceLeaveNamedRegion();
 }
 
+// GL 4.1 fallback: no baseInstance, so update model data at index 0 before each draw
+static void GLM_DrawAliasModelsNoBaseInstance(aliasmodel_draw_instructions_t* instr, int call_index)
+{
+	int j;
+	int cmd_start = 0;
+
+	// Find the start of commands for this call
+	for (j = 0; j < call_index; ++j) {
+		cmd_start += instr->num_cmds[j];
+	}
+
+	for (j = 0; j < instr->num_cmds[call_index]; ++j) {
+		DrawArraysIndirectCommand_t* cmd = &instr->indirect_buffer[cmd_start + j];
+
+		// Update UBO slot 0 with this model's data
+		buffers.UpdateSection(r_buffer_aliasmodel_model_data, 0,
+			sizeof(aliasdata.models[0]), &aliasdata.models[cmd->baseInstance]);
+		GL_DrawArrays(GL_TRIANGLES, cmd->first, cmd->count);
+	}
+}
+
 static void GLM_RenderPreparedEntities(aliasmodel_draw_type_t type)
 {
 	aliasmodel_draw_instructions_t* instr = &alias_draw_instructions[type];
@@ -489,13 +521,16 @@ static void GLM_RenderPreparedEntities(aliasmodel_draw_type_t type)
 	qbool translucent = (type != aliasmodel_draw_std && type != aliasmodel_draw_postscene_additive);
 	qbool additive = (type == aliasmodel_draw_postscene_additive);
 	qbool shells = (type == aliasmodel_draw_shells || type == aliasmodel_draw_postscene_shells);
+	qbool no_base_instance = !GL_Supported(R_SUPPORT_INSTANCED_RENDERING);
 
 	if (!instr->num_calls || !GLM_CompileAliasModelProgram()) {
 		return;
 	}
 
-	buffers.Bind(r_buffer_aliasmodel_drawcall_indirect);
-	extra_offset = buffers.BufferOffset(r_buffer_aliasmodel_drawcall_indirect);
+	if (!no_base_instance) {
+		buffers.Bind(r_buffer_aliasmodel_drawcall_indirect);
+		extra_offset = buffers.BufferOffset(r_buffer_aliasmodel_drawcall_indirect);
+	}
 
 	R_ProgramUse(r_program_aliasmodel);
 	R_SetAliasModelUniforms(mode);
@@ -511,12 +546,17 @@ static void GLM_RenderPreparedEntities(aliasmodel_draw_type_t type)
 	if (type == aliasmodel_draw_postscene) {
 		GLM_StateBeginAliasModelZPassBatch();
 		for (i = 0; i < instr->num_calls; ++i) {
-			GL_MultiDrawArraysIndirect(
-				GL_TRIANGLES,
-				(const void*)(uintptr_t)(instr->indirect_buffer_offset + extra_offset),
-				instr->num_cmds[i],
-				0
-			);
+			if (no_base_instance) {
+				GLM_DrawAliasModelsNoBaseInstance(instr, i);
+			}
+			else {
+				GL_MultiDrawArraysIndirect(
+					GL_TRIANGLES,
+					(const void*)(uintptr_t)(instr->indirect_buffer_offset + extra_offset),
+					instr->num_cmds[i],
+					0
+				);
+			}
 		}
 	}
 
@@ -526,12 +566,17 @@ static void GLM_RenderPreparedEntities(aliasmodel_draw_type_t type)
 			renderer.TextureUnitMultiBind(TEXTURE_UNIT_MATERIAL, instr->num_textures[i], instr->bound_textures[i]);
 		}
 
-		GL_MultiDrawArraysIndirect(
-			GL_TRIANGLES,
-			(const void*)(uintptr_t)(instr->indirect_buffer_offset + extra_offset),
-			instr->num_cmds[i],
-			0
-		);
+		if (no_base_instance) {
+			GLM_DrawAliasModelsNoBaseInstance(instr, i);
+		}
+		else {
+			GL_MultiDrawArraysIndirect(
+				GL_TRIANGLES,
+				(const void*)(uintptr_t)(instr->indirect_buffer_offset + extra_offset),
+				instr->num_cmds[i],
+				0
+			);
+		}
 	}
 
 	if (type == aliasmodel_draw_std && alias_draw_instructions[aliasmodel_draw_outlines_spec].num_calls) {
@@ -543,12 +588,17 @@ static void GLM_RenderPreparedEntities(aliasmodel_draw_type_t type)
 		R_ApplyRenderingState(r_state_aliasmodel_outline_spec);
 
 		for (i = 0; i < instr->num_calls; ++i) {
-			GL_MultiDrawArraysIndirect(
-					GL_TRIANGLES,
-					(const void*)(uintptr_t)(instr->indirect_buffer_offset + extra_offset),
-					instr->num_cmds[i],
-					0
-			);
+			if (no_base_instance) {
+				GLM_DrawAliasModelsNoBaseInstance(instr, i);
+			}
+			else {
+				GL_MultiDrawArraysIndirect(
+						GL_TRIANGLES,
+						(const void*)(uintptr_t)(instr->indirect_buffer_offset + extra_offset),
+						instr->num_cmds[i],
+						0
+				);
+			}
 		}
 		R_TraceLeaveNamedRegion();
 	}
@@ -562,12 +612,17 @@ static void GLM_RenderPreparedEntities(aliasmodel_draw_type_t type)
 		GLM_StateBeginAliasOutlineBatch();
 
 		for (i = 0; i < instr->num_calls; ++i) {
-			GL_MultiDrawArraysIndirect(
-				GL_TRIANGLES,
-				(const void*)(uintptr_t)(instr->indirect_buffer_offset + extra_offset),
-				instr->num_cmds[i],
-				0
-			);
+			if (no_base_instance) {
+				GLM_DrawAliasModelsNoBaseInstance(instr, i);
+			}
+			else {
+				GL_MultiDrawArraysIndirect(
+					GL_TRIANGLES,
+					(const void*)(uintptr_t)(instr->indirect_buffer_offset + extra_offset),
+					instr->num_cmds[i],
+					0
+				);
+			}
 		}
 		R_TraceLeaveNamedRegion();
 	}

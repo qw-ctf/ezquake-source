@@ -22,6 +22,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "quakedef.h"
 #include "gl_model.h"
 #include "gl_local.h"
+#include "tr_types.h"
 #include "glm_vao.h"
 #include "r_buffers.h"
 
@@ -47,7 +48,7 @@ qbool GLM_InitialiseVAOHandling(void)
 	qbool vaos_supported = true;
 
 	// VAOs: OpenGL 3.0
-	if (SDL_GL_ExtensionSupported("GL_ARB_vertex_array_object")) {
+	if (GL_VersionAtLeast(3, 0) || SDL_GL_ExtensionSupported("GL_ARB_vertex_array_object")) {
 		GL_LoadMandatoryFunctionExtension(glGenVertexArrays, vaos_supported);
 		GL_LoadMandatoryFunctionExtension(glBindVertexArray, vaos_supported);
 		GL_LoadMandatoryFunctionExtension(glDeleteVertexArrays, vaos_supported);
@@ -63,7 +64,7 @@ qbool GLM_InitialiseVAOHandling(void)
 	// OpengGL 3.0
 	GL_LoadMandatoryFunctionExtension(glVertexAttribIPointer, vaos_supported);
 
-	if (SDL_GL_ExtensionSupported("GL_ARB_instanced_arrays")) {
+	if (GL_VersionAtLeast(3, 3) || SDL_GL_ExtensionSupported("GL_ARB_instanced_arrays")) {
 		GL_LoadMandatoryFunctionExtension(glVertexAttribDivisor, vaos_supported);
 	}
 	else {

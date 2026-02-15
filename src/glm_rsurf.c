@@ -147,7 +147,7 @@ static qbool GLM_CompileDrawWorldProgramImpl(r_program_id program_id, qbool alph
 		(r_drawflat.integer == 1 || r_drawflat.integer == 2 ? DRAW_FLATFLOORS : 0) |
 		(r_drawflat.integer == 1 || r_drawflat.integer == 3 ? DRAW_FLATWALLS : 0) |
 		(gl_textureless.integer ? DRAW_TEXTURELESS : 0) |
-		((gl_outline.integer & 2) ? DRAW_GEOMETRY : 0) |
+		((gl_outline.integer & 2) && GL_VersionAtLeast(4, 3) ? DRAW_GEOMETRY : 0) |
 		(alpha_test ? DRAW_ALPHATESTED : 0) |
 		(skywind ? DRAW_SKYWIND : 0);
 
@@ -207,7 +207,7 @@ static qbool GLM_CompileDrawWorldProgramImpl(r_program_id program_id, qbool alph
 			strlcat(included_definitions, va("#define SAMPLER_SKYDOME_TEXTURE %d\n", TEXTURE_UNIT_SKYDOME_TEXTURE), sizeof(included_definitions));
 			strlcat(included_definitions, va("#define SAMPLER_SKYDOME_CLOUDTEXTURE %d\n", TEXTURE_UNIT_SKYDOME_CLOUD_TEXTURE), sizeof(included_definitions));
 		}
-		if (gl_outline.integer & 2) {
+		if ((gl_outline.integer & 2) && GL_VersionAtLeast(4, 3)) {
 			strlcat(included_definitions, "#define DRAW_GEOMETRY\n", sizeof(included_definitions));
 		}
 		TEXTURE_UNIT_LIGHTMAPS = samplers++;
@@ -229,6 +229,27 @@ static qbool GLM_CompileDrawWorldProgramImpl(r_program_id program_id, qbool alph
 
 		// Initialise program for drawing image
 		R_ProgramCompileWithInclude(program_id, included_definitions);
+
+		// Set sampler uniforms for GL < 4.2 (no layout(binding=N) support)
+		if (!GL_VersionAtLeast(4, 2) && R_ProgramReady(program_id)) {
+			int base = alpha_test ? r_program_uniform_brushmodel_at_detailtex : r_program_uniform_brushmodel_detailtex;
+			R_ProgramUse(program_id);
+			if (detail_textures) {
+				R_ProgramUniform1i(base + 0, TEXTURE_UNIT_DETAIL);
+			}
+			if (caustic_textures) {
+				R_ProgramUniform1i(base + 1, TEXTURE_UNIT_CAUSTICS);
+			}
+			if (skybox) {
+				R_ProgramUniform1i(base + 2, TEXTURE_UNIT_SKYBOX);
+			}
+			else if (skydome) {
+				R_ProgramUniform1i(base + 3, TEXTURE_UNIT_SKYDOME_TEXTURE);
+				R_ProgramUniform1i(base + 4, TEXTURE_UNIT_SKYDOME_CLOUD_TEXTURE);
+			}
+			R_ProgramUniform1i(base + 5, TEXTURE_UNIT_LIGHTMAPS);
+			R_ProgramUniform1iArrayBase(base + 6, material_samplers_max, TEXTURE_UNIT_MATERIAL);
+		}
 
 		R_ProgramSetCustomOptions(program_id, drawworld_desiredOptions);
 	}
@@ -625,8 +646,8 @@ void GLM_PrepareWorldModelBatch(void)
 	buffers.EnsureSize(r_buffer_brushmodel_drawcall_data, sizeof(drawcalls[0].calls) * maximum_drawcalls);
 	buffers.EnsureSize(r_buffer_brushmodel_worldsamplers_ssbo, sizeof(drawcalls[0].mappings) * maximum_drawcalls);
 
-	buffers.BindRange(r_buffer_brushmodel_drawcall_data, EZQ_GL_BINDINGPOINT_BRUSHMODEL_DRAWDATA, buffers.BufferOffset(r_buffer_brushmodel_drawcall_data), sizeof(drawcalls[0].calls) * maximum_drawcalls);
-	buffers.BindRange(r_buffer_brushmodel_worldsamplers_ssbo, EZQ_GL_BINDINGPOINT_BRUSHMODEL_SAMPLERS, buffers.BufferOffset(r_buffer_brushmodel_worldsamplers_ssbo), sizeof(drawcalls[0].mappings) * maximum_drawcalls);
+	buffers.BindRange(r_buffer_brushmodel_drawcall_data, EZQ_STORAGE_BLOCK_BINDING(EZQ_GL_BINDINGPOINT_BRUSHMODEL_DRAWDATA), buffers.BufferOffset(r_buffer_brushmodel_drawcall_data), sizeof(drawcalls[0].calls) * maximum_drawcalls);
+	buffers.BindRange(r_buffer_brushmodel_worldsamplers_ssbo, EZQ_STORAGE_BLOCK_BINDING(EZQ_GL_BINDINGPOINT_BRUSHMODEL_SAMPLERS), buffers.BufferOffset(r_buffer_brushmodel_worldsamplers_ssbo), sizeof(drawcalls[0].mappings) * maximum_drawcalls);
 
 	for (draw = 0; draw <= current_drawcall; ++draw) {
 		glm_brushmodel_drawcall_t* drawcall = &drawcalls[draw];
@@ -661,6 +682,7 @@ static void GLM_DrawWorldExecuteCalls(glm_brushmodel_drawcall_t* drawcall, uintp
 {
 	int i;
 	qbool prev_alphaTested = false;
+	qbool no_base_instance = !GL_Supported(R_SUPPORT_INSTANCED_RENDERING);
 
 	for (i = begin; i < begin + count; ++i) {
 		glm_worldmodel_req_t* req = &drawcall->worldmodel_requests[i];
@@ -674,6 +696,20 @@ static void GLM_DrawWorldExecuteCalls(glm_brushmodel_drawcall_t* drawcall, uintp
 				R_ProgramUse(r_program_brushmodel);
 			}
 			prev_alphaTested = req->isAlphaTested;
+		}
+
+		if (no_base_instance) {
+			// GL 4.1: no baseInstance support, _instanceId is always 0
+			// Update UBO slot 0 with this draw call's data
+			buffers.UpdateSection(r_buffer_brushmodel_drawcall_data, 0, sizeof(drawcall->calls[i]), &drawcall->calls[i]);
+			GL_DrawElementsBaseVertex(
+				GL_TRIANGLE_STRIP,
+				req->count,
+				GL_UNSIGNED_INT,
+				(void*)(req->firstIndex * sizeof(GLuint)),
+				req->baseVertex
+			);
+			continue;
 		}
 
 		while (i + batchCount < begin + count && drawcall->worldmodel_requests[i + batchCount].isAlphaTested == req->isAlphaTested) {

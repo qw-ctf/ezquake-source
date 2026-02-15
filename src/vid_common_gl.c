@@ -199,6 +199,15 @@ static void GL_PopulateConfig(void)
 		glConfig.minorVersion = 1;
 	}
 
+	if (GL_VersionAtLeast(3, 2)) {
+		GLint profile = 0;
+		glGetIntegerv(GL_CONTEXT_PROFILE_MASK, &profile);
+		glConfig.core_profile = (profile & GL_CONTEXT_CORE_PROFILE_BIT) != 0;
+	}
+	else {
+		glConfig.core_profile = false;
+	}
+
 	glGetIntegerv(GL_MAX_TEXTURE_SIZE, &glConfig.gl_max_size_default);
 	if (R_UseImmediateOpenGL()) {
 		if (GL_VersionAtLeast(2, 1)) {
