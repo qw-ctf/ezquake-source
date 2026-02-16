@@ -701,10 +701,10 @@ static void GLM_DrawWorldExecuteCalls(glm_brushmodel_drawcall_t* drawcall, uintp
 		if (no_base_instance) {
 			// GL 4.1: no baseInstance support, _instanceId is always 0
 			// Use instanceOffset uniform so shader reads drawInfo[0 + baseInstance]
-			r_program_uniform_id offset_uniform = prev_alphaTested
-				? r_program_uniform_brushmodel_alphatested_instanceOffset
-				: r_program_uniform_brushmodel_instanceOffset;
-			R_ProgramUniform1i(offset_uniform, req->baseInstance);
+			// Set on both programs since either may be active (alpha surfaces start
+			// with alphatested program but prev_alphaTested tracks request state)
+			R_ProgramUniform1i(r_program_uniform_brushmodel_instanceOffset, req->baseInstance);
+			R_ProgramUniform1i(r_program_uniform_brushmodel_alphatested_instanceOffset, req->baseInstance);
 			GL_DrawElementsBaseVertex(
 				GL_TRIANGLE_STRIP,
 				req->count,
