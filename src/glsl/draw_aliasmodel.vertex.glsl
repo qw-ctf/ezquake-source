@@ -2,6 +2,7 @@
 
 uniform int mode;
 uniform float outline_scale;
+uniform int instanceOffset;
 
 layout(location = 0) in vec3 vboPosition;
 layout(location = 1) in vec2 vboTex;
@@ -30,51 +31,51 @@ flat out vec4 plrbotcolor;
 
 void main()
 {
-	float lerpFrac = models[_instanceId].lerpFraction;
+	float lerpFrac = models[_instanceId + instanceOffset].lerpFraction;
 
 	vec3 position = vboPosition;
 	vec2 tex = vboTex;
 	vec3 normalCoords = vboNormalCoords;
 
-	fsFlags = models[_instanceId].flags;
-	fsMinLumaMix = models[_instanceId].minLumaMix;
+	fsFlags = models[_instanceId + instanceOffset].flags;
+	fsMinLumaMix = models[_instanceId + instanceOffset].minLumaMix;
 
-	plrtopcolor = models[_instanceId].topcolor;
-	plrbotcolor = models[_instanceId].bottomcolor;
+	plrtopcolor = models[_instanceId + instanceOffset].topcolor;
+	plrbotcolor = models[_instanceId + instanceOffset].bottomcolor;
 
 #ifdef EZQ_ALIASMODEL_MUZZLEHACK
 	lerpFrac = sign(lerpFrac) * max(lerpFrac, (vboFlags & AM_VERTEX_NOLERP));
 #endif
 	position = position + vboDirection * lerpFrac;
-	fsMaterialSampler = models[_instanceId].materialTextureMapping;
+	fsMaterialSampler = models[_instanceId + instanceOffset].materialTextureMapping;
 
 	if (mode == EZQ_ALIAS_MODE_NORMAL) {
-		gl_Position = projectionMatrix * models[_instanceId].modelView * vec4(position, 1);
+		gl_Position = projectionMatrix * models[_instanceId + instanceOffset].modelView * vec4(position, 1);
 
 		fsAltTextureCoord = fsTextureCoord = vec2(tex.s, tex.t);
-		fsTextureEnabled = (models[_instanceId].flags & AMF_TEXTURE_MATERIAL);
+		fsTextureEnabled = (models[_instanceId + instanceOffset].flags & AMF_TEXTURE_MATERIAL);
 
 		// Lighting: this is rough approximation
 		//   Credit to mh @ http://forums.insideqc.com/viewtopic.php?f=3&t=2983
-		if (models[_instanceId].shadelight < 1000) {
+		if (models[_instanceId + instanceOffset].shadelight < 1000) {
 			float l = 1;
-			vec3 angleVector = normalize(vec3(cos(-models[_instanceId].yaw_angle_rad), sin(-models[_instanceId].yaw_angle_rad), 1));
+			vec3 angleVector = normalize(vec3(cos(-models[_instanceId + instanceOffset].yaw_angle_rad), sin(-models[_instanceId + instanceOffset].yaw_angle_rad), 1));
 
 			l = floor((dot(normalCoords, angleVector) + 1) * 127) / 127;
-			l = min((l * models[_instanceId].shadelight + models[_instanceId].ambientlight) / 256.0, 1);
+			l = min((l * models[_instanceId + instanceOffset].shadelight + models[_instanceId + instanceOffset].ambientlight) / 256.0, 1);
 
-			fsBaseColor = vec4(models[_instanceId].color.rgb * l, models[_instanceId].color.a);
+			fsBaseColor = vec4(models[_instanceId + instanceOffset].color.rgb * l, models[_instanceId + instanceOffset].color.a);
 		}
 		else {
-			fsBaseColor = models[_instanceId].color;
+			fsBaseColor = models[_instanceId + instanceOffset].color;
 		}
 	}
 	else if (mode == EZQ_ALIAS_MODE_OUTLINES || mode == EZQ_ALIAS_MODE_OUTLINES_SPEC) {
-		gl_Position = projectionMatrix * models[_instanceId].modelView * vec4(position + /*models[_instanceId].outlineNormalScale **/ normalCoords * outline_scale, 1);
+		gl_Position = projectionMatrix * models[_instanceId + instanceOffset].modelView * vec4(position + /*models[_instanceId + instanceOffset].outlineNormalScale **/ normalCoords * outline_scale, 1);
 		fsTextureCoord = vec2(tex.x, tex.y);
 	}
 	else {
-		gl_Position = projectionMatrix * models[_instanceId].modelView * vec4(position + normalCoords * 0.5, 1);
+		gl_Position = projectionMatrix * models[_instanceId + instanceOffset].modelView * vec4(position + normalCoords * 0.5, 1);
 		fsTextureCoord = vec2(tex.s * 2 + cos(time * 1.5), tex.t * 2 + sin(time * 1.1));
 		fsAltTextureCoord = vec2(tex.s * 2 + cos(time * -0.5), tex.t * 2 + sin(time * -0.5));
 		fsTextureEnabled = 1;

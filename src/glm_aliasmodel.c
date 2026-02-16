@@ -491,7 +491,7 @@ void GLM_PrepareAliasModelBatches(void)
 	R_TraceLeaveNamedRegion();
 }
 
-// GL 4.1 fallback: no baseInstance, so update model data at index 0 before each draw
+// GL 4.1 fallback: no baseInstance, so use instanceOffset uniform to index correct model
 static void GLM_DrawAliasModelsNoBaseInstance(aliasmodel_draw_instructions_t* instr, int call_index)
 {
 	int j;
@@ -505,11 +505,15 @@ static void GLM_DrawAliasModelsNoBaseInstance(aliasmodel_draw_instructions_t* in
 	for (j = 0; j < instr->num_cmds[call_index]; ++j) {
 		DrawArraysIndirectCommand_t* cmd = &instr->indirect_buffer[cmd_start + j];
 
-		// Update UBO slot 0 with this model's data
-		buffers.UpdateSection(r_buffer_aliasmodel_model_data, 0,
-			sizeof(aliasdata.models[0]), &aliasdata.models[cmd->baseInstance]);
+		// Without baseInstance support, _instanceId vertex attribute is always 0.
+		// Use instanceOffset uniform so shader reads models[0 + baseInstance].
+		R_ProgramUniform1i(r_program_uniform_aliasmodel_instanceOffset, cmd->baseInstance);
+
 		GL_DrawArrays(GL_TRIANGLES, cmd->first, cmd->count);
 	}
+
+	// Reset for potential use with baseInstance path
+	R_ProgramUniform1i(r_program_uniform_aliasmodel_instanceOffset, 0);
 }
 
 static void GLM_RenderPreparedEntities(aliasmodel_draw_type_t type)

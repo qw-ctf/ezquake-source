@@ -393,6 +393,12 @@ static r_program_uniform_t program_uniforms[] = {
 	{ r_program_fx_world_geometry, "normal_texture", 1, false },
 	// r_program_uniform_hudimage_tex
 	{ r_program_hud_images, "tex", 1, false },
+	// r_program_uniform_aliasmodel_instanceOffset
+	{ r_program_aliasmodel, "instanceOffset", 1, false },
+	// r_program_uniform_brushmodel_instanceOffset
+	{ r_program_brushmodel, "instanceOffset", 1, false },
+	// r_program_uniform_brushmodel_alphatested_instanceOffset
+	{ r_program_brushmodel_alphatested, "instanceOffset", 1, false },
 };
 
 #ifdef C_ASSERT

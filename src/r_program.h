@@ -142,6 +142,9 @@ typedef enum {
 	r_program_uniform_postprocess_overlay,
 	r_program_uniform_fxworldgeometry_normaltex,
 	r_program_uniform_hudimage_tex,
+	r_program_uniform_aliasmodel_instanceOffset,
+	r_program_uniform_brushmodel_instanceOffset,
+	r_program_uniform_brushmodel_alphatested_instanceOffset,
 	r_program_uniform_count
 } r_program_uniform_id;
 

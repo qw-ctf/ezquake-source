@@ -700,8 +700,11 @@ static void GLM_DrawWorldExecuteCalls(glm_brushmodel_drawcall_t* drawcall, uintp
 
 		if (no_base_instance) {
 			// GL 4.1: no baseInstance support, _instanceId is always 0
-			// Update UBO slot 0 with this draw call's data
-			buffers.UpdateSection(r_buffer_brushmodel_drawcall_data, 0, sizeof(drawcall->calls[i]), &drawcall->calls[i]);
+			// Use instanceOffset uniform so shader reads drawInfo[0 + baseInstance]
+			r_program_uniform_id offset_uniform = prev_alphaTested
+				? r_program_uniform_brushmodel_alphatested_instanceOffset
+				: r_program_uniform_brushmodel_instanceOffset;
+			R_ProgramUniform1i(offset_uniform, req->baseInstance);
 			GL_DrawElementsBaseVertex(
 				GL_TRIANGLE_STRIP,
 				req->count,
