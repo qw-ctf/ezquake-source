@@ -76,7 +76,7 @@ static int GL_StorageFormat(int mode)
 	if (mode & TEX_FLOAT) {
 		return (mode & TEX_ALPHA) ? GL_RGBA16F : GL_RGB16F;
 	}
-	else if (vid_gammacorrection.integer) {
+	else if (vid_gammacorrection.integer || vid_framebuffer_hdr.integer) {
 		return (mode & TEX_ALPHA) ? GL_SRGB8_ALPHA8 : GL_SRGB8;
 	}
 	else {

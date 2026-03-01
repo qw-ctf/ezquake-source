@@ -85,6 +85,7 @@ static cvar_t in_ignore_deadkeys = { "in_ignore_deadkeys", "1", CVAR_SILENT };
 #define VID_ACCELERATED    2
 #define VID_DEPTHBUFFER24  4
 #define VID_GAMMACORRECTED 8
+#define VID_HDR            16
 
 /* FIXME: This should be in a header file and it probably shouldn't be called TP_
  *        since there are a lot of triggers that has nothing to do with teamplay.
@@ -1240,6 +1241,7 @@ static void VID_SDL_GL_SetupWindowAttributes(int options)
 		SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, options & VID_DEPTHBUFFER24 ? 24 : 16);
 	}
 	SDL_GL_SetAttribute(SDL_GL_FRAMEBUFFER_SRGB_CAPABLE, options & VID_GAMMACORRECTED ? 1 : 0);
+	SDL_GL_SetAttribute(SDL_GL_FLOATBUFFERS, options & VID_HDR ? 1 : 0);
 }
 
 static SDL_GLContext VID_SDL_GL_SetupContextAttributes(void)
@@ -1462,6 +1464,10 @@ static void VID_SDL_Init(void)
 	{
 		int i;
 		int vid_options[] = {
+			// HDR surface variants (tried first when HDR is requested)
+			VID_HDR | VID_MULTISAMPLED | VID_ACCELERATED | VID_DEPTHBUFFER24,
+			VID_HDR | VID_ACCELERATED | VID_DEPTHBUFFER24,
+			VID_HDR | VID_ACCELERATED,
 			// Try to get everything they ask for...
 			VID_MULTISAMPLED | VID_ACCELERATED | VID_DEPTHBUFFER24 | VID_GAMMACORRECTED,
 			// ... multisampled off
@@ -1494,6 +1500,9 @@ static void VID_SDL_Init(void)
 					continue;
 				}
 				if (!(vid_options[i] & VID_GAMMACORRECTED) && vid_gammacorrection.integer == 2) {
+					continue;
+				}
+				if ((vid_options[i] & VID_HDR) && !vid_framebuffer_hdr.integer) {
 					continue;
 				}
 
@@ -1554,6 +1563,10 @@ static void VID_SDL_Init(void)
 		if (vid_gammacorrection.integer && !(vid_options[i] & VID_GAMMACORRECTED)) {
 			Com_Printf("WARNING: Not able to apply gamma-correction\n");
 			Cvar_LatchedSetValue(&vid_gammacorrection, 0);
+		}
+
+		if (vid_framebuffer_hdr.integer && !(vid_options[i] & VID_HDR)) {
+			Com_Printf("WARNING: Not able to acquire HDR surface, HDR backbuffer unavailable\n");
 		}
 	}
 
