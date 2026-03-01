@@ -269,6 +269,7 @@ void GL_InitialiseFramebufferHandling(void)
 	}
 
 	glConfig.supported_features |= GL_VersionAtLeast(3, 0) || SDL_GL_ExtensionSupported("GL_ARB_framebuffer_sRGB") ? R_SUPPORT_FRAMEBUFFERS_SRGB : 0;
+	glConfig.supported_features |= GL_VersionAtLeast(3, 0) || SDL_GL_ExtensionSupported("GL_EXT_packed_float") ? R_SUPPORT_TEXTURE_R11G11B10F : 0;
 
 	if (GL_UseDirectStateAccess()) {
 		GL_LoadOptionalFunction(glNamedRenderbufferStorage);
@@ -323,7 +324,7 @@ qbool GL_FramebufferCreate(framebuffer_id id, int width, int height)
 	}
 
 	if (hdr) {
-		framebuffer_format = GL_RGB16F;
+		framebuffer_format = GL_Supported(R_SUPPORT_TEXTURE_R11G11B10F) ? GL_R11F_G11F_B10F : GL_RGB16F;
 	}
 	else if (vid_gammacorrection.integer) {
 		if (GL_Supported(R_SUPPORT_FRAMEBUFFERS_SRGB)) {
