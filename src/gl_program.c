@@ -437,7 +437,7 @@ static void R_ProgramFindAttributesForProgram(r_program_id program_id);
 #define R_ProgramFindAttributesForProgram(x)
 #endif // !RENDERER_OPTION_CLASSIC_OPENGL
 
-static qbool GL_CompileComputeShaderProgram(gl_program_t* prog, const char* shadertext, unsigned int length);
+static qbool GL_CompileComputeShaderProgram(gl_program_t* prog, GLsizei components, const char* shader_text[], const GLint shader_text_length[]);
 
 static gl_program_t program_data[r_program_count][MAX_SUBPROGRAMS];
 static int program_currentSubProgram[r_program_count];
@@ -845,7 +845,7 @@ static qbool GL_CompileProgram(
 	}
 
 	if (program->shaders[shadertype_compute].text) {
-		return GL_CompileComputeShaderProgram(program, compute_shader_text[0], compute_shader_text_length[0]);
+		return GL_CompileComputeShaderProgram(program, compute_components, compute_shader_text, compute_shader_text_length);
 	}
 
 	if (GL_CompileShader(vertex_components, vertex_shader_text, vertex_shader_text_length, GL_VERTEX_SHADER, &shaders[shadertype_vertex])) {
@@ -1001,7 +1001,10 @@ void GL_ProgramsInitialise(void)
 			if (!prog->program && !prog->needs_params && prog->initialised) {
 				gl_shader_def_t * compute = &prog->shaders[shadertype_compute];
 				if (compute->length) {
-					GL_CompileComputeShaderProgram(prog, compute->text, compute->length);
+					const char* shader_text[MAX_SHADER_COMPONENTS] = { compute->text, "", "", "", "", "", "" };
+					GLint shader_text_length[MAX_SHADER_COMPONENTS] = { compute->length, 0, 0, 0, 0, 0, 0 };
+					int components = GL_InsertDefinitions(shader_text, shader_text_length, prog->included_definitions, GL_COMPUTE_SHADER);
+					GL_CompileComputeShaderProgram(prog, components, shader_text, shader_text_length);
 				}
 				else {
 					GL_CompileProgram(prog);
@@ -1043,11 +1046,8 @@ void GL_CvarForceRecompile(cvar_t* cvar)
 	GL_BuildCoreDefinitions();
 }
 
-static qbool GL_CompileComputeShaderProgram(gl_program_t* program, const char* shadertext, unsigned int length)
+static qbool GL_CompileComputeShaderProgram(gl_program_t* program, GLsizei components, const char* shader_text[], const GLint shader_text_length[])
 {
-	const char* shader_text[MAX_SHADER_COMPONENTS] = { shadertext, "", "", "", "", "", "" };
-	GLint shader_text_length[MAX_SHADER_COMPONENTS] = { length, 0, 0, 0, 0, 0, 0 };
-	int components;
 	GLuint shader;
 	int standard_options = R_ProgramStandardOptions(program->standard_option_flags);
 
@@ -1057,7 +1057,6 @@ static qbool GL_CompileComputeShaderProgram(gl_program_t* program, const char* s
 
 	program->program = 0;
 
-	components = GL_InsertDefinitions(shader_text, shader_text_length, "", GL_COMPUTE_SHADER);
 	if (GL_CompileShader(components, shader_text, shader_text_length, GL_COMPUTE_SHADER, &shader)) {
 		GLuint shader_program = GL_FunctionNoArgs(glCreateProgram);
 		if (shader_program) {

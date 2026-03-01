@@ -40,6 +40,13 @@ static texture_ref lightmap_texture_array;
 static texture_ref lightmap_data_array;
 static texture_ref lightmap_source_array;
 static unsigned int lightmap_depth;
+static GLenum lightmap_dest_format = GL_RGBA8;
+
+#define LIGHTMAP_COMPUTE_SDR        0
+#define LIGHTMAP_COMPUTE_R11G11B10F 1
+#define LIGHTMAP_COMPUTE_RGBA16F    2
+
+extern cvar_t vid_framebuffer_hdr;
 static unsigned int* surfaceTodoData;
 static int surfaceTodoLength;
 static int maximumSurfaceNumber;
@@ -49,15 +56,35 @@ texture_ref GLM_LightmapArray(void)
 	return lightmap_texture_array;
 }
 
+static int GLM_LightmapComputeFlags(void)
+{
+	if (lightmap_dest_format == GL_R11F_G11F_B10F) {
+		return LIGHTMAP_COMPUTE_R11G11B10F;
+	}
+	if (lightmap_dest_format == GL_RGBA16F) {
+		return LIGHTMAP_COMPUTE_RGBA16F;
+	}
+	return LIGHTMAP_COMPUTE_SDR;
+}
+
 qbool GLM_CompileLightmapComputeProgram(void)
 {
+	int compute_flags = GLM_LightmapComputeFlags();
+
 	if (!GL_Supported(R_SUPPORT_COMPUTE_SHADERS)) {
 		return false;
 	}
 
-	if (R_ProgramRecompileNeeded(r_program_lightmap_compute, 0) && R_ProgramCompile(r_program_lightmap_compute)) {
-		R_ProgramComputeSetMemoryBarrierFlag(r_program_lightmap_compute, r_program_memory_barrier_image_access);
-		R_ProgramComputeSetMemoryBarrierFlag(r_program_lightmap_compute, r_program_memory_barrier_texture_access);
+	if (R_ProgramRecompileNeeded(r_program_lightmap_compute, compute_flags)) {
+		const char* defines =
+			compute_flags == LIGHTMAP_COMPUTE_R11G11B10F ? "#define EZ_LIGHTMAP_R11G11B10F\n" :
+			compute_flags == LIGHTMAP_COMPUTE_RGBA16F    ? "#define EZ_LIGHTMAP_RGBA16F\n"    : "";
+
+		if (R_ProgramCompileWithInclude(r_program_lightmap_compute, defines)) {
+			R_ProgramComputeSetMemoryBarrierFlag(r_program_lightmap_compute, r_program_memory_barrier_image_access);
+			R_ProgramComputeSetMemoryBarrierFlag(r_program_lightmap_compute, r_program_memory_barrier_texture_access);
+		}
+		R_ProgramSetCustomOptions(r_program_lightmap_compute, compute_flags);
 	}
 
 	return R_ProgramReady(r_program_lightmap_compute);
@@ -82,7 +109,7 @@ void GLM_ComputeLightmaps(void)
 	buffers.BindRange(r_buffer_brushmodel_surfacestolight_ssbo, EZQ_STORAGE_BLOCK_BINDING(EZQ_GL_BINDINGPOINT_SURFACES_TO_LIGHT), buffers.BufferOffset(r_buffer_brushmodel_surfacestolight_ssbo), surfaceTodoLength);
 
 	GL_BindImageTexture(0, lightmap_source_array, 0, GL_TRUE, 0, GL_READ_ONLY, GL_RGBA32UI);
-	GL_BindImageTexture(1, lightmap_texture_array, 0, GL_TRUE, 0, GL_WRITE_ONLY, GL_RGBA8);
+	GL_BindImageTexture(1, lightmap_texture_array, 0, GL_TRUE, 0, GL_WRITE_ONLY, lightmap_dest_format);
 	GL_BindImageTexture(2, lightmap_data_array, 0, GL_TRUE, 0, GL_READ_ONLY, GL_RGBA32I);
 
 	start = -1;
@@ -153,9 +180,17 @@ void GLM_CreateLightmapTextures(void)
 		R_DeleteTextureArray(&lightmap_source_array);
 	}
 
-	GL_CreateTexturesWithIdentifier(texture_type_2d_array, 1, &lightmap_texture_array, "lightmap_texture_array");
-	GL_TexStorage3D(GL_TEXTURE0, lightmap_texture_array, 1, GL_RGBA8, LIGHTMAP_WIDTH, LIGHTMAP_HEIGHT, lightmap_array_size, true);
-	R_SetTextureArraySize(lightmap_texture_array, LIGHTMAP_WIDTH, LIGHTMAP_HEIGHT, lightmap_array_size, 4);
+	lightmap_dest_format = GL_RGBA8;
+	if (vid_framebuffer_hdr.integer) {
+		lightmap_dest_format = GL_Supported(R_SUPPORT_TEXTURE_R11G11B10F) ? GL_R11F_G11F_B10F : GL_RGBA16F;
+	}
+
+	{
+		int dest_bpp = (lightmap_dest_format == GL_RGBA16F) ? 8 : 4;
+		GL_CreateTexturesWithIdentifier(texture_type_2d_array, 1, &lightmap_texture_array, "lightmap_texture_array");
+		GL_TexStorage3D(GL_TEXTURE0, lightmap_texture_array, 1, lightmap_dest_format, LIGHTMAP_WIDTH, LIGHTMAP_HEIGHT, lightmap_array_size, true);
+		R_SetTextureArraySize(lightmap_texture_array, LIGHTMAP_WIDTH, LIGHTMAP_HEIGHT, lightmap_array_size, dest_bpp);
+	}
 #ifdef DEBUG_MEMORY_ALLOCATIONS
 	Sys_Printf("\nopengl-texture,alloc,%u,%d,%d,%d,%s\n", lightmap_texture_array.index, LIGHTMAP_WIDTH, LIGHTMAP_HEIGHT, LIGHTMAP_WIDTH * LIGHTMAP_HEIGHT * lightmap_array_size * 4, "lightmap_texture_array");
 #endif
@@ -187,6 +222,7 @@ void GLM_InvalidateLightmapTextures(void)
 	R_TextureReferenceInvalidate(lightmap_data_array);
 	R_TextureReferenceInvalidate(lightmap_source_array);
 	lightmap_depth = 0;
+	lightmap_dest_format = GL_RGBA8;
 }
 
 void GLM_LightmapFrameInit(void)
@@ -214,13 +250,19 @@ void GLM_RenderDynamicLightmaps(msurface_t* s, qbool world)
 
 void GLM_BuildLightmap(int i)
 {
-	GLenum format = GL_Supported(R_SUPPORT_BGRA_LIGHTMAPS) ? GL_BGRA : GL_RGBA;
-	GLenum type = GL_UNSIGNED_INT_8_8_8_8_REV;
-
-	GL_TexSubImage3D(
-		0, lightmap_texture_array, 0, 0, 0, i, LIGHTMAP_WIDTH, LIGHTMAP_HEIGHT, 1, format, type,
-		lightmaps[i].rawdata
-	);
+	if (lightmap_dest_format != GL_RGBA8) {
+		GL_TexSubImage3D(
+			0, lightmap_texture_array, 0, 0, 0, i, LIGHTMAP_WIDTH, LIGHTMAP_HEIGHT, 1, GL_RGBA, GL_HALF_FLOAT,
+			lightmaps[i].hdr_rawdata
+		);
+	}
+	else {
+		GLenum format = GL_Supported(R_SUPPORT_BGRA_LIGHTMAPS) ? GL_BGRA : GL_RGBA;
+		GL_TexSubImage3D(
+			0, lightmap_texture_array, 0, 0, 0, i, LIGHTMAP_WIDTH, LIGHTMAP_HEIGHT, 1, format, GL_UNSIGNED_INT_8_8_8_8_REV,
+			lightmaps[i].rawdata
+		);
+	}
 
 	GL_TexSubImage3D(
 		0, lightmap_source_array, 0, 0, 0, i,
@@ -238,11 +280,17 @@ void GLM_BuildLightmap(int i)
 void GLM_UploadLightmap(int textureUnit, int lightmapnum)
 {
 	const lightmap_data_t* lm = &lightmaps[lightmapnum];
-	const void* data_source = lm->rawdata + (lm->change_area.t) * LIGHTMAP_WIDTH * 4;
-	GLenum format = GL_Supported(R_SUPPORT_BGRA_LIGHTMAPS) ? GL_BGRA : GL_RGBA;
-	GLenum type = GL_Supported(R_SUPPORT_INT8888R_LIGHTMAPS) ? GL_UNSIGNED_INT_8_8_8_8_REV : GL_UNSIGNED_BYTE;
 
-	GL_TexSubImage3D(textureUnit, lightmap_texture_array, 0, 0, lm->change_area.t, lightmapnum, LIGHTMAP_WIDTH, lm->change_area.h, 1, format, type, data_source);
+	if (lightmap_dest_format != GL_RGBA8) {
+		const void* data_source = lm->hdr_rawdata + (lm->change_area.t) * LIGHTMAP_WIDTH * 4;
+		GL_TexSubImage3D(textureUnit, lightmap_texture_array, 0, 0, lm->change_area.t, lightmapnum, LIGHTMAP_WIDTH, lm->change_area.h, 1, GL_RGBA, GL_HALF_FLOAT, data_source);
+	}
+	else {
+		const void* data_source = lm->rawdata + (lm->change_area.t) * LIGHTMAP_WIDTH * 4;
+		GLenum format = GL_Supported(R_SUPPORT_BGRA_LIGHTMAPS) ? GL_BGRA : GL_RGBA;
+		GLenum type = GL_Supported(R_SUPPORT_INT8888R_LIGHTMAPS) ? GL_UNSIGNED_INT_8_8_8_8_REV : GL_UNSIGNED_BYTE;
+		GL_TexSubImage3D(textureUnit, lightmap_texture_array, 0, 0, lm->change_area.t, lightmapnum, LIGHTMAP_WIDTH, lm->change_area.h, 1, format, type, data_source);
+	}
 }
 
 #endif // #ifdef RENDERER_OPTION_MODERN_OPENGL

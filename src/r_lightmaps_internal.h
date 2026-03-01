@@ -14,7 +14,10 @@ typedef struct glRect_s {
 } glRect_t;
 
 typedef struct lightmap_data_s {
-	byte rawdata[4 * LIGHTMAP_WIDTH * LIGHTMAP_HEIGHT];
+	union {
+		byte     rawdata    [4 * LIGHTMAP_WIDTH * LIGHTMAP_HEIGHT];     // SDR: RGBA uint8
+		uint16_t hdr_rawdata[4 * LIGHTMAP_WIDTH * LIGHTMAP_HEIGHT];     // HDR: RGBA fp16
+	};
 	int computeData[4 * LIGHTMAP_WIDTH * LIGHTMAP_HEIGHT];
 	unsigned int sourcedata[4 * LIGHTMAP_WIDTH * LIGHTMAP_HEIGHT];
 	int allocated[LIGHTMAP_WIDTH];

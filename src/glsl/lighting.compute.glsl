@@ -2,7 +2,13 @@
 
 layout(local_size_x = HW_LIGHTING_BLOCK_SIZE, local_size_y = HW_LIGHTING_BLOCK_SIZE) in;
 EZ_LAYOUT_BINDING(0) layout(rgba32ui) uniform uimage2DArray sourceBlocklights;
-EZ_LAYOUT_BINDING(1) layout(rgba8)    uniform image2DArray  destinationLightmap;
+#if defined(EZ_LIGHTMAP_R11G11B10F)
+EZ_LAYOUT_BINDING(1) layout(r11f_g11f_b10f) uniform image2DArray destinationLightmap;
+#elif defined(EZ_LIGHTMAP_RGBA16F)
+EZ_LAYOUT_BINDING(1) layout(rgba16f)         uniform image2DArray destinationLightmap;
+#else
+EZ_LAYOUT_BINDING(1) layout(rgba8)           uniform image2DArray destinationLightmap;
+#endif
 EZ_LAYOUT_BINDING(2) layout(rgba32i)  uniform iimage2DArray sourceLightmapData;
 
 EZ_SSBO_LAYOUT(std140, EZQ_GL_BINDINGPOINT_WORLDMODEL_SURFACES) EZ_SSBO(surface_data) {
@@ -100,7 +106,9 @@ void main()
 			// Scale back... if we do simple scaling colour ratios will be lost
 			//   (red 1.5 green 1.0 would become ... whatever red+green is)
 			baseLightmap *= lightScale;
+#if !defined(EZ_LIGHTMAP_R11G11B10F) && !defined(EZ_LIGHTMAP_RGBA16F)
 			baseLightmap /= max(1, max(baseLightmap.r, max(baseLightmap.g, baseLightmap.b)));
+#endif
 			baseLightmap.a = 1;
 
 			imageStore(destinationLightmap, coord, baseLightmap);

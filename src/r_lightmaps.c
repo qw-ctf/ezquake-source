@@ -34,6 +34,20 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "r_renderer.h"
 #include "tr_types.h"
 
+extern cvar_t vid_framebuffer_hdr;
+
+static uint16_t R_FloatToHalf(float f)
+{
+	unsigned u;
+	memcpy(&u, &f, sizeof(u));
+	unsigned sign  = (u >> 16) & 0x8000;
+	int      exp   = (int)((u >> 23) & 0xFF) - 127 + 15;
+	unsigned frac  = u & 0x7FFFFF;
+	if (exp <= 0)  { return (uint16_t)sign; }           // underflow → zero
+	if (exp >= 31) { return (uint16_t)(sign | 0x7C00); } // overflow → inf
+	return (uint16_t)(sign | (exp << 10) | (frac >> 13));
+}
+
 typedef struct dlightinfo_s {
 	int local[2];
 	int rad;
@@ -280,51 +294,70 @@ static void R_BuildLightMap(msurface_t *surf, byte *dest, int stride, uint32_t f
 
 	// bound, invert, and shift
 	bl = blocklights;
-	stride -= smax * 4;
 
 	scale = (lightmode == 2) ? (int)(256 * 1.5) : 256 * 2;
 	scale *= bound(0.5, gl_modulate.value, 3);
-	for (i = 0; i < tmax; i++, dest += stride) {
-		for (j = smax; j; j--) {
-			unsigned r, g, b, m;
-			r = bl[0] * scale;
-			g = bl[1] * scale;
-			b = bl[2] * scale;
-			m = max(r, g);
-			m = max(m, b);
-			if (m > ((255 << 16) + (1 << 15))) {
-				unsigned s = (((255 << 16) + (1 << 15)) << 8) / m;
-				r = (r >> 8) * s;
-				g = (g >> 8) * s;
-				b = (b >> 8) * s;
+
+	if (vid_framebuffer_hdr.integer) {
+		// HDR path: write fp16 RGBA, allow values > 1.0
+		float scale_norm = (float)scale / (255.0f * 65536.0f);
+		uint16_t *hdr = (uint16_t *)dest;
+		stride -= smax * 8; // 8 bytes per texel (4 x fp16)
+		for (i = 0; i < tmax; i++, hdr = (uint16_t *)((byte *)hdr + stride)) {
+			for (j = smax; j; j--) {
+				hdr[0] = R_FloatToHalf((float)bl[0] * scale_norm);
+				hdr[1] = R_FloatToHalf((float)bl[1] * scale_norm);
+				hdr[2] = R_FloatToHalf((float)bl[2] * scale_norm);
+				hdr[3] = R_FloatToHalf(1.0f);
+				bl += 3;
+				hdr += 4;
 			}
-			if (gl_invlightmaps) {
-				if (GL_Supported(R_SUPPORT_BGRA_LIGHTMAPS)) {
-					dest[2] = 255 - (r >> 16);
-					dest[1] = 255 - (g >> 16);
-					dest[0] = 255 - (b >> 16);
+		}
+	}
+	else {
+		stride -= smax * 4;
+		for (i = 0; i < tmax; i++, dest += stride) {
+			for (j = smax; j; j--) {
+				unsigned r, g, b, m;
+				r = bl[0] * scale;
+				g = bl[1] * scale;
+				b = bl[2] * scale;
+				m = max(r, g);
+				m = max(m, b);
+				if (m > ((255 << 16) + (1 << 15))) {
+					unsigned s = (((255 << 16) + (1 << 15)) << 8) / m;
+					r = (r >> 8) * s;
+					g = (g >> 8) * s;
+					b = (b >> 8) * s;
+				}
+				if (gl_invlightmaps) {
+					if (GL_Supported(R_SUPPORT_BGRA_LIGHTMAPS)) {
+						dest[2] = 255 - (r >> 16);
+						dest[1] = 255 - (g >> 16);
+						dest[0] = 255 - (b >> 16);
+					}
+					else {
+						dest[0] = 255 - (r >> 16);
+						dest[1] = 255 - (g >> 16);
+						dest[2] = 255 - (b >> 16);
+					}
 				}
 				else {
-					dest[0] = 255 - (r >> 16);
-					dest[1] = 255 - (g >> 16);
-					dest[2] = 255 - (b >> 16);
+					if (GL_Supported(R_SUPPORT_BGRA_LIGHTMAPS)) {
+						dest[2] = r >> 16;
+						dest[1] = g >> 16;
+						dest[0] = b >> 16;
+					}
+					else {
+						dest[0] = r >> 16;
+						dest[1] = g >> 16;
+						dest[2] = b >> 16;
+					}
 				}
+				dest[3] = 255;
+				bl += 3;
+				dest += 4;
 			}
-			else {
-				if (GL_Supported(R_SUPPORT_BGRA_LIGHTMAPS)) {
-					dest[2] = r >> 16;
-					dest[1] = g >> 16;
-					dest[0] = b >> 16;
-				}
-				else {
-					dest[0] = r >> 16;
-					dest[1] = g >> 16;
-					dest[2] = b >> 16;
-				}
-			}
-			dest[3] = 255;
-			bl += 3;
-			dest += 4;
 		}
 	}
 
@@ -410,8 +443,14 @@ void R_RenderDynamicLightmaps(msurface_t *fa, qbool world)
 	if (theRect->h + theRect->t < fa->light_t + tmax) {
 		theRect->h = fa->light_t - theRect->t + tmax;
 	}
-	base = lm->rawdata + (fa->light_t * LIGHTMAP_WIDTH + fa->light_s) * 4;
-	R_BuildLightMap (fa, base, LIGHTMAP_WIDTH * 4, world ? cl.worldmodel->flags : 0);
+	if (vid_framebuffer_hdr.integer) {
+		base = (byte *)(lm->hdr_rawdata + (fa->light_t * LIGHTMAP_WIDTH + fa->light_s) * 4);
+		R_BuildLightMap(fa, base, LIGHTMAP_WIDTH * 8, world ? cl.worldmodel->flags : 0);
+	}
+	else {
+		base = lm->rawdata + (fa->light_t * LIGHTMAP_WIDTH + fa->light_s) * 4;
+		R_BuildLightMap(fa, base, LIGHTMAP_WIDTH * 4, world ? cl.worldmodel->flags : 0);
+	}
 }
 
 void R_LightmapFrameInit(void)
@@ -481,7 +520,16 @@ void R_UploadChangedLightmaps(void)
 
 			for (i = frameStats.lightmap_min_changed; i <= frameStats.lightmap_max_changed; ++i) {
 				if (lightmaps[i].modified) {
+					if (vid_framebuffer_hdr.integer) {
+					// fp16 0x3C00 = 1.0; fill hdr_rawdata with 1.0 per channel for fullbright
+					unsigned int k;
+					for (k = 0; k < sizeof(lightmaps[i].hdr_rawdata) / sizeof(uint16_t); ++k) {
+						lightmaps[i].hdr_rawdata[k] = 0x3C00;
+					}
+				}
+				else {
 					memset(lightmaps[i].rawdata, 255, sizeof(lightmaps[i].rawdata));
+				}
 					R_UploadLightMap(0, i);
 				}
 			}
@@ -841,10 +889,16 @@ static void R_LightmapCreateForSurface(msurface_t *surf, int surfnum, uint32_t f
 
 	surf->lightmaptexturenum = LightmapAllocBlock(smax, tmax, &surf->light_s, &surf->light_t);
 
-	base = lightmaps[surf->lightmaptexturenum].rawdata + (surf->light_t * LIGHTMAP_WIDTH + surf->light_s) * 4;
 	numdlights = 0;
 	R_BuildLightmapData(surf, surfnum);
-	R_BuildLightMap(surf, base, LIGHTMAP_WIDTH * 4, flags);
+	if (vid_framebuffer_hdr.integer) {
+		base = (byte *)(lightmaps[surf->lightmaptexturenum].hdr_rawdata + (surf->light_t * LIGHTMAP_WIDTH + surf->light_s) * 4);
+		R_BuildLightMap(surf, base, LIGHTMAP_WIDTH * 8, flags);
+	}
+	else {
+		base = lightmaps[surf->lightmaptexturenum].rawdata + (surf->light_t * LIGHTMAP_WIDTH + surf->light_s) * 4;
+		R_BuildLightMap(surf, base, LIGHTMAP_WIDTH * 4, flags);
+	}
 }
 
 static int R_LightmapSurfaceSortFunction(const void* lhs_, const void* rhs_)

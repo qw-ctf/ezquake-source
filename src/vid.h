@@ -101,4 +101,6 @@ int VID_GetModeIndexCount(void);
 
 void VID_ReloadCheck(void);
 
+qbool VID_HdrEnabled(void);
+
 #endif // EZQUAKE_VID_HEADER
