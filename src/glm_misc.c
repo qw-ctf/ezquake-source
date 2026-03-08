@@ -64,6 +64,8 @@ void GLM_PreRenderView(void)
 {
 	extern cvar_t gl_alphafont, gl_max_size;
 	extern cvar_t r_telecolor, r_lavacolor, r_slimecolor, r_watercolor, r_fastturb, r_skycolor;
+	extern cvar_t vid_framebuffer_hdr, vid_framebuffer_hdr_exposure_world, vid_framebuffer_hdr_exposure_hud;
+	extern cvar_t gl_fb_scale;
 	extern cvar_t gl_textureless, gl_hwblend;
 	int i, active_lights = 0;
 	float blend_alpha;
@@ -72,6 +74,9 @@ void GLM_PreRenderView(void)
 	frameConstants.time = cl.time;
 	frameConstants.gamma = bound(0.3, v_gamma.value, 3);
 	frameConstants.contrast = bound(1, v_contrast.value, 3);
+	frameConstants.hdr_exposure_world = max(0.0f, vid_framebuffer_hdr.integer ? vid_framebuffer_hdr_exposure_world.value : 1.0f);
+	frameConstants.hdr_exposure_hud   = max(0.0f, vid_framebuffer_hdr.integer ? vid_framebuffer_hdr_exposure_hud.value   : 1.0f);
+	frameConstants.fb_scale        = max(0.0f, vid_framebuffer_hdr.integer ? gl_fb_scale.value : 1.0f);
 	frameConstants.r_alphatestfont = gl_alphafont.integer ? 0 : 1;
 	blend_alpha = (!vid_hwgamma_enabled || !gl_hwblend.value || cl.teamfortress) ? 0 : v_blend[3];
 	frameConstants.v_blend[0] = v_blend[0] * blend_alpha;

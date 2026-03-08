@@ -112,6 +112,7 @@ static void GLM_CheckDrawCallSize(void)
 #define DRAW_ALPHATESTED           (1 << 13)
 #define DRAW_SKYWIND               (1 << 14)
 #define DRAW_INSTANCED             (1 << 15)
+#define DRAW_HDR_LUMA_SCALE        (1 << 16)
 
 static int material_samplers_max;
 static int TEXTURE_UNIT_MATERIAL; // Must always be the first non-standard texture unit
@@ -151,7 +152,8 @@ static qbool GLM_CompileDrawWorldProgramImpl(r_program_id program_id, qbool alph
 		((gl_outline.integer & 2) && GL_VersionAtLeast(4, 3) ? DRAW_GEOMETRY : 0) |
 		(alpha_test ? DRAW_ALPHATESTED : 0) |
 		(skywind ? DRAW_SKYWIND : 0) |
-		(GL_Supported(R_SUPPORT_INSTANCED_RENDERING) ? DRAW_INSTANCED : 0);
+		(GL_Supported(R_SUPPORT_INSTANCED_RENDERING) ? DRAW_INSTANCED : 0) |
+		(vid_framebuffer_hdr.integer ? DRAW_HDR_LUMA_SCALE : 0);
 
 	if (R_ProgramRecompileNeeded(program_id, drawworld_desiredOptions)) {
 		static char included_definitions[2048];
@@ -227,6 +229,9 @@ static qbool GLM_CompileDrawWorldProgramImpl(r_program_id program_id, qbool alph
 		}
 		if (gl_textureless.integer) {
 			strlcat(included_definitions, "#define DRAW_TEXTURELESS\n", sizeof(included_definitions));
+		}
+		if (vid_framebuffer_hdr.integer) {
+			strlcat(included_definitions, "#define DRAW_HDR_LUMA_SCALE\n", sizeof(included_definitions));
 		}
 
 		// Initialise program for drawing image

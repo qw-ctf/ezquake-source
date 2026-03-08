@@ -122,6 +122,9 @@ void main()
 #endif
 #if defined(DRAW_LUMA_TEXTURES) || defined(DRAW_LUMA_TEXTURES_FB)
 	vec4 lumaColor = texture(materialTex[SamplerNumber], LumaCoord);
+#ifdef DRAW_HDR_LUMA_SCALE
+	lumaColor.rgb *= fb_scale;
+#endif
 #endif
 
 	vec3 tex = TextureCoord;

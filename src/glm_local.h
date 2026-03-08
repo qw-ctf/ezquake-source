@@ -74,11 +74,17 @@ typedef struct uniform_block_frame_constants_s {
 	float skyFogMix;
 	float fogMinZ;
 	float fogMaxZ;
+	float pad;
 	// camangles [0]
 
 	float camangles[3]; // [1] [2]
 	float r_inv_width;
 	float r_inv_height;
+
+	// HDR exposure controls (only used when vid_framebuffer_hdr is active)
+	float hdr_exposure_world;
+	float hdr_exposure_hud;
+	float fb_scale;          // luma/FB texture brightness scale in HDR mode
 } uniform_block_frame_constants_t;
 
 #define MAX_WORLDMODEL_BATCH     64

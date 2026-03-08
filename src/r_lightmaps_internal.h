@@ -20,6 +20,7 @@ typedef struct lightmap_data_s {
 	};
 	int computeData[4 * LIGHTMAP_WIDTH * LIGHTMAP_HEIGHT];
 	unsigned int sourcedata[4 * LIGHTMAP_WIDTH * LIGHTMAP_HEIGHT];
+	uint16_t hdr_sourcedata[4 * 4 * LIGHTMAP_WIDTH * LIGHTMAP_HEIGHT]; // HDR: MAXLIGHTMAPS style slots × RGBA fp16
 	int allocated[LIGHTMAP_WIDTH];
 
 	texture_ref gl_texref;

@@ -54,6 +54,9 @@ vec4 sampleOverlay(void)
 void main()
 {
 	vec4 result = sampleBase();
+#ifdef EZ_POSTPROCESS_EXPOSURE
+	result.rgb *= hdr_exposure_world;
+#endif
 #ifdef EZ_POSTPROCESS_TONEMAP
 	result.r = result.r / (result.r + 1);
 	result.g = result.g / (result.g + 1);
@@ -61,6 +64,9 @@ void main()
 #endif
 #ifdef EZ_POSTPROCESS_OVERLAY
 	vec4 add = sampleOverlay();
+#ifdef EZ_POSTPROCESS_EXPOSURE
+	add.rgb *= hdr_exposure_hud;
+#endif
 	result *= 1 - add.a;
 	result += add;
 #endif
@@ -69,8 +75,11 @@ void main()
 	// apply blend & contrast
 	result = vec4((result.rgb * v_blend.a + v_blend.rgb) * contrast, 1);
 
-	// apply gamma
+#ifndef EZ_POSTPROCESS_EXPOSURE
+	// apply SDR gamma
 	result = vec4(pow(result.rgb, vec3(gamma)), 1);
+#endif
+
 #endif
 
 	frag_colour = result;

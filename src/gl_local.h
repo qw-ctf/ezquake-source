@@ -115,6 +115,9 @@ extern	cvar_t gl_powerupshells;
 
 extern cvar_t vid_gammacorrection;
 extern cvar_t vid_framebuffer_hdr;
+extern cvar_t vid_framebuffer_hdr_exposure_world;
+extern cvar_t vid_framebuffer_hdr_exposure_hud;
+extern cvar_t gl_fb_scale;
 
 // gl_rmain.c
 qbool R_CullBox (vec3_t mins, vec3_t maxs);

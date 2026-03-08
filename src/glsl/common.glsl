@@ -70,11 +70,15 @@ EZ_SSBO_LAYOUT(std140, EZQ_GL_BINDINGPOINT_FRAMECONSTANTS) uniform GlobalState {
 	float skyFogMix;
 	float fogMinZ;
 	float fogMaxZ;
-	// camAngles.x
+    float pad;
 
-	vec3 camAngles; // camAngles.yz
+	vec3 camAngles;
 	float r_inv_width;
 	float r_inv_height;
+
+	float hdr_exposure_world;
+	float hdr_exposure_hud;
+	float fb_scale;      // luma/FB texture brightness scale in HDR mode
 };
 
 struct WorldDrawInfo {

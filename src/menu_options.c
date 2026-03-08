@@ -195,7 +195,8 @@ extern cvar_t mvd_autotrack, mvd_moreinfo, mvd_status, cl_weaponpreselect, cl_we
 	cl_chatsound, con_sound_mm1_volume, con_sound_mm2_volume, con_sound_spec_volume, con_sound_other_volume, s_khz, s_desiredsamples,
 	ruleset, scr_sshot_dir, log_dir, cl_nolerp, cl_confirmquit, log_readable, ignore_flood, ignore_flood_duration, con_timestamps, scr_consize, scr_conspeed, cl_chatmode, cl_chasecam,
 	enemyforceskins, teamforceskins, vid_vsync_lag_fix, cl_sayfilter_coloredtext, cl_sayfilter_sendboth,
-	mvd_autotrack_lockteam, qtv_adjustbuffer, cl_earlypackets, cl_useimagesinfraglog, con_completion_format, menu_ingame, sys_inactivesound
+	mvd_autotrack_lockteam, qtv_adjustbuffer, cl_earlypackets, cl_useimagesinfraglog, con_completion_format, menu_ingame, sys_inactivesound,
+	vid_framebuffer_hdr, vid_framebuffer_hdr_exposure_world, vid_framebuffer_hdr_exposure_hud
 ;
 
 #ifdef _WIN32
@@ -1299,6 +1300,8 @@ setting settsystem_arr[] = {
 	ADDSET_ENUM("Mode", vid_framebuffer, vid_framebuffer_enum),
 	ADDSET_BOOL("HDR", vid_framebuffer_hdr),
 	ADDSET_BOOL("HDR Tonemap", vid_framebuffer_hdr_tonemap),
+	ADDSET_NUMBER("HDR World Exposure", vid_framebuffer_hdr_exposure_world, 0.1, 4.0, 0.1),
+	ADDSET_NUMBER("HDR HUD Exposure", vid_framebuffer_hdr_exposure_hud, 0.1, 4.0, 0.1),
 	ADDSET_NUMBER("Scale", vid_framebuffer_scale, 0.25, 2.0, 0.25),
 	ADDSET_NUMBER("Multisample", vid_framebuffer_multisample, 0, 16, 1),
 	ADDSET_NUMBER("FXAA", vid_framebuffer_fxaa, 0, 17, 1),

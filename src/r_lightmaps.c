@@ -820,6 +820,7 @@ static void R_BuildLightmapData(msurface_t* surf, int surfnum)
 	unsigned int tmax = (surf->extents[1] >> surf->lmshift) + 1;
 	unsigned int lightmap_flags;
 	int s, t, maps;
+	qbool hdr_enabled = vid_framebuffer_hdr.integer != 0;
 
 	lightmap_flags = 0xFFFFFFFF;
 	for (maps = 0; maps < MAXLIGHTMAPS && surf->styles[maps] != 255; maps++) {
@@ -838,30 +839,70 @@ static void R_BuildLightmapData(msurface_t* surf, int surfnum)
 			data[2] = (t * (1 << surf->lmshift) + surf->texturemins[1] - surf->lmvecs[1][3]);
 			data[3] = 0;
 
-			source[0] = source[1] = source[2] = 0;
-			source[3] = lightmap_flags;
+			if (hdr_enabled) {
+				size_t lm_texel = (surf->light_t + t) * LIGHTMAP_WIDTH + surf->light_s + s;
 
-			if (surf->samples) {
-				if (surfnum != -1 && cl.worldmodel->flags & MOD_HDRLIGHTING) {
-					uint32_t* lightmap = (uint32_t *)surf->samples;
-					for (maps = 0; maps < MAXLIGHTMAPS && surf->styles[maps] != 255; maps++) {
-						size_t lightmap_index = (maps * smax * tmax + t * smax + s);
-						uint32_t e5bgr9 = lightmap[lightmap_index];
-						//we're converting to a scale that holds overbrights, so 1->128, its 2->255ish
-						float e = rgb9e5tab[e5bgr9>>27] * (1<<7);
-						// should not clamp here, but changing the light compute shader can be done later
-						source[0] += (unsigned int)bound(0, e*((e5bgr9>> 0)&0x1ff), 0xff) << (8 * maps);
-						source[1] += (unsigned int)bound(0, e*((e5bgr9>> 9)&0x1ff), 0xff) << (8 * maps);
-						source[2] += (unsigned int)bound(0, e*((e5bgr9>>18)&0x1ff), 0xff) << (8 * maps);
+				// Initialise all 4 style slots to "empty" (RGB=0, StyleIdx=255)
+				for (maps = 0; maps < MAXLIGHTMAPS; maps++) {
+					size_t hdr_idx = (maps * LIGHTMAP_HEIGHT * LIGHTMAP_WIDTH + lm_texel) * 4;
+					lm->hdr_sourcedata[hdr_idx + 0] = 0;
+					lm->hdr_sourcedata[hdr_idx + 1] = 0;
+					lm->hdr_sourcedata[hdr_idx + 2] = 0;
+					lm->hdr_sourcedata[hdr_idx + 3] = R_FloatToHalf(255.0f);
+				}
+
+				if (surf->samples) {
+					if (surfnum != -1 && cl.worldmodel->flags & MOD_HDRLIGHTING) {
+						uint32_t* lightmap = (uint32_t*)surf->samples;
+						for (maps = 0; maps < MAXLIGHTMAPS && surf->styles[maps] != 255; maps++) {
+							size_t lightmap_index = (maps * smax * tmax + t * smax + s);
+							size_t hdr_idx = (maps * LIGHTMAP_HEIGHT * LIGHTMAP_WIDTH + lm_texel) * 4;
+							uint32_t e5bgr9 = lightmap[lightmap_index];
+							float e = rgb9e5tab[e5bgr9 >> 27] * (1 << 7);
+							lm->hdr_sourcedata[hdr_idx + 0] = R_FloatToHalf(e * ((e5bgr9 >>  0) & 0x1ff));
+							lm->hdr_sourcedata[hdr_idx + 1] = R_FloatToHalf(e * ((e5bgr9 >>  9) & 0x1ff));
+							lm->hdr_sourcedata[hdr_idx + 2] = R_FloatToHalf(e * ((e5bgr9 >> 18) & 0x1ff));
+							lm->hdr_sourcedata[hdr_idx + 3] = R_FloatToHalf((float)surf->styles[maps]);
+						}
 					}
-				} else {
-					byte* lightmap = surf->samples;
-					for (maps = 0; maps < MAXLIGHTMAPS && surf->styles[maps] != 255; maps++) {
-						size_t lightmap_index = (maps * smax * tmax + t * smax + s) * 3;
+					else {
+						byte* lightmap = surf->samples;
+						for (maps = 0; maps < MAXLIGHTMAPS && surf->styles[maps] != 255; maps++) {
+							size_t lightmap_index = (maps * smax * tmax + t * smax + s) * 3;
+							size_t hdr_idx = (maps * LIGHTMAP_HEIGHT * LIGHTMAP_WIDTH + lm_texel) * 4;
+							lm->hdr_sourcedata[hdr_idx + 0] = R_FloatToHalf((float)lightmap[lightmap_index + 0]);
+							lm->hdr_sourcedata[hdr_idx + 1] = R_FloatToHalf((float)lightmap[lightmap_index + 1]);
+							lm->hdr_sourcedata[hdr_idx + 2] = R_FloatToHalf((float)lightmap[lightmap_index + 2]);
+							lm->hdr_sourcedata[hdr_idx + 3] = R_FloatToHalf((float)surf->styles[maps]);
+						}
+					}
+				}
+			}
+			else {
+				source[0] = source[1] = source[2] = 0;
+				source[3] = lightmap_flags;
 
-						source[0] |= ((unsigned int)lightmap[lightmap_index + 0]) << (8 * maps);
-						source[1] |= ((unsigned int)lightmap[lightmap_index + 1]) << (8 * maps);
-						source[2] |= ((unsigned int)lightmap[lightmap_index + 2]) << (8 * maps);
+				if (surf->samples) {
+					if (surfnum != -1 && cl.worldmodel->flags & MOD_HDRLIGHTING) {
+						uint32_t* lightmap = (uint32_t*)surf->samples;
+						for (maps = 0; maps < MAXLIGHTMAPS && surf->styles[maps] != 255; maps++) {
+							size_t lightmap_index = (maps * smax * tmax + t * smax + s);
+							uint32_t e5bgr9 = lightmap[lightmap_index];
+							//we're converting to a scale that holds overbrights, so 1->128, its 2->255ish
+							float e = rgb9e5tab[e5bgr9 >> 27] * (1 << 7);
+							source[0] += (unsigned int)bound(0, e * ((e5bgr9 >>  0) & 0x1ff), 0xff) << (8 * maps);
+							source[1] += (unsigned int)bound(0, e * ((e5bgr9 >>  9) & 0x1ff), 0xff) << (8 * maps);
+							source[2] += (unsigned int)bound(0, e * ((e5bgr9 >> 18) & 0x1ff), 0xff) << (8 * maps);
+						}
+					}
+					else {
+						byte* lightmap = surf->samples;
+						for (maps = 0; maps < MAXLIGHTMAPS && surf->styles[maps] != 255; maps++) {
+							size_t lightmap_index = (maps * smax * tmax + t * smax + s) * 3;
+							source[0] |= ((unsigned int)lightmap[lightmap_index + 0]) << (8 * maps);
+							source[1] |= ((unsigned int)lightmap[lightmap_index + 1]) << (8 * maps);
+							source[2] |= ((unsigned int)lightmap[lightmap_index + 2]) << (8 * maps);
+						}
 					}
 				}
 			}

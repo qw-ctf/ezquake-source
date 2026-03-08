@@ -41,8 +41,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define POST_PROCESS_3DONLY          2
 #define POST_PROCESS_TONEMAP         4
 #define POST_PROCESS_FXAA            8
+#define POST_PROCESS_EXPOSURE       16
 
 extern cvar_t vid_software_palette, vid_framebuffer, vid_framebuffer_hdr, vid_framebuffer_hdr_tonemap, vid_framebuffer_multisample;
+extern cvar_t vid_framebuffer_hdr_exposure_world, vid_framebuffer_hdr_exposure_hud;
 static texture_ref non_framebuffer_screen_texture;
 
 qbool GLM_CompilePostProcessVAO(void)
@@ -89,6 +91,7 @@ qbool GLM_CompilePostProcessProgram(void)
 		(vid_software_palette.integer ? POST_PROCESS_PALETTE : 0) |
 		(vid_framebuffer.integer == USE_FRAMEBUFFER_3DONLY ? POST_PROCESS_3DONLY : 0) |
 		(vid_framebuffer_hdr.integer && vid_framebuffer_hdr_tonemap.integer ? POST_PROCESS_TONEMAP : 0) |
+		(vid_framebuffer_hdr.integer ? POST_PROCESS_EXPOSURE : 0) |
 		(fxaa_preset > 0 ? POST_PROCESS_FXAA : 0) | (fxaa_preset << 4); // mix in preset to detect change
 
 	if (R_ProgramRecompileNeeded(r_program_post_process, post_process_flags)) {
@@ -103,6 +106,9 @@ qbool GLM_CompilePostProcessProgram(void)
 		}
 		if (post_process_flags & POST_PROCESS_TONEMAP) {
 			strlcat(included_definitions, "#define EZ_POSTPROCESS_TONEMAP\n", sizeof(included_definitions));
+		}
+		if (post_process_flags & POST_PROCESS_EXPOSURE) {
+			strlcat(included_definitions, "#define EZ_POSTPROCESS_EXPOSURE\n", sizeof(included_definitions));
 		}
 		if (post_process_flags & POST_PROCESS_FXAA) {
 			extern const unsigned char fxaa_h_glsl[];

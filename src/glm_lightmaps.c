@@ -39,6 +39,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 static texture_ref lightmap_texture_array;
 static texture_ref lightmap_data_array;
 static texture_ref lightmap_source_array;
+static texture_ref lightmap_hdr_source_array;
 static unsigned int lightmap_depth;
 static GLenum lightmap_dest_format = GL_RGBA8;
 
@@ -108,7 +109,12 @@ void GLM_ComputeLightmaps(void)
 	buffers.Update(r_buffer_brushmodel_surfacestolight_ssbo, surfaceTodoLength, surfaceTodoData);
 	buffers.BindRange(r_buffer_brushmodel_surfacestolight_ssbo, EZQ_STORAGE_BLOCK_BINDING(EZQ_GL_BINDINGPOINT_SURFACES_TO_LIGHT), buffers.BufferOffset(r_buffer_brushmodel_surfacestolight_ssbo), surfaceTodoLength);
 
-	GL_BindImageTexture(0, lightmap_source_array, 0, GL_TRUE, 0, GL_READ_ONLY, GL_RGBA32UI);
+	if (lightmap_dest_format != GL_RGBA8) {
+		GL_BindImageTexture(3, lightmap_hdr_source_array, 0, GL_TRUE, 0, GL_READ_ONLY, GL_RGBA16F);
+	}
+	else {
+		GL_BindImageTexture(0, lightmap_source_array, 0, GL_TRUE, 0, GL_READ_ONLY, GL_RGBA32UI);
+	}
 	GL_BindImageTexture(1, lightmap_texture_array, 0, GL_TRUE, 0, GL_WRITE_ONLY, lightmap_dest_format);
 	GL_BindImageTexture(2, lightmap_data_array, 0, GL_TRUE, 0, GL_READ_ONLY, GL_RGBA32I);
 
@@ -180,6 +186,10 @@ void GLM_CreateLightmapTextures(void)
 		R_DeleteTextureArray(&lightmap_source_array);
 	}
 
+	if (R_TextureReferenceIsValid(lightmap_hdr_source_array)) {
+		R_DeleteTextureArray(&lightmap_hdr_source_array);
+	}
+
 	lightmap_dest_format = GL_RGBA8;
 	if (vid_framebuffer_hdr.integer) {
 		lightmap_dest_format = GL_Supported(R_SUPPORT_TEXTURE_R11G11B10F) ? GL_R11F_G11F_B10F : GL_RGBA16F;
@@ -208,6 +218,12 @@ void GLM_CreateLightmapTextures(void)
 	Sys_Printf("\nopengl-texture,alloc,%u,%d,%d,%d,%s\n", lightmap_source_array.index, LIGHTMAP_WIDTH, LIGHTMAP_HEIGHT, LIGHTMAP_WIDTH * LIGHTMAP_HEIGHT * lightmap_array_size * 16, "lightmap_source_array");
 #endif
 
+	if (lightmap_dest_format != GL_RGBA8) {
+		GL_CreateTexturesWithIdentifier(texture_type_2d_array, 1, &lightmap_hdr_source_array, "lightmap_hdr_source_array");
+		GL_TexStorage3D(GL_TEXTURE0, lightmap_hdr_source_array, 1, GL_RGBA16F, LIGHTMAP_WIDTH, LIGHTMAP_HEIGHT, lightmap_array_size * MAXLIGHTMAPS, false);
+		R_SetTextureArraySize(lightmap_hdr_source_array, LIGHTMAP_WIDTH, LIGHTMAP_HEIGHT, lightmap_array_size * MAXLIGHTMAPS, 8);
+	}
+
 	GL_CreateTexturesWithIdentifier(texture_type_2d_array, 1, &lightmap_data_array, "lightmap_data_array");
 	GL_TexStorage3D(GL_TEXTURE0, lightmap_data_array, 1, GL_RGBA32I, LIGHTMAP_WIDTH, LIGHTMAP_HEIGHT, lightmap_array_size, false);
 	R_SetTextureArraySize(lightmap_data_array, LIGHTMAP_WIDTH, LIGHTMAP_HEIGHT, lightmap_array_size, 16);
@@ -221,6 +237,7 @@ void GLM_InvalidateLightmapTextures(void)
 	R_TextureReferenceInvalidate(lightmap_texture_array);
 	R_TextureReferenceInvalidate(lightmap_data_array);
 	R_TextureReferenceInvalidate(lightmap_source_array);
+	R_TextureReferenceInvalidate(lightmap_hdr_source_array);
 	lightmap_depth = 0;
 	lightmap_dest_format = GL_RGBA8;
 }
@@ -264,11 +281,20 @@ void GLM_BuildLightmap(int i)
 		);
 	}
 
-	GL_TexSubImage3D(
-		0, lightmap_source_array, 0, 0, 0, i,
-		LIGHTMAP_WIDTH, LIGHTMAP_HEIGHT, 1, GL_RGBA_INTEGER, GL_UNSIGNED_INT,
-		lightmaps[i].sourcedata
-	);
+	if (lightmap_dest_format != GL_RGBA8) {
+		GL_TexSubImage3D(
+			0, lightmap_hdr_source_array, 0, 0, 0, i * MAXLIGHTMAPS,
+			LIGHTMAP_WIDTH, LIGHTMAP_HEIGHT, MAXLIGHTMAPS, GL_RGBA, GL_HALF_FLOAT,
+			lightmaps[i].hdr_sourcedata
+		);
+	}
+	else {
+		GL_TexSubImage3D(
+			0, lightmap_source_array, 0, 0, 0, i,
+			LIGHTMAP_WIDTH, LIGHTMAP_HEIGHT, 1, GL_RGBA_INTEGER, GL_UNSIGNED_INT,
+			lightmaps[i].sourcedata
+		);
+	}
 
 	GL_TexSubImage3D(
 		0, lightmap_data_array, 0, 0, 0, i,

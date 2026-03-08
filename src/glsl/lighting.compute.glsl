@@ -1,7 +1,9 @@
 #ezquake-definitions
 
 layout(local_size_x = HW_LIGHTING_BLOCK_SIZE, local_size_y = HW_LIGHTING_BLOCK_SIZE) in;
+#if !defined(EZ_LIGHTMAP_R11G11B10F) && !defined(EZ_LIGHTMAP_RGBA16F)
 EZ_LAYOUT_BINDING(0) layout(rgba32ui) uniform uimage2DArray sourceBlocklights;
+#endif
 #if defined(EZ_LIGHTMAP_R11G11B10F)
 EZ_LAYOUT_BINDING(1) layout(r11f_g11f_b10f) uniform image2DArray destinationLightmap;
 #elif defined(EZ_LIGHTMAP_RGBA16F)
@@ -10,6 +12,9 @@ EZ_LAYOUT_BINDING(1) layout(rgba16f)         uniform image2DArray destinationLig
 EZ_LAYOUT_BINDING(1) layout(rgba8)           uniform image2DArray destinationLightmap;
 #endif
 EZ_LAYOUT_BINDING(2) layout(rgba32i)  uniform iimage2DArray sourceLightmapData;
+#if defined(EZ_LIGHTMAP_R11G11B10F) || defined(EZ_LIGHTMAP_RGBA16F)
+EZ_LAYOUT_BINDING(3) layout(rgba16f)  uniform image2DArray hdrSourceBlocklights;
+#endif
 
 EZ_SSBO_LAYOUT(std140, EZQ_GL_BINDINGPOINT_WORLDMODEL_SURFACES) EZ_SSBO(surface_data) {
 	model_surface surfaces[EZ_SSBO_ARRAY_SIZE(8192)];
@@ -28,7 +33,6 @@ void main()
 	int i;
 
 	ivec3 coord = ivec3(gl_WorkGroupID.xy * HW_LIGHTING_BLOCK_SIZE + gl_LocalInvocationID.xy, gl_WorkGroupID.z + firstLightmap);
-	uvec4 blocklight = imageLoad(sourceBlocklights, coord);
 	ivec4 srcData = imageLoad(sourceLightmapData, coord);
 
 	int surfaceNumber = srcData.x;
@@ -37,13 +41,6 @@ void main()
 		if ((surfaces_to_light[surfaceNumber / 32] & (1 << (surfaceNumber % 32))) != 0) {
 			float sdelta = float(srcData.y);
 			float tdelta = float(srcData.z);
-			uvec4 mapIndexes = uvec4(
-				(blocklight.a >> 24) & 0xFF,
-				(blocklight.a >> 16) & 0xFF,
-				(blocklight.a >> 8) & 0xFF,
-				(blocklight.a >> 0) & 0xFF
-			);
-			blocklight.a = 0;
 
 			vec4 Plane = surfaces[surfaceNumber].normal;
 			vec4 PlaneMins0 = surfaces[surfaceNumber].vecs0;
@@ -52,8 +49,30 @@ void main()
 			float vlen0 = PlaneMins0.w;
 			float vlen1 = PlaneMins1.w;
 
-			// Build static lights: default to black
+			// Build static lights
 			vec4 baseLightmap = vec4(0, 0, 0, 0);
+#if defined(EZ_LIGHTMAP_R11G11B10F) || defined(EZ_LIGHTMAP_RGBA16F)
+			// HDR source: per-style fp16 (R, G, B, StyleIdx) stored in layered texture
+			// layer = coord.z * 4 + style_slot
+			for (i = 0; i < 4; i++) {
+				vec4 hdrSrc = imageLoad(hdrSourceBlocklights, ivec3(coord.xy, coord.z * 4 + i));
+				uint styleIdx = uint(hdrSrc.a + 0.5);
+				if (styleIdx < 64u) {
+					baseLightmap.rgb += hdrSrc.rgb * float(dlightstyles[styleIdx]);
+				}
+			}
+			baseLightmap.rgb *= 1.0 / (256.0 * 256.0);
+#else
+			// SDR source: packed uint8 per style in RGBA32UI
+			uvec4 blocklight = imageLoad(sourceBlocklights, coord);
+			uvec4 mapIndexes = uvec4(
+				(blocklight.a >> 24) & 0xFF,
+				(blocklight.a >> 16) & 0xFF,
+				(blocklight.a >> 8) & 0xFF,
+				(blocklight.a >> 0) & 0xFF
+			);
+			blocklight.a = 0;
+
 			if (mapIndexes.a < 64) {
 				baseLightmap = (blocklight & 0xFF) * dlightstyles[mapIndexes.a];
 				if (mapIndexes.b < 64) {
@@ -70,6 +89,7 @@ void main()
 				}
 			}
 			baseLightmap *= 1.0 / (256.0 * 256.0);
+#endif
 
 			// Dynamic lights
 			for (i = 0; i < lightsActive; ++i) {

@@ -230,6 +230,7 @@ cvar_t gl_simpleitems                      = {"gl_simpleitems", "0"};
 cvar_t gl_simpleitems_size                 = {"gl_simpleitems_size", "16"};
 cvar_t gl_simpleitems_orientation          = {"gl_simpleitems_orientation", "2"};
 cvar_t gl_modulate                         = {"gl_modulate", "1"};
+cvar_t gl_fb_scale                         = {"gl_fb_scale", "1.3"};
 
 cvar_t gl_outline                          = {"gl_outline", "0"};
 cvar_t gl_outline_color_world              = {"gl_outline_color_world", "0 0 0"};
@@ -723,6 +724,7 @@ void R_Init(void)
 	Cvar_Register(&gl_nocolors);
 	Cvar_Register(&gl_finish);
 	Cvar_Register(&gl_modulate);
+	Cvar_Register(&gl_fb_scale);
 
 	Cvar_Register(&gl_outline);
 	Cvar_Register(&gl_outline_color_world);
