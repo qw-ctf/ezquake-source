@@ -2815,8 +2815,7 @@ static struct { int num; builtin_t func; } ext_builtins[] =
 
 #define num_ext_builtins (sizeof(ext_builtins)/sizeof(ext_builtins[0]))
 
-builtin_t *pr_builtins = NULL;
-int pr_numbuiltins = 0;
+// pr_builtins and pr_numbuiltins are now in pr_context_t (via compatibility macros)
 
 void PR_InitBuiltins (void)
 {

@@ -28,6 +28,7 @@ typedef enum {
 typedef enum {
 	VM_BAD = -1,
 	VM_GAME = 0,
+	VM_CSQC,
 	VM_COUNT
 } vmIndex_t;
 

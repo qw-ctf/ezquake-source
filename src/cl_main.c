@@ -19,6 +19,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // cl_main.c  -- client main loop
 
 #include "quakedef.h"
+#include "csqc_progs.h"
 #include "cdaudio.h"
 #include "cl_slist.h"
 #include "movie.h"
@@ -1278,13 +1279,17 @@ void CL_ClearState (void)
 	strlcpy(cl.fixed_team_names[3], "gren", sizeof(cl.fixed_team_names[3]));
 
 	CL_ProcessServerInfo(); // Force set some default variables, because server may not sent fullserverinfo.
+
+	CSQC_Load();
 }
 
 // Sends a disconnect message to the server
 // This is also called on Host_Error, so it shouldn't cause any errors
-void CL_Disconnect (void) 
+void CL_Disconnect (void)
 {
 	byte final[10];
+
+	CSQC_Unload();
 
 	connect_time = 0;
 	con_addtimestamp = true;
@@ -2166,6 +2171,8 @@ void CL_Init (void)
 #endif
 
 	QTV_Init();
+
+	CSQC_RegisterCvars();
 
 	Sys_InitIPC();
 

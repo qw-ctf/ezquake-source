@@ -24,6 +24,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #endif
 
 #include "quakedef.h"
+#include "csqc_progs.h"
 #include "gl_model.h"
 #include "teamplay.h"
 #include "rulesets.h"
@@ -1863,6 +1864,13 @@ static void Cmd_ExecuteStringEx (cbuf_t *context, char *text)
 	if (cbuf_current == &cbuf_svc) {
 		if (CL_CheckServerCommand())
 			goto done;
+	}
+
+	// Try CSQC console command handler (never intercept server-stuffed commands)
+	if (cbuf_current != &cbuf_svc && CSQC_IsLoaded()) {
+		if (CSQC_ConsoleCommand(text_exp)) {
+			goto done;
+		}
 	}
 
 #ifndef CLIENTONLY

@@ -23,27 +23,14 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "qwsvdef.h"
 #include <limits.h>
 
-typedef struct prstack_s
-{
-	int s;
-	dfunction_t *f;
-} prstack_t;
-
-#define	MAX_STACK_DEPTH 32
-prstack_t	pr_stack[MAX_STACK_DEPTH];
-int			pr_depth;
-
-#define	LOCALSTACK_SIZE 2048
-int			localstack[LOCALSTACK_SIZE];
-int			localstack_used;
-
-
-qbool		pr_trace;
-dfunction_t	*pr_xfunction;
-int			pr_xstatement;
-
-
-int			pr_argc;
+// Interpreter state is now in pr_context_t (accessed via pr_current_ctx macros)
+// Legacy defines for local references in this file
+#define pr_stack          (pr_current_ctx->stack)
+#define pr_depth          (pr_current_ctx->depth)
+#define localstack        (pr_current_ctx->localstack)
+#define localstack_used   (pr_current_ctx->localstack_used)
+#define MAX_STACK_DEPTH   PR_MAX_STACK_DEPTH
+#define LOCALSTACK_SIZE   PR_LOCALSTACK_SIZE
 
 char *pr_opnames[] =
     {
@@ -269,15 +256,19 @@ void PR_RunError (char *error, ...)
 	vsnprintf (string, sizeof(string), error, argptr);
 	va_end (argptr);
 
-
-	sv_error = true;
-
 	PR_PrintStatement (pr_statements + pr_xstatement);
 	PR_StackTrace ();
 	Con_Printf ("%s\n", string);
 
-	pr_depth = 0; // dump the stack so SV_Error can shutdown functions
+	pr_depth = 0; // dump the stack so error handler can shutdown functions
 
+	// Use context error handler if set (e.g. CSQC longjmp), otherwise SV_Error
+	if (pr_current_ctx->error_handler) {
+		pr_current_ctx->error_handler(pr_current_ctx, string);
+		return; // error_handler may longjmp, but if it returns, bail
+	}
+
+	sv_error = true;
 	SV_Error ("Program error (PR_RunError)");
 }
 
@@ -670,9 +661,7 @@ void PR_ExecuteProgram (func_t fnum)
 
 //=============================================================================
 
-char *pr_newstrtbl[MAX_PRSTR];
-char *pr_strtbl[MAX_PRSTR];
-int num_prstr;
+// String tables are now in pr_context_t (accessed via pr_current_ctx macros)
 
 char *PR1_GetString(int num)
 {

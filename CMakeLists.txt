@@ -173,6 +173,8 @@ set(common_headers
         ${SOURCE_DIR}/version.h
         ${SOURCE_DIR}/vfs.h
         ${SOURCE_DIR}/vfs_tar.h
+        ${SOURCE_DIR}/vm.h
+        ${SOURCE_DIR}/vm_local.h
         ${SOURCE_DIR}/zone.h
 )
 set(common
@@ -203,6 +205,9 @@ set(common
         ${SOURCE_DIR}/vfs_tar.c
         ${SOURCE_DIR}/vfs_tcp.c
         ${SOURCE_DIR}/vfs_zip.c
+        ${SOURCE_DIR}/vm.c
+        ${SOURCE_DIR}/vm_interpreted.c
+        ${SOURCE_DIR}/vm_x86.c
         ${SOURCE_DIR}/zone.c
         ${common_headers}
 )
@@ -226,8 +231,6 @@ set(server_headers
         ${SOURCE_DIR}/sv_log.h
         ${SOURCE_DIR}/sv_mod_frags.h
         ${SOURCE_DIR}/sv_world.h
-        ${SOURCE_DIR}/vm.h
-        ${SOURCE_DIR}/vm_local.h
 )
 set(server
         ${SOURCE_DIR}/pr2_cmds.c
@@ -253,9 +256,6 @@ set(server
         ${SOURCE_DIR}/sv_send.c
         ${SOURCE_DIR}/sv_user.c
         ${SOURCE_DIR}/sv_world.c
-        ${SOURCE_DIR}/vm.c
-        ${SOURCE_DIR}/vm_interpreted.c
-        ${SOURCE_DIR}/vm_x86.c
         ${server_headers}
 )
 source_group(TREE ${SOURCE_DIR} PREFIX "Source Files/server" FILES ${server})
@@ -569,6 +569,8 @@ add_resources(documentation
 )
 
 set(client_headers
+        ${SOURCE_DIR}/csqc_progs.h
+        ${SOURCE_DIR}/csqc_progs_internal.h
         ${SOURCE_DIR}/Ctrl.h
         ${SOURCE_DIR}/Ctrl_EditBox.h
         ${SOURCE_DIR}/Ctrl_PageViewer.h
@@ -636,6 +638,8 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
     list(APPEND client_headers ${SOURCE_DIR}/movie_avi.h)
 endif()
 set(client
+        ${SOURCE_DIR}/csqc_progs.c
+        ${SOURCE_DIR}/csqc_builtins.c
         ${SOURCE_DIR}/Ctrl.c
         ${SOURCE_DIR}/Ctrl_EditBox.c
         ${SOURCE_DIR}/Ctrl_PageViewer.c

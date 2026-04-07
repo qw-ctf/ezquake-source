@@ -23,24 +23,17 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #ifndef CLIENTONLY
 #include "qwsvdef.h"
 
-dprograms_t		*progs;
-dfunction_t		*pr_functions;
-char			*pr_strings;
-ddef_t			*pr_fielddefs;
-ddef_t			*pr_globaldefs;
-dstatement_t	*pr_statements;
+// PR1 context instances
+pr_context_t  sv_pr_context;
+pr_context_t *pr_current_ctx = &sv_pr_context;
+
 globalvars_t	*pr_global_struct;
-float			*pr_globals;			// same as pr_global_struct
-int				pr_edict_size;	// in bytes
 
 #define NQ_PROGHEADER_CRC 5927
 
 #ifdef WITH_NQPROGS
-qbool pr_nqprogs;
-int pr_fieldoffsetpatch[106];
-int pr_globaloffsetpatch[62];
 static int pr_globaloffsetpatch_nq[62] = {0,0,0,0,0,666,-4,-4,8,8,
-8,8,8,8,8,8,8,8,8,8, 8,8,8,8,8,8,8,8,8,8, 8,8,8,8,8,8,8,8,8,8, 
+8,8,8,8,8,8,8,8,8,8, 8,8,8,8,8,8,8,8,8,8, 8,8,8,8,8,8,8,8,8,8,
 8,8,8,8,8,8,8,8,8,8, 8,8,8,8,8,8,8,8,8,8, 8,8};
 #endif
 

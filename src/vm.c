@@ -28,7 +28,12 @@ and one exported function: Perform
 
 */
 #ifdef USE_PR2
+#ifndef CLIENTONLY
 #include "qwsvdef.h"
+#else
+#include "quakedef.h"
+#include "crc.h"
+#endif
 #include "vm_local.h"
 
 opcode_info_t ops[ OP_MAX ] =
@@ -201,7 +206,7 @@ cvar_t	vm_rtChecks		= { "vm_rtChecks", "1"};
 
 int		vm_debugLevel;
 
-// used by SV_Error to get rid of running vm's before longjmp
+// used by Sys_Error to get rid of running vm's before longjmp
 // static int forced_unload;
 
 struct vm_s	vmTable[ VM_COUNT ];
@@ -225,7 +230,7 @@ void VM_CheckBounds( const vm_t *vm, unsigned int address, unsigned int length )
 	{
 		if ( (address | length) > vm->dataMask || (address + length) > vm->dataMask )
 		{
-			SV_Error( "program tried to bypass data segment bounds" );
+			Sys_Error( "program tried to bypass data segment bounds" );
 		}
 	}
 }
@@ -241,7 +246,7 @@ void VM_CheckBounds2( const vm_t *vm, unsigned int addr1, unsigned int addr2, un
 	{
 		if ( (addr1 | addr2 | length) > vm->dataMask || (addr1 + length) > vm->dataMask || (addr2+length) > vm->dataMask )
 		{
-			SV_Error( "program tried to bypass data segment bounds" );
+			Sys_Error( "program tried to bypass data segment bounds" );
 		}
 	}
 }
@@ -683,7 +688,9 @@ static vmHeader_t *VM_LoadQVM( vm_t *vm, qbool alloc ) {
 	unsigned int		crc32sum;
 	//qbool			tryjts;
 	vmHeader_t			*header;
+#ifndef CLIENTONLY
 	char    num[32];
+#endif
 
 	// load the image
 	snprintf( filename, sizeof( filename ), "%s.qvm", vm->name );
@@ -696,8 +703,10 @@ static vmHeader_t *VM_LoadQVM( vm_t *vm, qbool alloc ) {
 	}
 
 	crc32sum = CRC_Block( ( byte * ) header, length );
+#ifndef CLIENTONLY
 	sprintf( num, "%i",  crc32sum );
 	Info_SetValueForStarKey( svs.info, "*progs", num, MAX_SERVERINFO_STRING );
+#endif
 
 	// will also swap header
 	errorMsg = VM_ValidateHeader( header, length );
@@ -1217,12 +1226,14 @@ qbool VM_LoadNative( vm_t * vm)
 	if ( !dllEntry || !vm->entryPoint )
 	{
         Sys_DLClose( vm->dllHandle );
-		SV_Error( "VM_LoadNative: couldn't initialize module %s", name );
+		Sys_Error( "VM_LoadNative: couldn't initialize module %s", name );
 	}
 	dllEntry( vm->dllSyscall );
 
+#ifndef CLIENTONLY
 	Info_SetValueForStarKey( svs.info, "*qvm", DLEXT, MAX_SERVERINFO_STRING );
 	Info_SetValueForStarKey( svs.info, "*progs", DLEXT, MAX_SERVERINFO_STRING );
+#endif
 	vm->type = VMI_NATIVE;
 	return true;
 }
@@ -1241,11 +1252,11 @@ vm_t *VM_Create( vmIndex_t index, const char	*name, syscall_t systemCalls, /*dll
 	vm_t		*vm;
 
 	if ( !systemCalls ) {
-		SV_Error( "VM_Create: bad parms" );
+		Sys_Error( "VM_Create: bad parms" );
 	}
 
 	if ( (unsigned)index >= VM_COUNT ) {
-		SV_Error( "VM_Create: bad vm index %i", index );	
+		Sys_Error( "VM_Create: bad vm index %i", index );	
 	}
 
 	//remaining = Hunk_MemoryRemaining();
@@ -1255,7 +1266,7 @@ vm_t *VM_Create( vmIndex_t index, const char	*name, syscall_t systemCalls, /*dll
 	// see if we already have the VM
 	if ( vm->name ) {
 		if ( vm->index != index ) {
-			SV_Error( "VM_Create: bad allocated vm index %i", vm->index );
+			Sys_Error( "VM_Create: bad allocated vm index %i", vm->index );
 			return NULL;
 		}
 		return vm;
@@ -1355,7 +1366,7 @@ void VM_Free( vm_t *vm ) {
 
 /*	if ( vm->callLevel ) {
 		if ( !forced_unload ) {
-			SV_Error( ERR_FATAL, "VM_Free(%s) on running vm", vm->name );
+			Sys_Error( ERR_FATAL, "VM_Free(%s) on running vm", vm->name );
 			return;
 		} else {
 			Con_Printf( "forcefully unloading %s vm\n", vm->name );
@@ -1425,7 +1436,7 @@ intptr_t QDECL VM_Call( vm_t *vm, int nargs, int callnum, ... )
 	int i;
 
 	if ( !vm ) {
-		SV_Error( "VM_Call with NULL vm" );
+		Sys_Error( "VM_Call with NULL vm" );
 	}
 
 
@@ -1439,7 +1450,7 @@ intptr_t QDECL VM_Call( vm_t *vm, int nargs, int callnum, ... )
 
 #ifdef DEBUG
 	if ( nargs >= MAX_VMMAIN_CALL_ARGS ) {
-		SV_Error( "VM_Call: nargs >= MAX_VMMAIN_CALL_ARGS" );
+		Sys_Error( "VM_Call: nargs >= MAX_VMMAIN_CALL_ARGS" );
 	}
 #endif
 

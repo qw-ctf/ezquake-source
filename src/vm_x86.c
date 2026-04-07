@@ -21,9 +21,9 @@
 #include "qwsvdef.h"
 #else
 #include "quakedef.h"
+#endif
 #include "pr_comp.h"
 #include "g_public.h"
-#endif
 #include "vm_local.h"
 
 #if ( idx386) || (idx64)
@@ -315,34 +315,34 @@ static int	errParam = 0;
 
 static void ErrJump( void )
 {
-	SV_Error( "program tried to execute code outside VM" ); 
+	Sys_Error( "program tried to execute code outside VM" ); 
 }
 
 
 static void BadJump( void )
 {
-	SV_Error( "program tried to execute code at bad location inside VM" ); 
+	Sys_Error( "program tried to execute code at bad location inside VM" ); 
 }
 
 
 static void BadStack( void )
 {
-	SV_Error( "program tried to overflow program stack" ); 
+	Sys_Error( "program tried to overflow program stack" ); 
 }
 
 
 static void BadOpStack( void )
 {
-	SV_Error( "program tried to overflow opcode stack" ); 
+	Sys_Error( "program tried to overflow opcode stack" ); 
 }
 
 
 static void BadData( void )
 {
 #ifdef DEBUG_VM	
-	SV_Error( "program tried to read/write out of data segment at %i", errParam ); 
+	Sys_Error( "program tried to read/write out of data segment at %i", errParam ); 
 #else
-	SV_Error( "program tried to read/write out of data segment" ); 
+	Sys_Error( "program tried to read/write out of data segment" ); 
 #endif
 }
 
@@ -437,7 +437,7 @@ static int Hex( int c )
 	}
 
 	VM_FreeBuffers();
-	SV_Error( "Hex: bad char '%c'", c );
+	Sys_Error( "Hex: bad char '%c'", c );
 
 	return 0;
 }
@@ -789,7 +789,7 @@ const char *NearJumpStr( int op )
 		case OP_JUMP: return "EB";   // jmp
 
 		//default:
-		//	SV_Error( "Bad opcode %i", op );
+		//	Sys_Error( "Bad opcode %i", op );
 	};
 	return NULL;
 }
@@ -863,7 +863,7 @@ void EmitJump( vm_t *vm, instruction_t *i, int op, int addr )
 
 	str = FarJumpStr( op, &jump_size );	
 	if ( jump_size == 0 ) {
-		SV_Error( "VM_CompileX86 error: %s\n", "bad jump size" );
+		Sys_Error( "VM_CompileX86 error: %s\n", "bad jump size" );
 	} else {
 		EmitString( str );
 		Emit4( v - 4 - jump_size );
@@ -1298,7 +1298,7 @@ static void EmitFCalcEDI( int op )
 		case OP_SUBF: EmitString( "D8 27" ); break;	// fsub dword ptr [edi]
 		case OP_MULF: EmitString( "D8 0F" ); break; // fmul dword ptr [edi]
 		case OP_DIVF: EmitString( "D8 37" ); break; // fdiv dword ptr [edi]
-		default: SV_Error( "bad float op" ); break;
+		default: Sys_Error( "bad float op" ); break;
 	};
 }
 
@@ -1316,7 +1316,7 @@ static void EmitFCalcPop( int op )
 		case OP_SUBF: EmitString( "DE E9" ); break; // fsubp
 		case OP_MULF: EmitString( "DE C9" ); break; // fmulp
 		case OP_DIVF: EmitString( "DE F9" ); break; // fdivp
-		default: SV_Error( "bad opcode %02x", op ); break;
+		default: Sys_Error( "bad opcode %02x", op ); break;
 	};
 }
 
@@ -2739,11 +2739,11 @@ __compile:
 		case MOP_BOR4:
 		case MOP_NCPY:
 			if ( !EmitMOPs( vm, ci->op ) )
-				SV_Error( "VM_CompileX86: bad opcode %02X", ci->op );
+				Sys_Error( "VM_CompileX86: bad opcode %02X", ci->op );
 			break;
 
 		default:
-			SV_Error( "VM_CompileX86: bad opcode %02X", ci->op );
+			Sys_Error( "VM_CompileX86: bad opcode %02X", ci->op );
 			VM_FreeBuffers();
 			return false;
 		}
@@ -2866,20 +2866,20 @@ static void *VM_Alloc_Compiled( vm_t *vm, int codeLength, int tableLength )
 #ifdef VM_X86_MMAP
 	ptr = mmap( NULL, length, PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0 );
 	if ( ptr == MAP_FAILED ) {
-		SV_Error( "VM_CompileX86: mmap failed" );
+		Sys_Error( "VM_CompileX86: mmap failed" );
 		return NULL;
 	}
 #elif _WIN32
 	// allocate memory with EXECUTE permissions under windows.
 	ptr = VirtualAlloc( NULL, length, MEM_COMMIT, PAGE_EXECUTE_READWRITE );
 	if ( !ptr ) {
-		SV_Error( "VM_CompileX86: VirtualAlloc failed" );
+		Sys_Error( "VM_CompileX86: VirtualAlloc failed" );
 		return NULL;
 	}
 #else
 	ptr = malloc( length );
 	if ( !ptr ) {
-		SV_Error( "VM_CompileX86: malloc failed" );
+		Sys_Error( "VM_CompileX86: malloc failed" );
 		return NULL;
 	}
 #endif
@@ -2946,12 +2946,12 @@ int	VM_CallCompiled( vm_t *vm, int nargs, int *args )
 	vm->codeBase.func(); // go into generated code
 
 	if ( vm->opStack != &opStack[1] ) {
-		SV_Error( "opStack corrupted in compiled code" );
+		Sys_Error( "opStack corrupted in compiled code" );
 	}
 
 #ifdef DEBUG_VM
 	if ( vm->programStack != stackOnEntry - CALL_PSTACK ) {
-		SV_Error( "programStack corrupted in compiled code" );
+		Sys_Error( "programStack corrupted in compiled code" );
 	}
 #endif
 

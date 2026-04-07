@@ -219,11 +219,11 @@ nextInstruction2:
 			programStack -= v0;
 			if ( programStack <= vm->stackBottom ) {
                 VM_StackTrace(vm, ci - (instruction_t *)vm->codeBase.ptr, programStack);
-				SV_Error( "VM programStack overflow" );
+				Sys_Error( "VM programStack overflow" );
 			}
 			if ( opStack + ((ci-1)->opStack/4) >= opStackTop ) {
                 VM_StackTrace(vm, ci - (instruction_t *)vm->codeBase.ptr, programStack);
-				SV_Error( "VM opStack overflow" );
+				Sys_Error( "VM opStack overflow" );
 			}
 			break;
 
@@ -238,7 +238,7 @@ nextInstruction2:
 				goto done;
 			} else if ( (unsigned)v1 >= vm->instructionCount ) {
                 VM_StackTrace(vm, ci - (instruction_t *)vm->codeBase.ptr, programStack);
-				SV_Error( "VM program counter out of range in OP_LEAVE" );
+				Sys_Error( "VM program counter out of range in OP_LEAVE" );
 			}
 			ci = inst + v1;
 			break;
@@ -278,7 +278,7 @@ nextInstruction2:
 				opStack--;
 			} else {
                 VM_StackTrace(vm, ci - (instruction_t *)vm->codeBase.ptr, programStack);
-				SV_Error( "VM program counter out of range in OP_CALL" );
+				Sys_Error( "VM program counter out of range in OP_CALL" );
 			}
 			break;
 
@@ -306,7 +306,7 @@ nextInstruction2:
 		case OP_JUMP:
 			if ( r0.u >= vm->instructionCount ) {
                 VM_StackTrace(vm, ci - (instruction_t *)vm->codeBase.ptr, programStack);
-				SV_Error( "VM program counter out of range in OP_JUMP" );
+				Sys_Error( "VM program counter out of range in OP_JUMP" );
 			}
 			ci = inst + r0.i;
 			opStack--;
@@ -623,7 +623,7 @@ done:
 
 	if ( opStack != &stack[2] ) {
         VM_StackTrace(vm, ci - (instruction_t *)vm->codeBase.ptr, programStack);
-		SV_Error( "Interpreter error: opStack = %ld", (long int) (opStack - stack) );
+		Sys_Error( "Interpreter error: opStack = %ld", (long int) (opStack - stack) );
 	}
 
 	vm->programStack = stackOnEntry;

@@ -34,6 +34,67 @@ typedef union eval_s
 	int		edict;
 } eval_t;
 
+//============================================================================
+// PR1 interpreter context -- allows multiple independent VM instances
+//============================================================================
+
+#define PR_MAX_STACK_DEPTH  32
+#define PR_LOCALSTACK_SIZE  2048
+#define PR_MAX_PRSTR        1024
+
+typedef void (*pr_builtin_t)(void);
+
+typedef struct {
+	int          s;
+	dfunction_t *f;
+} pr_stack_t;
+
+typedef struct pr_context_s {
+	// Loaded progs data
+	dprograms_t   *progs;
+	dfunction_t   *functions;
+	char          *strings;
+	ddef_t        *globaldefs;
+	ddef_t        *fielddefs;
+	dstatement_t  *statements;
+	float         *globals;
+	int            edict_size;
+
+	// Execution state
+	pr_stack_t     stack[PR_MAX_STACK_DEPTH];
+	int            depth;
+	int            localstack[PR_LOCALSTACK_SIZE];
+	int            localstack_used;
+	dfunction_t   *xfunction;
+	int            xstatement;
+	int            argc;
+	qbool          trace;
+
+	// Builtins
+	pr_builtin_t  *builtins;
+	int            numbuiltins;
+
+	// String tables
+	char          *strtbl[PR_MAX_PRSTR];
+	char          *newstrtbl[PR_MAX_PRSTR];
+	int            num_prstr;
+
+	// Error handler (server calls SV_Error, CSQC uses longjmp)
+	void         (*error_handler)(struct pr_context_s *ctx, const char *msg);
+
+#ifdef WITH_NQPROGS
+	qbool          nqprogs;
+	int            fieldoffsetpatch[106];
+	int            globaloffsetpatch[62];
+#endif
+} pr_context_t;
+
+// Current active context (set by PR_ExecuteProgram before execution)
+extern pr_context_t *pr_current_ctx;
+
+// Server context instance (defined in pr_edict.c)
+extern pr_context_t sv_pr_context;
+
 struct edict_s; // forward referecnce for link_t
 
 typedef struct link_s
@@ -78,17 +139,19 @@ typedef struct edict_s
 
 //============================================================================
 
-extern	dprograms_t	*progs;
-extern	dfunction_t	*pr_functions;
-extern	char		*pr_strings;
-extern	ddef_t		*pr_globaldefs;
-extern	ddef_t		*pr_fielddefs;
-extern	dstatement_t	*pr_statements;
-extern	globalvars_t	*pr_global_struct;
-extern	float		*pr_globals;	// same as pr_global_struct
+// Compatibility macros: redirect old global names to context struct fields
+#define progs             (pr_current_ctx->progs)
+#define pr_functions      (pr_current_ctx->functions)
+#define pr_strings        (pr_current_ctx->strings)
+#define pr_globaldefs     (pr_current_ctx->globaldefs)
+#define pr_fielddefs      (pr_current_ctx->fielddefs)
+#define pr_statements     (pr_current_ctx->statements)
+#define pr_globals        (pr_current_ctx->globals)
+#define pr_edict_size     (pr_current_ctx->edict_size)
 
-extern	int         pr_edict_size;	// in bytes
-extern	cvar_t      sv_progsname; 
+extern	globalvars_t	*pr_global_struct;  // server-specific typed overlay
+
+extern	cvar_t      sv_progsname;
 #ifdef WITH_NQPROGS
 extern	cvar_t      sv_forcenqprogs;
 #endif
@@ -97,10 +160,9 @@ extern	cvar_t      sv_forcenqprogs;
 
 #ifdef WITH_NQPROGS
 
-extern	qbool			pr_nqprogs;
-
-extern	int pr_fieldoffsetpatch[106];
-extern	int pr_globaloffsetpatch[62];
+#define pr_nqprogs          (pr_current_ctx->nqprogs)
+#define pr_fieldoffsetpatch (pr_current_ctx->fieldoffsetpatch)
+#define pr_globaloffsetpatch (pr_current_ctx->globaloffsetpatch)
 
 #define PR_FIELDOFS(i) ((unsigned int)(i) > 105 ? (i) : pr_fieldoffsetpatch[i])
 #define PR_GLOBAL(field) (((globalvars_t *)((byte *)pr_global_struct + \
@@ -165,15 +227,15 @@ int NUM_FOR_EDICT(edict_t *e);
 #define	E_VECTOR(e,o) (&((float*)e->v)[o])
 #define	E_STRING(e,o) (PR1_GetString(*(string_t *)&((float*)e->v)[PR_FIELDOFS(o)]))
 
-typedef void		(*builtin_t) (void);
-extern	builtin_t	*pr_builtins;
-extern	int		pr_numbuiltins;
+typedef pr_builtin_t	builtin_t;  // compat alias
+#define pr_builtins       (pr_current_ctx->builtins)
+#define pr_numbuiltins    (pr_current_ctx->numbuiltins)
 
-extern	int		pr_argc;
+#define pr_argc           (pr_current_ctx->argc)
 
-extern	qbool	pr_trace;
-extern	dfunction_t	*pr_xfunction;
-extern	int		pr_xstatement;
+#define pr_trace          (pr_current_ctx->trace)
+#define pr_xfunction      (pr_current_ctx->xfunction)
+#define pr_xstatement     (pr_current_ctx->xstatement)
 
 extern func_t mod_ConsoleCmd, mod_UserCmd;
 extern func_t mod_UserInfo_Changed, mod_localinfoChanged;
@@ -206,11 +268,11 @@ int ED1_FindFieldOffset (char *field);
 //
 // PR Strings stuff
 //
-#define MAX_PRSTR 1024
+#define MAX_PRSTR PR_MAX_PRSTR
 
-extern char *pr_strtbl[MAX_PRSTR];
-extern char *pr_newstrtbl[MAX_PRSTR];
-extern int num_prstr;
+#define pr_strtbl         (pr_current_ctx->strtbl)
+#define pr_newstrtbl      (pr_current_ctx->newstrtbl)
+#define num_prstr         (pr_current_ctx->num_prstr)
 
 char *PR1_GetString(int num);
 void PR1_SetString(string_t* address, char* s);
