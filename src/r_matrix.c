@@ -244,6 +244,54 @@ void R_GetProjectionMatrix(float* matrix)
 	memcpy(matrix, projectionMatrix, sizeof(projectionMatrix));
 }
 
+/*
+==================
+R_GetRefdefMatrices
+
+Build the world modelview and projection matrices for the current r_refdef camera
+into caller buffers, without touching the live matrices. Used by CSQC #310/#311
+project/unproject, so the result reflects the current camera wherever in the frame
+they are called, not whatever matrices are loaded (e.g. the 2D ortho of the HUD
+pass). Mirrors R_StateDefault3D (modelview) and R_Frustum (projection) for a single
+view; multiview adjustments are not applied.
+==================
+*/
+void R_GetRefdefMatrices(float *model, float *proj)
+{
+	double zNear = R_NearPlaneZ();
+	double zFar = R_FarPlaneZ();
+	double aspect = (r_refdef.vrect.height > 0) ? (double)r_refdef.vrect.width / (double)r_refdef.vrect.height : 1.0;
+	double ymax = zNear * tan(r_refdef.fov_y * M_PI / 360.0);
+	double ymin = -ymax;
+	double xmin = ymin * aspect;
+	double xmax = ymax * aspect;
+
+	// modelview: R_StateDefault3D sequence
+	R_SetIdentityMatrix(model);
+	R_RotateMatrix(model, -90, 1, 0, 0);
+	R_RotateMatrix(model, 90, 0, 0, 1);
+	R_RotateMatrix(model, -r_refdef.viewangles[2], 1, 0, 0);
+	R_RotateMatrix(model, -r_refdef.viewangles[0], 0, 1, 0);
+	R_RotateMatrix(model, -r_refdef.viewangles[1], 0, 0, 1);
+	R_TransformMatrix(model, -r_refdef.vieworg[0], -r_refdef.vieworg[1], -r_refdef.vieworg[2]);
+
+	// projection: R_Frustum formula
+	memset(proj, 0, sizeof(float) * 16);
+	proj[0] = (float)((2 * zNear) / (xmax - xmin));
+	proj[5] = (float)((2 * zNear) / (ymax - ymin));
+	proj[8] = (float)((xmax + xmin) / (xmax - xmin));
+	proj[9] = (float)((ymax + ymin) / (ymax - ymin));
+	proj[11] = -1;
+	if (glConfig.reversed_depth) {
+		proj[10] = 0;
+		proj[14] = (float)zNear;
+	}
+	else {
+		proj[10] = (float)(-(zFar + zNear) / (zFar - zNear));
+		proj[14] = (float)(-2 * (zFar * zNear) / (zFar - zNear));
+	}
+}
+
 void R_RotateModelview(float angle, float x, float y, float z)
 {
 	if (fmodf(angle, 360.0f) != 0) {

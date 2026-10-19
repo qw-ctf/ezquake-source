@@ -609,6 +609,7 @@ set(client_headers
         ${SOURCE_DIR}/client.h
         ${SOURCE_DIR}/config_manager.h
         ${SOURCE_DIR}/console.h
+        ${SOURCE_DIR}/csqc_client.h
         ${SOURCE_DIR}/demo_controls.h
         ${SOURCE_DIR}/demo_extension_voice.h
         ${SOURCE_DIR}/document_rendering.h
@@ -698,6 +699,8 @@ set(client
         ${SOURCE_DIR}/common_draw.c
         ${SOURCE_DIR}/config_manager.c
         ${SOURCE_DIR}/console.c
+        ${SOURCE_DIR}/csqc_builtins.c
+        ${SOURCE_DIR}/csqc_client.c
         ${SOURCE_DIR}/demo_controls.c
         ${SOURCE_DIR}/demo_extension.c
         ${SOURCE_DIR}/demo_extension_voice.c

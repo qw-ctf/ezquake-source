@@ -26,6 +26,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "rulesets.h"
 #include "teamplay.h"
 #include "cl_tent.h"
+#include "csqc_client.h"
 
 /* Separate RD buffers keep legacy frame capacities and demo layouts unchanged. */
 struct cl_rd_state_s {
@@ -635,6 +636,7 @@ void CL_ClearScene(void) {
 	}
 	memset(cl_visents.typecount, 0, sizeof(cl_visents.typecount));
 	cl_visents.count = 0;
+	CSQC_Client_ClearViewModels();
 }
 
 void CL_AddEntityToList(visentlist_t* list, visentlist_entrytype_t vistype, entity_t* ent, modtype_t type, qbool shell)
@@ -1641,6 +1643,11 @@ void CL_LinkPacketEntities(void)
 		}
 		else {
 			state = &pack->entities[pnum];
+		}
+
+		// MASK_DELTA: the module's delta callback took ownership of this entity.
+		if (CSQC_Client_DeltaEntityOwned(state->number)) {
+			continue;
 		}
 		cent = &cl_entities[state->number];
 
@@ -2737,6 +2744,11 @@ static void CL_LinkPlayers(void)
 		if (state->messagenum != cl.parsecount)
 			continue;	// not present this frame
 
+		// MASK_DELTA: the module's delta callback took ownership of this player.
+		if (CSQC_Client_DeltaPlayerOwned(j)) {
+			continue;
+		}
+
 		// spawn light flashes, even ones coming from invisible objects
 		if (r_powerupglow.value && !(r_powerupglow.value == 2 && j == cl.viewplayernum)) 
 		{
@@ -3088,6 +3100,7 @@ void CL_SetSolidEntities (void)
 			}
 			phys = &pmove.physents[pmove.numphysent++];
 			memset(phys, 0, sizeof(*phys));
+			phys->info = state->number;
 			VectorCopy(state->origin, phys->origin);
 			VectorSet(phys->mins, -(int)(solid & 31)*8, -(int)(solid & 31)*8, -(int)((solid >> 5)&31)*8);
 			VectorSet(phys->maxs, (solid & 31)*8, (solid & 31)*8, ((solid >> 10)&63)*8-32);
@@ -3110,6 +3123,7 @@ void CL_SetSolidEntities (void)
 				state->trans > 0 && state->trans < 255 ? true : false;
 #endif
 			VectorCopy (state->origin, pmove.physents[pmove.numphysent].origin);
+			pmove.physents[pmove.numphysent].info = state->number; // lets #347 exclude the simulated entity
 			pmove.numphysent++;
 		}
 	}
@@ -3223,21 +3237,22 @@ void CL_SetSolidPlayers (int playernum)
 	}
 }
 
-// Builds the visedicts array for cl.time
-// Made up of: clients, packet_entities, nails, and tents
-void CL_EmitEntities (void) 
+static qbool CL_EmitEntitiesReady(void)
 {
 	if (cls.state != ca_active)
-		return;
+		return false;
 
 	if (cls.demoseeking)
-		return;
+		return false;
 
 	if (!cl.validsequence && !cls.nqdemoplayback)
-		return;
+		return false;
 
-	CL_ClearScene ();
+	return true;
+}
 
+static void CL_LinkEntityList(void)
+{
 	if (cls.nqdemoplayback) {
 		NQD_LinkEntities();
 	}
@@ -3248,6 +3263,30 @@ void CL_EmitEntities (void)
 	}
 
 	CL_UpdateTEnts();
+}
+
+// Builds the visedicts array for cl.time
+// Made up of: clients, packet_entities, nails, and tents
+void CL_EmitEntities(void)
+{
+	if (!CL_EmitEntitiesReady()) {
+		return;
+	}
+
+	CL_ClearScene();
+	CL_LinkEntityList();
+}
+
+// CSQC #301 addentities(mask&1): link engine entities without clearing the scene.
+// Clearing is the module's job (#300 clearscene); CL_ClearScene here would discard
+// entities already added with #302 addentity this frame.
+void CL_EmitEntitiesKeepScene(void)
+{
+	if (!CL_EmitEntitiesReady()) {
+		return;
+	}
+
+	CL_LinkEntityList();
 }
 
 unsigned int	mvd_fixangle;

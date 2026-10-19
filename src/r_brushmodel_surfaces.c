@@ -32,6 +32,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "r_lightmaps.h"
 #include "r_trace.h"
 #include "r_renderer.h"
+#include "csqc_client.h"
 
 // Move to API
 void GLC_ClearTextureChains(void);
@@ -346,6 +347,10 @@ void R_CreateWorldTextureChains(void)
 
 		//set up texture chains for the world
 		R_RecursiveWorldNode(cl.worldmodel->nodes, 15);
+
+		// CSQC makestatic entities, linked with the efrag statics collected above
+		// while the frustum and leaf marks are current.
+		CSQCVM_LinkStatics();
 
 		// these are rendered later now, so we can process earlier
 		R_RenderDlights();

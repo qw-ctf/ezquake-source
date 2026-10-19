@@ -49,6 +49,7 @@ $Id: cl_parse.c,v 1.135 2007-10-28 19:56:44 qqshka Exp $
 #include "central.h"
 #include "r_part_script.h"
 #include "cl_tent.h"
+#include "csqc_client.h"
 
 int CL_LoginImageId(const char* name);
 
@@ -564,6 +565,7 @@ qbool CL_CheckOrDownloadFile(char *filename)
 	}
 
 	cls.downloadnumber++;
+	cls.downloadrequested = true;
 
 	return false;
 }
@@ -1089,16 +1091,23 @@ void CL_FinishDownload(void)
 		fclose (cls.download);
 
 		if (cls.downloadpercent == 100) {
-			int error = Sys_RenameNoReplace(cls.downloadtempname, cls.downloadname);
-
 			Com_DPrintf("Download took %.1f seconds\n", Sys_DoubleTime() - cls.downloadstarttime);
-			if (error == EEXIST) {
-				Com_Printf("Keeping existing file %s.\n", cls.downloadname);
-				Sys_remove(cls.downloadtempname);
-			}
-			else if (error) {
-				Com_Printf("Failed to rename %s to %s.\n", cls.downloadtempname, cls.downloadname);
-				Sys_remove(cls.downloadtempname);
+			// Validate before renaming: a csprogs crc slot must only hold bytes the
+			// server advertised. On failure the hook removes the temp file and
+			// returns false; other downloads always pass.
+			if (CSQC_Client_ValidateDownload(cls.downloadtempname, cls.downloadname)) {
+				int error = Sys_RenameNoReplace(cls.downloadtempname, cls.downloadname);
+
+				if (error == EEXIST) {
+					Com_Printf("Keeping existing file %s.\n", cls.downloadname);
+					Sys_remove(cls.downloadtempname);
+				}
+				else if (error) {
+					Com_Printf("Failed to rename %s to %s.\n", cls.downloadtempname, cls.downloadname);
+					Sys_remove(cls.downloadtempname);
+				}
+
+				CSQC_Client_ModelDownloadFinished(cls.downloadname);
 			}
 		} else {
 			/* If download didn't complete, remove the unfinished leftover .tmp file ... */
@@ -1107,8 +1116,10 @@ void CL_FinishDownload(void)
 	}
 
 	cls.download = NULL;
+	cls.downloadrequested = false;
 	cls.downloadpercent = 0;
 	cls.downloadmethod = DL_NONE;
+	CSQC_Client_DownloadFinished(cls.downloadname);
 
 	// VFS-FIXME: D-Kure: Surely there is somewhere better for this in fs.c
 	filesystemchanged = true;
@@ -2207,7 +2218,7 @@ void CL_ParseStartSoundPacket(qbool extended)
 		return;
 	}
 
-    S_StartSound (ent, channel, cl.sound_precache[sound_num], pos, volume/255.0, attenuation);
+	S_StartSound(ent, channel, cl.sound_precache[sound_num], pos, volume / 255.0, attenuation);
 
 	if (ent == cl.playernum+1)
 		TP_CheckPickupSound (cl.sound_name[sound_num], pos);
@@ -3625,7 +3636,7 @@ void CL_SetStat (int stat, int value)
 	int	j;
 	extern cvar_t scr_gameclock;
 
-	if (stat < 0 || stat >= MAX_CL_STATS) {
+	if (stat < 0 || stat > 255) {
 		Host_Error("CL_SetStat: %i is invalid", stat);
 		return;
 	}
@@ -3900,7 +3911,7 @@ static void CL_RotateCmd(usercmd_t* cmd, float yaw_delta)
 }
 
 // svc_fte_precache: a model, sound or particle effect precached after the map started.
-static void CL_ParseFTEPrecache(void)
+void CL_ParseFTEPrecache(void)
 {
 	int code = (unsigned short)MSG_ReadShort();
 	const char *name = MSG_ReadString();
@@ -3910,6 +3921,7 @@ static void CL_ParseFTEPrecache(void)
 	if (type == FTEPC_PARTICLE) {
 		CL_SetServerParticleEffect(index, name);
 	}
+	CSQC_Client_Precache(type, index, name);
 }
 
 void CL_ParseServerMessage (void) 
@@ -4045,12 +4057,10 @@ void CL_ParseServerMessage (void)
 					if (CL_Demo_SkipMessage (true))
 						break;
 
-					if (!cls.demoseeking)
-					{
-						if (!CL_SearchForReTriggers(s, RE_PRINT_CENTER))
-							SCR_CenterPrint(s);
-						Print_flags[Print_current] = 0;
+					if (!CL_SearchForReTriggers(s, RE_PRINT_CENTER)) {
+						SCR_CenterPrint(s);
 					}
+					Print_flags[Print_current] = 0;
 					break;
 				}
 			case svc_stufftext:
@@ -4316,11 +4326,14 @@ void CL_ParseServerMessage (void)
 				}
 			case svc_finale:
 				{
+					char *finstr;
+
 					cl.intermission = 2;
 					cl.completed_time = cls.demoplayback ? cls.demotime : cls.realtime;
 					cl.solo_completed_time = cl.servertime;
 					vid.recalc_refdef = true;	// go to full screen
-					SCR_CenterPrint(MSG_ReadString ());
+					finstr = MSG_ReadString();
+					SCR_CenterPrint(finstr);
 					break;
 				}
 			case svc_sellscreen:
@@ -4364,6 +4377,20 @@ void CL_ParseServerMessage (void)
 					CL_ParseServerInfoChange();
 					break;
 				}
+#ifdef FTE_PEXT_CSQC
+				case svc_fte_csqcentities:
+				{
+					// CSQC entities (76): the module reads the payload via read*.
+					CSQC_Client_ParseEntities(false);
+					break;
+				}
+				case svc_fte_csqcentities_sized:
+				{
+					// Sized variant (92): a short length precedes each entity's payload.
+					CSQC_Client_ParseEntities(true);
+					break;
+				}
+#endif
 			case svc_download:
 				{
 					CL_ParseDownload();
@@ -4494,9 +4521,41 @@ void CL_ParseServerMessage (void)
 				}
 			case svc_qizmovoice:
 				{
+					// svc 83 is both qizmovoice and svc_fte_cgamepacket; with
+					// FTE_PEXT_CSQC negotiated it is a cgamepacket for the module. Gate
+					// on the negotiated extensions, not the live cvar, so changing
+					// cl_pext_csqc mid-session does not change the parse layout.
+#ifdef FTE_PEXT_CSQC
+					if (cls.fteprotocolextensions & FTE_PEXT_CSQC) {
+						CSQC_Client_ParseEvent(false);
+						break;
+					}
+#endif
 					CL_ParseQizmoVoice();
 					break;
 				}
+#ifdef FTE_PEXT_CSQC
+				case svc_fte_cgamepacket_sized:
+				{
+					// Sized cgamepacket (90): [90][short len][payload], payload as for 83.
+					// len counts the payload only, so payload_start is taken after it.
+					// len is read unsigned, although FTE reads it signed: a signed
+					// value >= 0x8000 would rewind the parser behind the payload.
+					int payload_len = (unsigned short)MSG_ReadShort();
+					int payload_start = msg_readcount;
+					if (cls.fteprotocolextensions & FTE_PEXT_CSQC) {
+						CSQC_Client_ParseEvent(true);
+					}
+					CSQC_Client_SizedRewind(payload_start, payload_len);
+					break;
+				}
+				case svc_fte_temp_entity_sized:
+				{
+					// FTE sized temp entity (91): drained by length.
+					CSQC_Client_DrainTempEntSizedMsg();
+					break;
+				}
+#endif
 #ifdef MVD_PEXT1_SIMPLEPROJECTILE
 			case svc_packetsprojectiles:
 				{

@@ -1113,6 +1113,117 @@ PR1_LoadProgs
 void PF_clear_strtbl(void);
 
 #ifdef WITH_NQPROGS
+// NQ remap of field offsets (0..105; >105 -- identity). Values are the NQ branch
+// of the PR_InitPatchTables formula. Used by the server PR1 instance under NQ.
+static const int fieldofs_nq[106] = {
+	0,
+	1,
+	2,
+	3,
+	4,
+	5,
+	6,
+	7,
+	9,
+	10,
+	11,
+	12,
+	13,
+	14,
+	15,
+	16,
+	17,
+	18,
+	19,
+	20,
+	21,
+	22,
+	23,
+	24,
+	25,
+	102,
+	103,
+	104,
+	26,
+	27,
+	28,
+	29,
+	30,
+	31,
+	32,
+	33,
+	34,
+	35,
+	36,
+	37,
+	38,
+	39,
+	40,
+	41,
+	42,
+	43,
+	44,
+	45,
+	46,
+	47,
+	48,
+	49,
+	50,
+	51,
+	52,
+	53,
+	54,
+	55,
+	56,
+	57,
+	58,
+	59,
+	60,
+	61,
+	62,
+	63,
+	64,
+	65,
+	66,
+	67,
+	68,
+	69,
+	70,
+	105,
+	71,
+	72,
+	73,
+	74,
+	75,
+	76,
+	77,
+	78,
+	79,
+	80,
+	81,
+	82,
+	83,
+	84,
+	85,
+	86,
+	87,
+	88,
+	89,
+	90,
+	91,
+	92,
+	93,
+	94,
+	95,
+	96,
+	97,
+	98,
+	99,
+	100,
+	101,
+	8,
+};
+
 void PR_InitPatchTables (void)
 {
 	int i;
@@ -1240,73 +1351,9 @@ void PR1VM_CommitServer(pr1vm_t *vm)
 }
 #endif // !CLIENTONLY
 
-/*
-=================
-PR1VM_LoadClientV7
-
-Client v7-secondary16 loader (our csprogs.dat, "empty" extended). The CRC
-is not checked; errors -> false + Con_Printf (no SV_Error).
-=================
-*/
-#define PR1VM_SECONDARYVERSION16 0x021b1461
-
-qbool PR1VM_LoadClientV7(pr1vm_t *vm, const byte *data, int filesize)
-{
-	int i;
-	int *h = (int *)(void *)data;
-	int numtypes, numbodylessfuncs, blockscompressed, secondaryversion;
-
-	if (!data || filesize < 23 * (int)sizeof(int)) {
-		Con_Printf("PR1VM_LoadClientV7: file too small (%d bytes)\n", filesize);
-		return false;
-	}
-
-	// look at the raw LE version before the byte swap
-	if (LittleLong(h[0]) != 7) {
-		Con_Printf("PR1VM_LoadClientV7: not a v7 progs (version=%d)\n", LittleLong(h[0]));
-		return false;
-	}
-
-	// byte swap the (23-int) header
-	for (i = 0; i < 23; i++) {
-		h[i] = LittleLong(h[i]);
-	}
-
-	// fields beyond the classic dprograms_t (v7 header indices)
-	numbodylessfuncs = h[18];
-	numtypes = h[20];
-	blockscompressed = h[21];
-	secondaryversion = h[22];
-
-	if (secondaryversion != PR1VM_SECONDARYVERSION16) {
-		Con_Printf("PR1VM_LoadClientV7: not an FTE-16 progs (secondaryversion=0x%x)\n", secondaryversion);
-		return false;
-	}
-	if (numtypes != 0 || numbodylessfuncs != 0 || blockscompressed != 0) {
-		Con_Printf("PR1VM_LoadClientV7: non-empty extended progs unsupported "
-				   "(numtypes=%d numbodylessfuncs=%d blockscompressed=%d)\n",
-			numtypes, numbodylessfuncs, blockscompressed);
-		return false;
-	}
-
-	PR1VM_FillAndSwapLumps(vm, (dprograms_t *)data);
-	return true;
-}
-
 char *PR1VM_GetString(pr1vm_t *vm, int num)
 {
-	if (!vm) {
-		return NULL;
-	}
-
-#ifndef CLIENTONLY
-	// dual: the server instance delegates to the global tables (read by PR2/sv_*)
-	if (vm == PR1VM_Server()) {
-		return PR1_GetString(num);
-	}
-#endif
-
-	if (!vm->strings) {
+	if (!vm || !vm->strings) {
 		return NULL;
 	}
 
@@ -1324,10 +1371,16 @@ char *PR1VM_GetString(pr1vm_t *vm, int num)
 			return NULL;
 		}
 		if (idx >= MAX_PRSTR) {
-			return vm->newstrtbl[idx - MAX_PRSTR];
+			return vm->newstrtbl ? vm->newstrtbl[idx - MAX_PRSTR] : NULL;
 		}
-		return vm->strtbl[idx];
+		return vm->strtbl ? vm->strtbl[idx] : NULL;
 	}
+
+	// Positive offset indexes the string area. Server/map strings created via
+	// PR1_SetString live in Hunk_Alloc'd "edstring" blocks and are stored as
+	// positive offsets *beyond* progs->numstrings, so this reader must not
+	// bound against numstrings. The client VM bounds untrusted csprogs strings
+	// through its own vm->get_string accessor instead.
 	return vm->strings + num;
 }
 
@@ -1339,39 +1392,46 @@ void PR1VM_SetString(pr1vm_t *vm, string_t *address, char *s)
 		return;
 	}
 
-#ifndef CLIENTONLY
-	// dual: the server instance uses the global table (as before)
-	if (vm == PR1VM_Server()) {
-		PR1_SetString(address, s);
-		return;
-	}
-#endif
-
 	if (!s || !s[0]) {
 		*address = 0;
 		return;
 	}
 
-	if (!vm->strings) {
+	if (!vm || !vm->strings || !vm->strtbl || !vm->numstr) {
 		return;
 	}
 
-	if (s - vm->strings < 0 || s - vm->strings > INT_MAX) {
-		for (i = 0; i < vm->numstr; i++) {
-			if (vm->strtbl[i] == s) {
-				*address = -i;
-				return;
-			}
-		}
-		if (vm->numstr + 1 >= MAX_PRSTR) {
-			return; // client: not fatal
-		}
-		vm->strtbl[++vm->numstr] = s;
-		*address = -vm->numstr;
-	}
-	else {
+	// The module string area [strings, strings+numstrings) lives as long as the
+	// module, so store an offset.
+	if (s >= vm->strings && s < vm->strings + vm->progs->numstrings) {
 		*address = (int)(s - vm->strings);
+		return;
 	}
+
+	// Temp string: register the caller's pointer in the instance table, so the
+	// pointer must outlive its use. The client wrapper deep-copies temp strings
+	// into its own pool first; the server uses PR1_SetString instead.
+	for (i = 0; i < *vm->numstr; i++) {
+		if (vm->strtbl[i] == s) {
+			*address = -i;
+			return;
+		}
+	}
+
+	if (*vm->numstr + 1 >= MAX_PRSTR) {
+		return;
+	}
+
+	vm->strtbl[++(*vm->numstr)] = s;
+	*address = -(*vm->numstr);
+}
+
+// s_name reads in the finders go through vm->get_string when installed (the
+// bounded client accessor for untrusted csprogs); the server leaves it NULL and
+// uses the unbounded PR1VM_GetString, since map strings live past numstrings.
+static char *PR1VM_FindString(pr1vm_t *vm, int num)
+{
+	return vm->get_string ? vm->get_string(vm, num) : PR1VM_GetString(vm, num);
 }
 
 dfunction_t *PR1VM_FindFunction(pr1vm_t *vm, const char *name)
@@ -1383,7 +1443,7 @@ dfunction_t *PR1VM_FindFunction(pr1vm_t *vm, const char *name)
 	}
 
 	for (i = 0; i < vm->progs->numfunctions; i++) {
-		char *s = PR1VM_GetString(vm, vm->functions[i].s_name);
+		char *s = PR1VM_FindString(vm, vm->functions[i].s_name);
 		if (s && s[0] && !strcmp(s, name)) {
 			return &vm->functions[i];
 		}
@@ -1400,61 +1460,12 @@ int PR1VM_FindGlobal(pr1vm_t *vm, const char *name)
 	}
 
 	for (i = 0; i < vm->progs->numglobaldefs; i++) {
-		char *s = PR1VM_GetString(vm, vm->globaldefs[i].s_name);
+		char *s = PR1VM_FindString(vm, vm->globaldefs[i].s_name);
 		if (s && s[0] && !strcmp(s, name)) {
 			return vm->globaldefs[i].ofs;
 		}
 	}
 	return -1;
-}
-
-/*
-=================
-PR1VM_CSQCSmoke_f
-
-Debug: loads csprogs.dat (v7) from the current gamedir into a static client
-instance, resolves the CSQC functions and runs CSQC_WorldLoaded (empty body
--- client builtins are not wired up yet).
-=================
-*/
-static pr1vm_t csqc_smoke_vm;
-
-void PR1VM_CSQCSmoke_f(void)
-{
-	byte *data;
-	int filesize;
-	pr1vm_t *vm = &csqc_smoke_vm;
-	dfunction_t *f;
-	func_t idx;
-
-	data = (byte *)FS_LoadHunkFile("csprogs.dat", &filesize);
-	if (!data) {
-		Con_Printf("csqc_smoke: couldn't load csprogs.dat from gamedir\n");
-		return;
-	}
-
-	PR1VM_Reset(vm);
-	if (!PR1VM_LoadClientV7(vm, data, filesize)) {
-		Con_Printf("csqc_smoke: v7 load failed\n");
-		return;
-	}
-
-	Con_Printf("csqc_smoke: client v7: statements=%d functions=%d globals=%d"
-			   " (server PR1: statements=%d functions=%d)\n",
-		vm->progs->numstatements, vm->progs->numfunctions, vm->progs->numglobals,
-		progs ? progs->numstatements : -1, progs ? progs->numfunctions : -1);
-
-	f = PR1VM_FindFunction(vm, "CSQC_Init");
-	Con_Printf("csqc_smoke: CSQC_Init %s\n", f ? "found" : "MISSING");
-	f = PR1VM_FindFunction(vm, "CSQC_WorldLoaded");
-	Con_Printf("csqc_smoke: CSQC_WorldLoaded %s\n", f ? "found" : "MISSING");
-	if (!f) {
-		return;
-	}
-
-	idx = (func_t)(f - vm->functions);
-	PR1VM_ExecuteProgram(vm, idx);
-	Con_Printf("csqc_smoke: CSQC_WorldLoaded executed ok (server PR1 still alive)\n");
 }
 
 #ifndef CLIENTONLY
@@ -1545,6 +1556,14 @@ void PR1_LoadProgs (void)
 			}
 		}
 
+		// Field-offset map per module dialect: NULL (identity) for QW progs,
+		// the NQ remap for NQ progs.
+#ifdef WITH_NQPROGS
+		vm->fieldofs_patch = pr_nqprogs ? fieldofs_nq : NULL;
+#else
+		vm->fieldofs_patch = NULL;
+#endif
+
 		PR1VM_CommitServer(vm);
 	}
 
@@ -1577,7 +1596,6 @@ void PR1_Init (void)
 
 	memset(pr_newstrtbl, 0, sizeof(pr_newstrtbl));
 
-	// PR1VM: server execution instance -- zero its state.
 	PR1VM_Reset(PR1VM_Server());
 }
 

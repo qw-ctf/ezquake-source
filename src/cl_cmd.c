@@ -692,6 +692,7 @@ void CL_Download_f (void){
 	cls.downloadtype      = dl_single;
 	cls.downloadmethod    = DL_QW; // by default its DL_QW, if server support DL_QWCHUNKED it will be changed.
 	cls.downloadstarttime = Sys_DoubleTime();
+	cls.downloadrequested = true;
 
 	strlcpy(cls.downloadname, destination, sizeof(cls.downloadname));
 

@@ -21,6 +21,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "input.h"
 #include "pmove.h"		// PM_FLY etc
 #include "rulesets.h"
+#include "csqc_client.h"
 
 static void IN_AttackUp_CommonHide(void);
 
@@ -1164,6 +1165,12 @@ void CL_SendCmd(void)
 		cls.netchan.outgoing_sequence++;
 		return;
 	}
+
+	// Live path only, current frame only: the two backup frames below are not
+	// passed to the module. Record after CSQC_Input_Frame so the #345 history
+	// holds the cmd as modified.
+	CSQC_Client_InputFrame(cmd);
+	CSQC_Client_RecordInput(cmd);
 
 	SZ_Init(&buf, data, sizeof(data));
 

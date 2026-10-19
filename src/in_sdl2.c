@@ -23,6 +23,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "cvar.h"
 #include "quakedef.h"
 #include "input.h"
+#include "csqc_client.h"
 #include "keys.h"
 #include "movie.h"
 
@@ -81,6 +82,8 @@ void IN_MouseMove (usercmd_t *cmd)
 	if (!mouseinitialized)
 		return;
 
+	CSQC_Client_AccumMouseDelta(mx, my); // for #344 getmousepos, in every mouse mode
+
 	//
 	// Do not move the player if we're in HUD editor or menu mode.
 	// And don't apply ingame sensitivity, since that will make movements jerky.
@@ -103,7 +106,8 @@ void IN_MouseMove (usercmd_t *cmd)
 		old_mouse_y = my;
 
 		if (m_accel.value > 0.0f) {
-			float accelsens = sensitivity.value;
+			// #346 setsensitivityscaler; the scale is 1 without an active module.
+			float accelsens = sensitivity.value * CSQC_Client_SensitivityScale();
 			float mousespeed = (sqrt (mx * mx + my * my)) / (1000.0f * (float) cls.trueframetime);
 
 			mousespeed -= m_accel_offset.value;
@@ -122,8 +126,22 @@ void IN_MouseMove (usercmd_t *cmd)
 			mouse_x *= accelsens;
 			mouse_y *= accelsens;
 		} else {
-			mouse_x *= sensitivity.value;
-			mouse_y *= sensitivity.value;
+			float sens = sensitivity.value * CSQC_Client_SensitivityScale();
+			mouse_x *= sens;
+			mouse_y *= sens;
+		}
+
+		// IE_MOUSEDELTA in normal mode only (cursor mode sends IE_MOUSEABS from
+		// CSQC_Client_Update), and only at key_game, as for keys. A handled delta is
+		// not applied to look/strafe.
+		if (key_dest == key_game && CSQC_Client_HasInputEvent() && !CSQC_Client_CSQCCursor()) {
+			float dx = mx, dy = my;
+			// Deltas are in vid.conwidth units, while mx/my are in render-2D.
+			CSQC_Client_ScaleCursorDelta(&dx, &dy);
+			if (CSQC_Client_InputEvent(IE_MOUSEDELTA, dx, dy, 0)) {
+				mouse_x = 0;
+				mouse_y = 0;
+			}
 		}
 
 		// add mouse X/Y movement to cmd
