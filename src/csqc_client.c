@@ -672,30 +672,212 @@ void CSQC_Client_GetScreenSize(int *w, int *h)
 	}
 }
 
+// Translate FTE ^-markup into plain text plus a color array. Supported: ^0-9 (q3),
+// ^xRGB (3 hex), ^&XY extended FG (consolecolours[16] palette; BG is not expressible
+// in the draw path), ^d (reset), ^s/^r (color stack, depth 4), consume ^b/^h/^m/^a
+// (flags are not drawn), ^^ (literal); unknown/dangling ^ is a literal. Everything
+// else, including '&', is copied as text.
+// Not supported: links ^[..^], charset `u8:`/`k8:`, ^Uxxxx/^{xxxx}, ezquakemess, and
+// the visual blink/halfalpha/2nd-charset/BG effects. Palettes are FTE's
+// consolecolours, quantized 16 levels/channel; ^8 (half-alpha white) is drawn
+// opaque white. out==NULL only counts the length; colors==NULL drops the colors.
+static const char *csqc_q3_nibbles[10] = {
+	"000", "F55", "5F5", "FF5", "55F", "5FF", "F5F", "FFF", "FFF", "BBB"
+};
+
+// ^&XY extended FG: X/Y are an index into consolecolours[16], quantized 4 bits
+// per channel (like the q3 table above).
+static const char *csqc_console_nibbles[16] = {
+	"000", "00B", "0B0", "0BB", "B00", "B0B", "B50", "BBB",
+	"555", "55F", "5F5", "5FF", "F55", "F5F", "FF5", "FFF"
+};
+
+static int CSQC_Hexval(int c)
+{
+	if (c >= '0' && c <= '9') {
+		return c - '0';
+	}
+	if (c >= 'A' && c <= 'F') {
+		return c - 'A' + 10;
+	}
+	if (c >= 'a' && c <= 'f') {
+		return c - 'a' + 10;
+	}
+	return -1;
+}
+
+// ^&XY code character: 0-9, A-F. Returns the consolecolours
+// index 0-15 or -1 ('-'/invalid).
+static int CSQC_Ext_Index(int c)
+{
+	if (c >= '0' && c <= '9') {
+		return c - '0';
+	}
+	if (c >= 'A' && c <= 'F') {
+		return c - 'A' + 10;
+	}
+	return -1;
+}
+
+// One hex digit per channel -> color (F = 255).
+static color_t CSQC_Client_NibbleColor(const char *p)
+{
+	return RGBA_TO_COLOR(CSQC_Hexval(p[0]) * 17, CSQC_Hexval(p[1]) * 17, CSQC_Hexval(p[2]) * 17, 255);
+}
+
+// The text from position pos on is drawn in color c. The draw routine matches
+// each entry against one text position, so a second color for the same position
+// replaces the first.
+static void CSQC_Client_MarkupColor(clrinfo_t *colors, int maxcolors, int *numcolors, size_t pos, color_t c)
+{
+	if (!colors || !numcolors) {
+		return;
+	}
+	if (*numcolors > 0 && colors[*numcolors - 1].i == (int)pos) {
+		colors[*numcolors - 1].c = c;
+		return;
+	}
+	if (*numcolors >= maxcolors) {
+		return;
+	}
+	colors[*numcolors].c = c;
+	colors[*numcolors].i = (int)pos;
+	(*numcolors)++;
+}
+
+static int CSQC_Client_TranslateMarkup(const char *in, char *out, size_t outsize,
+	clrinfo_t *colors, int maxcolors, int *numcolors)
+{
+	size_t n = 0;
+	char curfg[3];  // current FG (hex digits)
+	int have_col = 0; // 0 = default/white, 1 = colored
+	char stackfg[4][3]; // ^s/^r stack (depth 4)
+	int stackcol[4];
+	int sp = 0;
+
+	if (!in) {
+		in = "";
+	}
+	// PUT: copies a byte, safe for out==NULL (length only) and overflow.
+#define PUT(ch) do { if (out && outsize && n + 1 < outsize) out[n] = (char)(ch); n++; } while (0)
+	// SETFG: switch to the color given as three hex digits and remember it (for ^s/^r).
+#define SETFG(p) do { CSQC_Client_MarkupColor(colors, maxcolors, numcolors, n, CSQC_Client_NibbleColor(p)); \
+	curfg[0] = (p)[0]; curfg[1] = (p)[1]; curfg[2] = (p)[2]; have_col = 1; } while (0)
+	// RESETFG: back to the default color (white).
+#define RESETFG() do { CSQC_Client_MarkupColor(colors, maxcolors, numcolors, n, RGBA_TO_COLOR(255, 255, 255, 255)); \
+	have_col = 0; } while (0)
+	for (; *in; in++) {
+		if (in[0] == '^' && in[1] >= '0' && in[1] <= '9') {
+			const char *p = csqc_q3_nibbles[in[1] - '0'];
+			SETFG(p);
+			in += 1;
+			continue;
+		}
+		if (in[0] == '^' && in[1] == 'x') {
+			if (CSQC_Hexval(in[2]) >= 0 && CSQC_Hexval(in[3]) >= 0 && CSQC_Hexval(in[4]) >= 0) {
+				SETFG(in + 2);
+				in += 4;
+			}
+			else {
+				// Invalid hex: skip "^x" entirely - 'x' is not drawn.
+				in += 1;
+			}
+			continue;
+		}
+		if (in[0] == '^' && in[1] == '&') {
+			// ^&XY extended FG/BG: only FG is drawn (BG is not expressible in the
+			// draw path); Y is ignored.
+			if ((CSQC_Ext_Index(in[2]) >= 0 || in[2] == '-') && (CSQC_Ext_Index(in[3]) >= 0 || in[3] == '-')) {
+				if (in[2] == '-') {
+					// default FG = white
+					RESETFG();
+				}
+				else {
+					const char *p = csqc_console_nibbles[CSQC_Ext_Index(in[2])];
+					SETFG(p);
+				}
+				in += 3;
+			}
+			else {
+				// invalid: '^' literal, '&' handled on the next iteration
+				PUT(*in);
+			}
+			continue;
+		}
+		if (in[0] == '^' && in[1] == 'd') {
+			RESETFG();
+			in += 1;
+			continue;
+		}
+		if (in[0] == '^' && (in[1] == 'b' || in[1] == 'h' || in[1] == 'm' || in[1] == 'a')) {
+			// Blink/halfalpha/2nd-charset toggles are not expressible in the draw
+			// path: consume the code (it has no width), effect not drawn.
+			in += 1;
+			continue;
+		}
+		if (in[0] == '^' && in[1] == 's') {
+			// push the stack; store only the color.
+			if (sp < (int)(sizeof(stackcol) / sizeof(stackcol[0]))) {
+				stackfg[sp][0] = curfg[0];
+				stackfg[sp][1] = curfg[1];
+				stackfg[sp][2] = curfg[2];
+				stackcol[sp] = have_col;
+				sp++;
+			}
+			in += 1;
+			continue;
+		}
+		if (in[0] == '^' && in[1] == 'r') {
+			// pop the stack: restore the color.
+			if (sp > 0) {
+				sp--;
+				if (stackcol[sp]) {
+					const char *p = stackfg[sp];
+					SETFG(p);
+				}
+				else {
+					RESETFG();
+				}
+			}
+			in += 1;
+			continue;
+		}
+		if (in[0] == '^' && in[1] == '^') {
+			PUT('^');
+			in += 1;
+			continue;
+		}
+		// Unknown/dangling '^' is a literal: '^' goes to out, the next character
+		// is handled on the next iteration.
+		PUT(*in);
+	}
+	if (out && outsize) {
+		out[(n < outsize) ? n : outsize - 1] = 0;
+	}
+	return (int)n;
+#undef PUT
+#undef SETFG
+#undef RESETFG
+}
+
+#define CSQC_TEXT_MAX_COLORS 1024
+
 void CSQC_Client_DrawText(float x, float y, const char *text, int r, int g, int b, float alpha, float scale)
 {
-	extern cvar_t scr_coloredText;
 	static char buf[16384];
-	int prefix;
-	float saved;
+	static clrinfo_t colors[CSQC_TEXT_MAX_COLORS];
+	int numcolors = 1;
 	if (!text) {
 		return;
 	}
-	// Font scale from size.x (scale=size.x/8; 0 => 1). The module's color is passed
-	// as an &cRGB code to the engine. To make it independent of the user's
-	// scr_coloredText, temporarily enable it for the draw.
-	saved = scr_coloredText.value;
-	Cvar_SetValue(&scr_coloredText, 1);
-	// &cRGB is 3 hex digits (channel*16), not &cRRGGBB.
-	prefix = snprintf(buf, sizeof(buf), "&c%X%X%X", (bound(0, r, 255)) / 16, (bound(0, g, 255)) / 16, (bound(0, b, 255)) / 16);
-	if (prefix < 0) {
-		prefix = 0;
-	}
-	strlcpy(buf + prefix, text, sizeof(buf) - prefix);
-	// FTE drawcolouredstring parity: alpha is applied; color=NULL -> color comes
-	// from the &c codes.
-	Draw_SColoredAlphaString(x, y, buf, NULL, 0, 0, (scale > 0) ? scale : 1, bound(0, alpha, 1), true);
-	Cvar_SetValue(&scr_coloredText, saved);
+	// scale is size.x/8 (0 => 1). The text starts in the module's color; its
+	// ^-markup adds the colors after that. They are passed as
+	// a color array, so the text itself is drawn as is ('&' included) and the
+	// colors do not depend on the user's scr_coloredText.
+	colors[0].c = RGBA_TO_COLOR(bound(0, r, 255), bound(0, g, 255), bound(0, b, 255), 255);
+	colors[0].i = 0;
+	CSQC_Client_TranslateMarkup(text, buf, sizeof(buf), colors, CSQC_TEXT_MAX_COLORS, &numcolors);
+	Draw_SForceColoredAlphaString(x, y, buf, colors, numcolors, (scale > 0) ? scale : 1, bound(0, alpha, 1), true);
 }
 
 // Color for the 2D draw helpers (rgb 0..255 bytes, alpha 0..1).
@@ -869,20 +1051,18 @@ void CSQC_Client_DrawSubPic(float x, float y, float w, float h, const char *name
 
 void CSQC_Client_DrawCharacter(float x, float y, int ch, int r, int g, int b, float alpha, float scale)
 {
-	extern cvar_t scr_coloredText;
-	static char buf[8];
-	float saved;
+	char buf[2];
+	clrinfo_t color;
 	int c = ch & 0xff;
 	if (c <= 0) {
 		return;
 	}
-	// One default-font character with an &cRGB color (as DrawText).
-	saved = scr_coloredText.value;
-	Cvar_SetValue(&scr_coloredText, 1);
-	snprintf(buf, sizeof(buf), "&c%X%X%X%c", (bound(0, r, 255)) / 16, (bound(0, g, 255)) / 16, (bound(0, b, 255)) / 16, c);
-	// alpha as in FTE drawcharacter.
-	Draw_SColoredAlphaString(x, y, buf, NULL, 0, 0, (scale > 0) ? scale : 1, bound(0, alpha, 1), true);
-	Cvar_SetValue(&scr_coloredText, saved);
+	// One default-font character in the given color (as DrawText).
+	buf[0] = (char)c;
+	buf[1] = 0;
+	color.c = RGBA_TO_COLOR(bound(0, r, 255), bound(0, g, 255), bound(0, b, 255), 255);
+	color.i = 0;
+	Draw_SForceColoredAlphaString(x, y, buf, &color, 1, (scale > 0) ? scale : 1, bound(0, alpha, 1), true);
 }
 
 void CSQC_Client_DrawLine(float x1, float y1, float x2, float y2, float width, int r, int g, int b, float alpha)
@@ -895,6 +1075,7 @@ void CSQC_Client_DrawLine(float x1, float y1, float x2, float y2, float width, i
 
 float CSQC_Client_StringWidth(const char *text, qbool usecolours, float fontsize_x)
 {
+	static char wbuf[16384];
 	float scale;
 	if (!text) {
 		return 0;
@@ -902,9 +1083,11 @@ float CSQC_Client_StringWidth(const char *text, qbool usecolours, float fontsize
 	// Same scale and metric as DrawText.
 	scale = (fontsize_x > 0) ? fontsize_x / 8.0f : 1;
 	if (usecolours) {
-		return Draw_StringLengthColors(text, -1, scale, true);
+		// ^-codes have no width: measure the text DrawText would draw.
+		CSQC_Client_TranslateMarkup(text, wbuf, sizeof(wbuf), NULL, 0, NULL);
+		return Draw_StringLength(wbuf, -1, scale, true);
 	}
-	// usecolours=0: FTE #327 keeps the text (keepmarkup) and counts its characters.
+	// usecolours=0: the markup is kept and counted as characters.
 	return Draw_StringLength(text, -1, scale, true);
 }
 
@@ -1125,9 +1308,7 @@ void CSQC_Client_DrawRawText(float x, float y, const char *text, int r, int g, i
 	if (!text) {
 		return;
 	}
-	// "Raw" output: each character is drawn as a single colored glyph - there is no
-	// place to build an &cRGB within one string, so an & in the module text is
-	// output literally (as FTE drawrawstring). Color and alpha are applied.
+	// Each character is drawn as a single colored glyph; no markup is interpreted.
 	xx = x;
 	for (p = text; *p; p++) {
 		one[0] = *p;
