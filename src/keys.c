@@ -758,6 +758,7 @@ void CompleteCommandNew (void)
 			char text[50];
 			int test;
 			int testvar;
+			int end;
 			try++;
 			//Com_Printf("%i\n",try);
 			test = try - 1;
@@ -785,16 +786,40 @@ void CompleteCommandNew (void)
 
 			len = strlen (text);
 
-			memmove (key_lines[edit_line] + key_linepos + len,
-					key_lines[edit_line] + key_linepos +
-					last_cmd_length,
-					(MAXCMDLINE - key_linepos + 1 -
-					 last_cmd_length)*sizeof(wchar));
+			// Bound both the insertion and the shifted tail to the line buffer,
+			// otherwise cycling completions overruns key_lines[].
+			if (key_linepos + len > MAXCMDLINE - 1) {
+				len = MAXCMDLINE - 1 - key_linepos;
+			}
+			if (len < 0) {
+				len = 0;
+			}
+
+			{
+				int tail = qwcslen(key_lines[edit_line]) - (key_linepos + last_cmd_length) + 1;
+				int room = MAXCMDLINE - (key_linepos + len);
+
+				if (tail > room) {
+					tail = room;
+				}
+				if (tail > 0) {
+					memmove(key_lines[edit_line] + key_linepos + len,
+						key_lines[edit_line] + key_linepos + last_cmd_length,
+						tail * sizeof(wchar));
+				}
+				end = key_linepos + len + tail;
+			}
 			memcpy (key_lines[edit_line] + key_linepos, str2wcs(text),
 					len * sizeof(wchar));
+			// Guarantee NUL-termination even when the shifted tail was clamped to
+			// `room` (then the source NUL does not fit).
+			if (end > MAXCMDLINE - 1) {
+				end = MAXCMDLINE - 1;
+			}
+			key_lines[edit_line][end] = L'\0';
 
 			del_removes = 1;
-			last_cmd_length = strlen (text);
+			last_cmd_length = len;
 		}
 		else if (count == try)
 		{
