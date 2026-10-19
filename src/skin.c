@@ -28,6 +28,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "tr_types.h"
 #include "r_texture.h"
 #include "rulesets.h"
+#include "csqc_client.h"
 
 extern cvar_t gl_playermip;
 extern cvar_t gl_nocolors;
@@ -446,6 +447,11 @@ void Skin_NextDownload(void)
 	}
 
 	if (cls.state == ca_onserver /* && cbuf_current != &cbuf_main */) {	//only download when connecting
+		// csprogs is fetched and loaded before begin, so the module exists
+		// when the server spawns us and starts sending CSQC events.
+		if (!CSQC_Client_PreBegin()) {
+			return; // csprogs downloading; CSQC_Client_SignonFrame sends begin
+		}
 		MSG_WriteByte(&cls.netchan.message, clc_stringcmd);
 		MSG_WriteString(&cls.netchan.message, va("begin %i", cl.servercount));
 	}

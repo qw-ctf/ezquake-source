@@ -23,6 +23,8 @@
 
 #include "quakedef.h"
 
+#include "csqc_client.h"
+
 #include <SDL.h>
 #include <SDL_syswm.h>
 
@@ -233,6 +235,13 @@ static qbool IN_OSMouseCursorRequired(void)
 	// Explicit check here for key_game... really setting all modes is equivalent to "in_grab_windowed_mouse 0"
 	qbool in_os_cursor_mode = (key_dest != key_game || cls.demoplayback) && (in_release_mouse_modes.integer & (1 << key_dest));
 
+	// The CSQC cursor (#343 setcursormode 1) is drawn by the engine, so keep the
+	// mouse grabbed; releasing it would also show the OS cursor.
+	// CSQC_Client_CSQCCursor already checks key_dest == key_game.
+	if (CSQC_Client_CSQCCursor()) {
+		return false;
+	}
+
 	// Windowed & (not-grabbing mouse | in OS cursor mode)
 	return (!r_fullscreen.value && (!in_grab_windowed_mouse.value || in_os_cursor_mode));
 }
@@ -240,6 +249,10 @@ static qbool IN_OSMouseCursorRequired(void)
 // True if we're in a mode where we need to keep track of mouse movement
 qbool IN_MouseTrackingRequired(void)
 {
+	// CSQC cursor: the pointer position must be tracked in the game frame too.
+	if (CSQC_Client_CSQCCursor()) {
+		return true;
+	}
 	return (key_dest == key_menu || key_dest == key_hudeditor || key_dest == key_demo_controls);
 }
 

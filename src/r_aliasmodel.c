@@ -33,6 +33,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "r_aliasmodel.h"
 #include "crc.h"
 #include "qmb_particles.h"
+#include "csqc_client.h"
 #include "r_matrix.h"
 #include "r_local.h"
 #include "r_framestats.h"
@@ -630,6 +631,13 @@ void R_DrawViewModel(void)
 	extern cvar_t cl_drawgun;
 	centity_t *cent = CL_WeaponModelForView();
 	static entity_t gun;
+
+	// Under takeover the engine viewmodel is drawn only if the module asked for it
+	// (#301 addentities, MASK_STDVIEWMODEL). On the fallback path, where the module
+	// did not call renderscene this frame, it is drawn as outside takeover.
+	if (CSQC_Client_SceneActive() && CSQC_Client_SceneRendered() && !CSQC_Client_SceneViewModel()) {
+		return;
+	}
 
 	//VULT CAMERA - Don't draw gun in external camera
 	if (cameratype != C_NORMAL) {
