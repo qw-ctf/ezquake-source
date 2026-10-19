@@ -80,6 +80,8 @@ typedef enum {
 	CSQC_TRACEG_ENDPOS,
 	CSQC_TRACEG_PLANE_NORMAL,
 	CSQC_TRACEG_ENT,
+	CSQC_TRACEG_NETWORKENTITY,
+	CSQC_TRACEG_ENDCONTENTS,
 	CSQC_TRACEG_COUNT
 } csqc_traceglobal_id_t;
 
@@ -208,7 +210,9 @@ void CSQC_Client_InputFrame(struct usercmd_s *cmd);
 // clientcommandframe] in one numbering (QW echoes the ack on netchan/frame).
 void CSQC_Client_RecordInput(struct usercmd_s *cmd);
 int CSQC_Client_ApplyInput(unsigned int seq);   // fill input_* by seq; 0/1
-// FTE VectorAngles (up->roll, meshpitch param): shared helper for #51.
+// #638 CL_RotateMoves: rotate angles of unacknowledged usercmd frames (seq > servercommandframe).
+int CSQC_Client_RotateMoves(float *anglechange, int seat);
+// forward/up -> angles (up determines roll). meshpitch: true for #51, false for #638.
 void CSQC_VectorAngles(const float *forward, const float *up, float *result, qbool meshpitch);
 void CSQC_Client_RunPlayerPhysics(int entnum);   // #347 runstandardplayerphysics
 // #1 makevectors: writes the module's v_forward/v_right/v_up from vector angles.

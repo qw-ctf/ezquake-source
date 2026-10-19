@@ -2793,7 +2793,7 @@ per call.
 static const char *s_traceg_names[CSQC_TRACEG_COUNT] = {
 	"trace_fraction", "trace_allsolid", "trace_startsolid", "trace_inopen",
 	"trace_inwater", "trace_plane_dist", "trace_endpos", "trace_plane_normal",
-	"trace_ent"
+	"trace_ent", "trace_networkentity", "trace_endcontents"
 };
 
 // Designated initializers: the table is indexed by csqc_field_id_t, so an entry
@@ -7230,10 +7230,9 @@ int CSQC_Client_ApplyInput(unsigned int seq)
 =================
 CSQC_VectorAngles
 
-Port of FTE VectorAngles with optional up->roll. When `meshpitch` is set the
-pitch is inverted (r_meshpitch = -1, FTE VectorAngles(..., true)) - parity for
-#51 vectoangles. forward is the direction; up may be NULL;
-result[3] = (pitch, yaw, roll). Helper for #51 (csqc_builtins.c).
+Direction (+ optional up for roll) -> angles; result[3] = (pitch, yaw, roll), each
+in [0, 360). up may be NULL. With `meshpitch` the pitch is negated (model-space
+pitch, as #51 vectoangles returns); #638 CL_RotateMoves passes false (raw angles).
 =================
 */
 void CSQC_VectorAngles(const float *forward, const float *up, float *result, qbool meshpitch)
@@ -7292,6 +7291,70 @@ void CSQC_VectorAngles(const float *forward, const float *up, float *result, qbo
 	result[0] = pitch;
 	result[1] = yaw;
 	result[2] = roll;
+}
+
+/*
+CSQC_VectorTransform - transform by a 3x4 matrix; the translation column is
+applied (it is zero in #638).
+*/
+static void CSQC_VectorTransform(const float *in, float mat[3][4], float *out)
+{
+	out[0] = DotProduct(in, mat[0]) + mat[0][3];
+	out[1] = DotProduct(in, mat[1]) + mat[1][3];
+	out[2] = DotProduct(in, mat[2]) + mat[2][3];
+}
+
+/*
+=================
+CSQC_Client_RotateMoves
+
+#638 CL_RotateMoves (FTE builtin): rotate the angles of sent but not yet acked
+usercmds (servercommandframe < seq < outgoing_sequence) by the anglechange delta:
+AngleVectorsFLU(anglechange) -> frame forward/up -> VectorTransform -> VectorAngles.
+usercmd.angles is float degrees, so no short conversion is needed. Returns 0 on an
+invalid seat (single-seat: only 0 is valid).
+=================
+*/
+int CSQC_Client_RotateMoves(float *anglechange, int seat)
+{
+	float mat[3][4];
+	vec3_t of, ou, nf, nu;
+	unsigned int ack, out, seq;
+
+	if (!s_csqc.loaded || s_csqc.errored) {
+		return 0;
+	}
+	if (seat != 0) {
+		return 0;
+	}
+	if (!(ack = (unsigned int)CSQC_Client_ServerCmdFrame())) {
+		return 1; // demo / not active: no outgoing history
+	}
+
+	AngleVectorsFLU(anglechange, mat[0], mat[1], mat[2]);
+	mat[0][3] = mat[1][3] = mat[2][3] = 0;
+
+	// The engine's own history: prediction replays cl.frames[].cmd and CL_SendCmd
+	// resends the last two, so rotating only the CSQC copy is not enough. The cmd
+	// being built (outgoing_sequence) is not rotated.
+	out = (unsigned int)cls.netchan.outgoing_sequence;
+	if (ack >= out) {
+		return 1;
+	}
+	seq = (out - ack > UPDATE_BACKUP - 1) ? out - (UPDATE_BACKUP - 1) : ack + 1;
+	for (; seq < out; seq++) {
+		float *a = cl.frames[seq & UPDATE_MASK].cmd.angles;
+		csqc_inrec_t *r = &s_inhist[seq % CSQC_INHIST];
+
+		AngleVectors(a, of, NULL, ou);
+		CSQC_VectorTransform(of, mat, nf);
+		CSQC_VectorTransform(ou, mat, nu);
+		CSQC_VectorAngles(nf, nu, a, false);
+		if (r->seq == seq) {
+			VectorCopy(a, r->cmd.angles);
+		}
+	}
+	return 1;
 }
 
 /*
@@ -8007,6 +8070,11 @@ void CSQC_Client_Disconnect(void)
 	memset(s_csqc_pstatsf, 0, sizeof(s_csqc_pstatsf));
 	s_csqc.func_init = s_csqc.func_world = s_csqc.func_update = s_csqc.func_console = s_csqc.func_shutdown = -1;
 	s_csqc.func_entupdate = s_csqc.func_entremove = s_csqc.func_parseevent = s_csqc.func_parsetempent = -1;
+	s_csqc.func_parseprint = s_csqc.func_parsecp = -1;
+	s_csqc.func_parsedamage = -1;
+	s_csqc.func_eventsound = -1;
+	s_csqc.func_parsesetangles = -1;
+	s_csqc.func_rr = -1;
 	s_csqc.func_entspawn = -1;
 	s_csqc.mayread = false;
 	s_csqc.func_input = -1;
