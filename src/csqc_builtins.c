@@ -5620,6 +5620,19 @@ static trace_t CSQC_World_Trace(vec3_t start, vec3_t mins, vec3_t maxs, vec3_t e
 	return CSQC_Hull_Trace(cl.clipmodels[1], zero, start, mins, maxs, end);
 }
 
+/*
+ Q1 CONTENTS_* (-1..-7) -> FTECONTENTS bits, indexed by -1-q1.
+*/
+static const unsigned int s_q1_to_fte_contents[7] = {
+	0x00000000u, // CONTENTS_EMPTY (-1)
+	0x00000001u, // CONTENTS_SOLID (-2)
+	0x00000020u, // CONTENTS_WATER (-3)
+	0x00000010u, // CONTENTS_SLIME (-4)
+	0x00000008u, // CONTENTS_LAVA  (-5)
+	0x80000000u, // CONTENTS_SKY   (-6)
+	0x00000001u  // STRIPPED       (-7)
+};
+
 static void CSQC_Store_Trace(pr1vm_t *vm, trace_t *tr)
 {
 	int o;
@@ -5654,6 +5667,41 @@ static void CSQC_Store_Trace(pr1vm_t *vm, trace_t *tr)
 	}
 	if ((o = CSQC_Client_TraceGlobal(vm, CSQC_TRACEG_ENT)) >= 0) {
 		*(int *)&vm->globals[o] = (tr->e.entnum > 0) ? tr->e.entnum * vm->edict_size : 0;
+	}
+	// trace_networkentity: the server entity number of the hit entity (0 for
+	// world and module-spawned entities), not an arena slot.
+	if ((o = CSQC_Client_TraceGlobal(vm, CSQC_TRACEG_NETWORKENTITY)) >= 0) {
+		vm->globals[o] = (float)CSQC_Client_EntityEntNum(vm, tr->e.entnum);
+	}
+	// trace_endcontents (FTECONTENTS bits). World: the leaf contents at endpos.
+	// A networked brush entity: its Q1 contents from .skin, or SOLID for a plain
+	// SOLID_BSP. Module-spawned entities have no contents (0).
+	if ((o = CSQC_Client_TraceGlobal(vm, CSQC_TRACEG_ENDCONTENTS)) >= 0) {
+		unsigned int c = 0u;
+		if (tr->e.entnum > 0 && vm->game_edicts && vm->edict_size > 0) {
+			int ssqc = CSQC_Client_EntityEntNum(vm, tr->e.entnum);
+			if (ssqc > 0) {
+				int fskin = CSQC_Client_FieldOfs(vm, CSQC_FLD_SKIN);
+				int fsol = CSQC_Client_FieldOfs(vm, CSQC_FLD_SOLID);
+				float *base = (float *)((byte *)vm->game_edicts + (size_t)tr->e.entnum * vm->edict_size);
+				int skin = (fskin >= 0) ? (int)base[fskin] : 0;
+				int sol = (fsol >= 0) ? (int)base[fsol] : 0;
+				if (skin <= -1 && skin >= -6) {
+					c = s_q1_to_fte_contents[-1 - skin];
+				}
+				else if (sol == CSQC_SOLID_BSP) {
+					c = 0x00000001u; // FTECONTENTS_SOLID
+				}
+			}
+		}
+		else if (cl.clipmodels[1]) {
+			hull_t *h = &cl.clipmodels[1]->hulls[0];
+			int q1 = CM_HullPointContents(h, h->firstclipnode, tr->endpos);
+			if (q1 >= -6 && q1 <= -1) {
+				c = s_q1_to_fte_contents[-1 - q1];
+			}
+		}
+		vm->globals[o] = (float)c;
 	}
 }
 
@@ -6809,6 +6857,27 @@ static void CSQC_Isfunction(void)
 }
 
 /*
+ void(vector anglechange, optional float seat) CL_RotateMoves = #638
+ Rotates the angles of unacknowledged usercmds. A seat other than 0 returns 0;
+ otherwise the return value is left unset.
+*/
+static void CSQC_Cl_Rotatemoves(void)
+{
+	pr1vm_t *vm = CSQCVM_Active();
+	int seat;
+
+	if (!vm) {
+		return;
+	}
+	seat = (vm->argc > 1) ? (int)vm->globals[OFS_PARM1] : 0;
+	if (seat != 0) {
+		vm->globals[OFS_RETURN] = 0;
+		return;
+	}
+	CSQC_Client_RotateMoves(&vm->globals[OFS_PARM0], seat);
+}
+
+/*
  Lights/decals/skins. All no-ops or approximations: there are no decal or skin
  file subsystems, readback pics or per-field dlight access. Registered so modules
  do not hit "Bad builtin".
@@ -7379,6 +7448,7 @@ void CSQCVM_RegisterBuiltins(pr1vm_t *vm)
 	PR1VM_RegisterBuiltin(vm, 393, (builtin_t)CSQC_Vmrest_Nop); // #393 void(string conname, vector pos, vector size, float fontsize) con_draw
 	PR1VM_RegisterBuiltin(vm, 394, (builtin_t)CSQC_Light_Nop_Ret0); // #394 float(string conname, float inevtype, float parama, float paramb, float paramc) con_input
 	PR1VM_RegisterBuiltin(vm, 605, (builtin_t)CSQC_Vmrest_Nop); // #605 void(.../*, string funcname*/) callfunction
+
 	PR1VM_RegisterBuiltin(vm, 434, (builtin_t)CSQC_Light_Nop_Ret0); // #434 float(entity e, float s) getsurfacenumpoints (DP_QC_GETSURFACE)
 	PR1VM_RegisterBuiltin(vm, 435, (builtin_t)CSQC_Bsp_Nop_Vec); // #435 vector(entity e, float s, float n) getsurfacepoint (DP_QC_GETSURFACE)
 	PR1VM_RegisterBuiltin(vm, 436, (builtin_t)CSQC_Bsp_Nop_Vec); // #436 vector(entity e, float s) getsurfacenormal (DP_QC_GETSURFACE)
@@ -7545,6 +7615,7 @@ void CSQCVM_RegisterBuiltins(pr1vm_t *vm)
 	PR1VM_RegisterBuiltin(vm, 611, (builtin_t)CSQC_Light_Nop_Ret0); // #611 float(float type) gethostcachevalue
 	PR1VM_RegisterBuiltin(vm, 621, (builtin_t)CSQC_Light_Nop_Ret0); // #621 float(float fld, float hostnr) gethostcachenumber
 	PR1VM_RegisterBuiltin(vm, 622, (builtin_t)CSQC_Light_Nop_Ret0); // #622 float(string key) gethostcacheindexforkey
+	PR1VM_RegisterBuiltin(vm, 638, (builtin_t)CSQC_Cl_Rotatemoves); // #638 void(vector anglechange, optional float seat) CL_RotateMoves (FTE)
 	PR1VM_RegisterBuiltin(vm, 640, (builtin_t)CSQC_Light_Nop_Ret0); // #640 float() V_CalcRefdef
 	PR1VM_RegisterBuiltin(vm, 653, (builtin_t)CSQC_Light_Nop_Ret0); // #653 float() fexists
 	PR1VM_RegisterBuiltin(vm, 740, (builtin_t)CSQC_Light_Nop_Ret0); // #740 float() controller_query
