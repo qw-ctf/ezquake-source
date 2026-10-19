@@ -41,6 +41,7 @@ $Id: cl_screen.c,v 1.156 2007-10-29 00:56:47 qqshka Exp $
 #include "Ctrl.h"
 #include "qtv.h"
 #include "demo_controls.h"
+#include "csqc_client.h"
 #include "r_trace.h"
 #include "r_lightmaps.h"
 #include "r_local.h"
@@ -57,6 +58,7 @@ void WeaponStats_CommandInit(void);
 void SCR_DrawHud(void);
 void SCR_DrawClocks(void);
 void R_SetupFrame(void);
+void R_CSQC_ApplyModuleView(void);
 void SCR_Draw_TeamInfo(void);
 void SCR_Draw_ShowNick(void);
 void SCR_DrawQTVBuffer(void);
@@ -619,6 +621,14 @@ static void SCR_DrawCursor(void)
 {
 	double scale = SCR_GetCursorScale();
 
+	// The CSQC cursor (#343 setcursormode) replaces the engine cursor.
+	if (CSQC_Client_CSQCCursor()) {
+		CSQC_Client_DrawCursor();
+		scr_pointer_state.x_old = scr_pointer_state.x;
+		scr_pointer_state.y_old = scr_pointer_state.y;
+		return;
+	}
+
 	// Always draw the cursor if fullscreen
 	if (IN_QuakeMouseCursorRequired()) {
 		float x_coord = scr_pointer_state.x;
@@ -784,7 +794,9 @@ static void SCR_DrawElements(void)
 					SCR_VoiceMeter();
 				}
 
-				if ((key_dest != key_menu) && (scr_showcrosshair.integer || (!sb_showscores && !sb_showteamscores)))
+				// Under takeover the crosshair is drawn only if the module set
+				// VF_DRAWCROSSHAIR (clearscene resets it to 0).
+				if ((key_dest != key_menu) && (scr_showcrosshair.integer || (!sb_showscores && !sb_showteamscores)) && (!CSQC_Client_SceneActive() || CSQC_Client_DrawCrosshairFlag()))
 				{
 					Draw_Crosshair ();
 				}
@@ -816,8 +828,12 @@ static void SCR_DrawElements(void)
 				if (CL_MultiviewEnabled())
 					SCR_DrawMultiviewOverviewElements ();
 
-				Sbar_Draw();
-				HUD_Draw();
+				// Under takeover the engine sbar/HUD are drawn only if the module set
+				// VF_DRAWENGINESBAR.
+				if (!CSQC_Client_SceneActive() || CSQC_Client_DrawEngineSbar()) {
+					Sbar_Draw();
+					HUD_Draw();
+				}
 				HUD_Editor_Draw();
 
 				DemoControls_Draw();
@@ -927,7 +943,26 @@ void SCR_UpdateScreenPlayerView(int flags)
 		if (V_PreRenderView()) {
 			R_SetupFrame();
 
-			R_RenderView();
+			// Under takeover CSQC_UpdateView runs here and #304 renderscene calls
+			// R_RenderView. If the module did not call renderscene, fall back to the
+			// engine path rather than leaving the screen black.
+			if (CSQC_Client_SceneActive()) {
+				CSQC_Client_BeginScene();
+				CSQC_Client_Update();
+				if (!CSQC_Client_SceneRendered()) {
+					// Render the engine's own entities, not the previous frame's
+					// stale scene list. Apply the module camera first: R_SetupFrame
+					// left r_origin at the engine view while r_refdef.vieworg already
+					// holds the module camera.
+					R_CSQC_ApplyModuleView();
+					CL_EmitEntities();
+					renderer.PreRenderView();
+					R_RenderView();
+				}
+			}
+			else {
+				R_RenderView();
+			}
 
 			if (flags & UPDATESCREEN_POSTPROCESS) {
 				R_PostProcessScene();
@@ -998,6 +1033,13 @@ void SCR_UpdateScreenHudOnly(void)
 			R_FlushImageDraw();
 		}
 		R_TraceLeaveNamedRegion();
+	}
+	else if (CSQC_Client_SceneActive()) {
+		// The module's 2D draws (drawstring, drawpic, ...) are queued during
+		// CSQC_UpdateView. r_drawhud 0 hides the engine HUD and console only, so
+		// flush the queue here: the branch above, the only other R_FlushImageDraw
+		// caller, is skipped.
+		R_FlushImageDraw();
 	}
 }
 

@@ -50,6 +50,11 @@ static macro_command_t macro_commands[num_macros] = {
 
 qbool CL_CheckServerCommand (void);
 
+#ifdef FTE_PEXT_CSQC
+// Returns true if the module's CSQC_ConsoleCommand handled the line.
+qbool CSQC_Client_ConsoleCommand(const char *line);
+#endif
+
 static void Cmd_ExecuteStringEx (cbuf_t *context, char *text);
 static int gtf = 0; // global trigger flag
 
@@ -139,6 +144,19 @@ add:
 		cmd = strtok(NULL, ",");
 	}
 	Q_free(tmp);
+}
+
+/*
+Allowlist check for commands/cvars executed from a remote source (server
+svc_stufftext -> cbuf_svc) or from the CSQC module (setkeybind/localcmd).
+*/
+qbool Cmd_RemoteAllowed(const char *name)
+{
+	if (Hash_Get(rc_hash, (char *)name)) {
+		return true;
+	}
+
+	return false;
 }
 
 qbool CL_IsDownloadableFileExtension(const char *filename)
@@ -1950,7 +1968,7 @@ static void Cmd_ExecuteStringEx (cbuf_t *context, char *text)
 		}
 
 		if (cmd->function) {
-			if (cbuf_current == &cbuf_svc && !Hash_Get(rc_hash, cmd->name)) {
+			if (cbuf_current == &cbuf_svc && !Cmd_RemoteAllowed(cmd->name)) {
 				Com_Printf("Blocked %s: not in cl_remote_capabilities\n", cmd->name);
 				goto done;
 			}
@@ -1969,7 +1987,7 @@ static void Cmd_ExecuteStringEx (cbuf_t *context, char *text)
 
 	// check cvars
 	if ((v = Cvar_Find(Cmd_Argv(0)))) {
-		if (cbuf_current == &cbuf_svc && !Hash_Get(rc_hash, v->name)) {
+		if (cbuf_current == &cbuf_svc && !Cmd_RemoteAllowed(v->name)) {
 			Com_Printf("Blocked %s: not in cl_remote_capabilities\n", v->name);
 			goto done;
 		}
@@ -2081,6 +2099,37 @@ checkaliases:
 		if (Cvar_CreateTempVar())
 			goto done;
 	}
+
+#ifdef FTE_PEXT_CSQC
+	// An unknown command, including a server stuffcmd, is offered to the module's
+	// CSQC_ConsoleCommand; if handled, the "Unknown command" message below is not
+	// printed. Without a loaded module the helper returns false.
+	{
+		// Sized to the command so long stufftext/alias lines are not truncated.
+		size_t len = strlen(Cmd_Argv(0)) + 1;
+		char *line;
+
+		if (Cmd_Argc() > 1) {
+			len += strlen(Cmd_Args()) + 1;
+		}
+		line = (char *)Q_malloc(len);
+		if (line) {
+			if (Cmd_Argc() > 1) {
+				snprintf(line, len, "%s %s", Cmd_Argv(0), Cmd_Args());
+			}
+			else {
+				snprintf(line, len, "%s", Cmd_Argv(0));
+			}
+			{
+				qbool handled = CSQC_Client_ConsoleCommand(line);
+				Q_free(line);
+				if (handled) {
+					goto done;
+				}
+			}
+		}
+	}
+#endif
 
 	if (cbuf_current != &cbuf_svc)
 	{

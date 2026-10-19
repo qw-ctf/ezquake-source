@@ -26,6 +26,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "menu.h"
 #include "keys.h"
 #include "input.h"
+#include "csqc_client.h"
 
 #ifdef _WIN32
 #include <windows.h>
@@ -94,6 +95,9 @@ int count_alias = 0;
 keydest_t	key_dest, key_dest_beforemm, key_dest_beforecon;
 
 char	*keybindings[UNKNOWN + 256];
+// true when the bind was set by the CSQC module (#630 setkeybind); such binds are not
+// saved to the user config.
+qbool keybinding_module[UNKNOWN + 256];
 qbool	consolekeys[UNKNOWN + 256];	// if true, can't be rebound while in console
 qbool	hudeditorkeys[UNKNOWN + 256];	// if true, can't be rebound while in hud editor
 qbool	democontrolskey[UNKNOWN + 256];
@@ -1674,14 +1678,15 @@ char *Key_KeynumToString (int keynum) {
 	return "<UNKNOWN KEYNUM>";
 }
 
-void Key_SetBinding (int keynum, const char *binding) {
+static void Key_SetBindingEx(int keynum, const char *binding, qbool module)
+{
 	if (keynum == -1)
 		return;
 
 #ifndef __APPLE__
 	if (keynum == K_CTRL || keynum == K_ALT || keynum == K_SHIFT || keynum == K_WIN) {
-		Key_SetBinding(keynum + 1, binding);
-		Key_SetBinding(keynum + 2, binding);
+		Key_SetBindingEx(keynum + 1, binding, module);
+		Key_SetBindingEx(keynum + 2, binding, module);
 		return;
 	}
 #endif
@@ -1689,6 +1694,27 @@ void Key_SetBinding (int keynum, const char *binding) {
 	// free (and hence Q_free) is safe to call with a NULL argument
 	Q_free (keybindings[keynum]);
 	keybindings[keynum] = Q_strdup(binding);
+	keybinding_module[keynum] = module;
+}
+
+void Key_SetBinding(int keynum, const char *binding)
+{
+	Key_SetBindingEx(keynum, binding, false);
+}
+
+// Set a bind on behalf of the untrusted CSQC module; flagged so it is not saved.
+void Key_SetBindingModule(int keynum, const char *binding)
+{
+	Key_SetBindingEx(keynum, binding, true);
+}
+
+qbool Key_IsModuleBind(int keynum)
+{
+	if (keynum >= 0 && keynum < UNKNOWN + 256) {
+		return keybinding_module[keynum];
+	}
+
+	return false;
 }
 
 void Key_Unbind (int keynum) {
@@ -1704,6 +1730,7 @@ void Key_Unbind (int keynum) {
 	// free (and hence Q_free) is safe to call with a NULL argument
 	Q_free (keybindings[keynum]);
 	keybindings[keynum] = NULL;
+	keybinding_module[keynum] = false;
 }
 
 void Key_Unbind_f (void) {
@@ -2122,6 +2149,74 @@ static qbool Key_ConsoleKey(int key)
 }
 
 // Called by the system between frames for both key up and key down events Should NOT be called during an interrupt!
+// Key up events only generate commands if the game key binding is a button command (leading + sign).
+// These will occur even in console mode, to keep the character from continuing an action started before a
+// console switch.  Button commands include the kenum as a parameter, so multiple downs can be matched with ups
+static void Key_ReleaseBinds(int key)
+{
+	char *kb, cmd[1024];
+
+	kb = keybindings[key];
+	if (kb) {
+		if (Key_TryMovementProtected(kb, false, key)) {
+			// this was a protected movement binding and was executed
+			return;
+		}
+
+		if (kb[0] == '+' && keyactive[key]) {
+			snprintf(cmd, sizeof(cmd), "-%s %i\n", kb + 1, key);
+			// Module binds use the restricted buffer on release too, otherwise
+			// the stuffcmd allowlist gate leaks on key-up.
+			if (Key_IsModuleBind(key)) {
+				Cbuf_AddTextEx(&cbuf_svc, cmd);
+			}
+			else {
+				Cbuf_AddText(cmd);
+			}
+			keyactive[key] = false;
+		}
+	}
+	if (keyshift[key] != key) {
+		kb = keybindings[keyshift[key]];
+		if (kb && kb[0] == '+' && keyactive[keyshift[key]]) {
+			snprintf(cmd, sizeof(cmd), "-%s %i\n", kb + 1, key);
+			if (Key_IsModuleBind(keyshift[key])) {
+				Cbuf_AddTextEx(&cbuf_svc, cmd);
+			}
+			else {
+				Cbuf_AddText(cmd);
+			}
+			keyactive[keyshift[key]] = false;
+		}
+	}
+}
+
+// The event was consumed before normal processing (CSQC module): binds and key
+// destinations do not see it, but the key state must still follow the keyboard,
+// and a button bind started by an earlier key-down must not stay active.
+static void Key_EventConsumed(int key, qbool down)
+{
+	if (key == K_LALT || key == K_RALT) {
+		Key_EventConsumed(K_ALT, down);
+	}
+	else if (key == K_LCTRL || key == K_RCTRL) {
+		Key_EventConsumed(K_CTRL, down);
+	}
+	else if (key == K_LSHIFT || key == K_RSHIFT) {
+		Key_EventConsumed(K_SHIFT, down);
+	}
+	else if (key == K_LWIN || key == K_RWIN) {
+		Key_EventConsumed(K_WIN, down);
+	}
+
+	keydown[key] = down;
+
+	if (!down) {
+		key_repeats[key] = 0;
+		Key_ReleaseBinds(key);
+	}
+}
+
 void Key_EventEx (int key, wchar unichar, qbool down)
 {
 	char *kb, cmd[1024];
@@ -2228,36 +2323,7 @@ void Key_EventEx (int key, wchar unichar, qbool down)
 			DemoControls_KeyEvent(key, unichar, down);
 		}
 
-		// Key up events only generate commands if the game key binding is a button command (leading + sign).
-		// These will occur even in console mode, to keep the character from continuing an action started before a
-		// console switch.  Button commands include the kenum as a parameter, so multiple downs can be matched with ups
-		{
-			kb = keybindings[key];
-			if (kb)
-			{
-				if (Key_TryMovementProtected(kb, down, key)) {
-					// this was a protected movement binding and was executed
-					return;
-				}
-
-				if (kb[0] == '+' && keyactive[key]) 
-				{
-					snprintf (cmd, sizeof (cmd), "-%s %i\n", kb+1, key);
-					Cbuf_AddText (cmd);
-					keyactive[key] = false;
-				}
-			}
-			if (keyshift[key] != key) 
-			{
-				kb = keybindings[keyshift[key]];
-				if (kb && kb[0] == '+' && keyactive[keyshift[key]]) 
-				{
-					snprintf (cmd, sizeof (cmd), "-%s %i\n", kb+1, key);
-					Cbuf_AddText (cmd);
-					keyactive[keyshift[key]] = false;
-				}
-			}
-		}
+		Key_ReleaseBinds(key);
 
 		return;
 	}
@@ -2286,7 +2352,21 @@ void Key_EventEx (int key, wchar unichar, qbool down)
 				return;
 			}
 
-			if (kb[0] == '+')
+			// Module-installed binds (#630) run through cbuf_svc so the
+			// stuffcmd allowlist / CVAR_NOTFROMSERVER gate applies; user binds keep
+			// the unrestricted cbuf_main.
+			if (Key_IsModuleBind(key)) {
+				if (kb[0] == '+') {
+					snprintf(cmd, sizeof(cmd), "%s %i\n", kb, key);
+					Cbuf_AddTextEx(&cbuf_svc, cmd);
+					keyactive[key] = true;
+				}
+				else {
+					Cbuf_AddTextEx(&cbuf_svc, kb);
+					Cbuf_AddTextEx(&cbuf_svc, "\n");
+				}
+			}
+			else if (kb[0] == '+')
 			{	
 				// Button commands add keynum as a parm.
 				snprintf (cmd, sizeof (cmd), "%s %i\n", kb, key);
@@ -2392,6 +2472,30 @@ void Key_Event (int key, qbool down)
 	unichar = keydown[K_SHIFT] ? keyshift[key] : key;
 	if (unichar < 32 || unichar > 127)
 		unichar = 0;
+
+	// Keys, clicks and wheel go to CSQC_InputEvent. Backtick without Shift and Escape
+	// are reserved so the module cannot lock out the console or menu. Key-down is
+	// delivered only at key_game; key-up always (the module filters it against the
+	// downs it was given), so a key released after the console or menu opened cannot
+	// stay stuck. If the module handles the event, normal processing is skipped, but
+	// the key state is still updated and button binds released (Key_EventConsumed).
+	if (CSQC_Client_HasInputEvent()) {
+		qbool reserved = (key == '`' && !keydown[K_SHIFT]) || key == K_ESCAPE;
+
+		if (!reserved) {
+			if (key_dest == key_game) {
+				if (CSQC_Client_InputEvent(down ? IE_KEYDOWN : IE_KEYUP, key, unichar, 0)) {
+					Key_EventConsumed(key, down);
+					return;
+				}
+			}
+			else if (!down) {
+				// Forward the up event so the module can release the key; the return
+				// value is ignored so the bind still releases normally.
+				CSQC_Client_InputEvent(IE_KEYUP, key, unichar, 0);
+			}
+		}
+	}
 
 	Key_EventEx (key, unichar, down);
 
