@@ -1075,6 +1075,79 @@ static void CSQC_Drawstring(void)
 }
 
 /*
+ float(float stnum) getstati = #330
+ Returns the raw int bits of the stat, not a float; getstatf (#331) gives the
+ numeric value. 0..31 come from cl.stats, 32..255 from extended stat storage.
+*/
+static void CSQC_Getstati(void)
+{
+	pr1vm_t *vm = CSQCVM_Active();
+	if (!vm) {
+		return;
+	}
+	*(int *)&vm->globals[OFS_RETURN] = CSQC_Client_GetStatInt((int)vm->globals[OFS_PARM0]);
+}
+
+/*
+ float(float stnum, optional float firstbit, optional float bitcount) getstatf = #331
+   without extra args - the float stat value (statsf, from stat wire 79);
+   with firstbit/bitcount - bit extraction from the int stat value.
+*/
+static void CSQC_Getstatf(void)
+{
+	pr1vm_t *vm = CSQCVM_Active();
+	int stnum;
+	if (!vm) {
+		return;
+	}
+	stnum = (int)vm->globals[OFS_PARM0];
+	if (stnum < 0 || stnum >= MAX_EXTENDED_CL_STATS) {
+		vm->globals[OFS_RETURN] = 0;
+		return;
+	}
+	if (vm->argc > 1) {
+		// Exact int, not the float path: large ints lose low bits in float32.
+		int val = CSQC_Client_GetStatInt(stnum);
+		int first = (int)vm->globals[OFS_PARM1];
+		int count = (vm->argc > 2) ? (int)vm->globals[OFS_PARM2] : 1;
+		if (first < 0) {
+			first = 0;
+		}
+		if (first > 31) {
+			first = 31; // shift domain 0..31
+		}
+		if (count < 0) {
+			count = 0;
+		}
+		if (first + count > 32) {
+			count = 32 - first; // first+count <= 32
+		}
+		if (count > 31) { // keep (1 << count) from overflowing
+			count = 31;
+		}
+		vm->globals[OFS_RETURN] = (float)((((unsigned int)val) & (((1u << count) - 1u) << first)) >> first);
+	}
+	else {
+		vm->globals[OFS_RETURN] = CSQC_Client_GetStatFloat(stnum);
+	}
+}
+
+/*
+ string(float firststnum) getstats = #332
+ String stat received via svc_fte_updatestatstring (stat wire 78). The legacy
+ packed-int variant (4 int stats) is not implemented: the module only runs under
+ FTE_PEXT_CSQC.
+*/
+static void CSQC_Getstats(void)
+{
+	pr1vm_t *vm = CSQCVM_Active();
+	if (!vm) {
+		return;
+	}
+	CSQCVM_SetRetStr((char *)CSQC_Client_GetStatString((int)vm->globals[OFS_PARM0]));
+}
+
+/*
 float(vector position, float character, vector size, vector rgb, float alpha,
      optional float drawflag) drawcharacter = #320
  Returns -1 for character 0, otherwise 1.
@@ -7068,6 +7141,9 @@ void CSQCVM_RegisterBuiltins(pr1vm_t *vm)
 	PR1VM_RegisterBuiltin(vm, 324, (builtin_t)CSQC_Drawsetcliparea); // #324 void(float x, float y, float width, float height) drawsetcliparea (EXT_CSQC_???)
 	PR1VM_RegisterBuiltin(vm, 325, (builtin_t)CSQC_Drawresetcliparea); // #325 void(void) drawresetcliparea (EXT_CSQC_???)
 	PR1VM_RegisterBuiltin(vm, 329, (builtin_t)CSQC_Drawrotpic_Dp); // #329 void(vector pivot, string picname, vector size, vector mins, float angle, vector rgb, float alpha, optional float drawflag) drawrotpic_dp
+	PR1VM_RegisterBuiltin(vm, 330, (builtin_t)CSQC_Getstati); // #330 int(float stnum) getstati (EXT_CSQC)
+	PR1VM_RegisterBuiltin(vm, 331, (builtin_t)CSQC_Getstatf); // #331 float(float stnum) getstatf (EXT_CSQC)
+	PR1VM_RegisterBuiltin(vm, 332, (builtin_t)CSQC_Getstats); // #332 string(float firststnum) getstats (EXT_CSQC)
 	PR1VM_RegisterBuiltin(vm, 359, (builtin_t)CSQC_Sendevent); // #359 void(string evname, string evargs, ...) (EXT_CSQC_1)
 	PR1VM_RegisterBuiltin(vm, 627, (builtin_t)CSQC_Sprintf); // #627 string(string fmt, ...) sprintf
 
