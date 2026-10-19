@@ -1633,6 +1633,9 @@ static void VID_Startup(void)
 	R_ProgramCompileAll();
 
 	Cvar_ClearAllModifiedFlags(CVAR_RELOAD_GFX);
+
+	// Common tail of vid_restart and vid_reload.
+	CSQC_Client_RendererRestarted(R_RendererDescription());
 }
 
 void VID_ReloadCvarChanged(cvar_t* var)

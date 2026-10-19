@@ -92,6 +92,11 @@ typedef struct csqc_client_state_s {
 	byte csqckeysdown[UNKNOWN];
 	int func_init, func_world, func_update, func_console, func_shutdown;
 	int func_entupdate, func_entremove, func_parseevent, func_parsetempent;
+	int func_parseprint, func_parsecp; // CSQC_Parse_Print / CSQC_Parse_CenterPrint
+	int func_parsedamage; // CSQC_Parse_Damage (or -1)
+	int func_eventsound; // CSQC_Event_Sound (or -1)
+	int func_parsesetangles; // CSQC_Parse_SetAngles (or -1)
+	int func_rr; // CSQC_RendererRestarted (or -1)
 	int func_entspawn; // CSQC_Ent_Spawn (or -1)
 	int func_input;  // CSQC_Input_Frame (or -1)
 	int func_inputevent; // CSQC_InputEvent (or -1)
@@ -490,6 +495,178 @@ qbool CSQC_Client_AllowModuleSound(const char *name)
 	return true;
 }
 
+// Extended CSQC stats 32..255 (clientstat/pointerstat from mvdsv). Standard 0..31
+// live in cl.stats[] (client struct); extended ones are stored here (see
+// CSQC_Client_GetStat/SetStat). Stat wire 78/79 stores float/string stats:
+// statsf - exact value (accepted both from 79 and from the int path svc_updatestat),
+// statss - string (Q_strdup, freed in CSQC_Client_Disconnect).
+static int s_csqc_stat[MAX_EXTENDED_CL_STATS];
+static float s_csqc_statsf[MAX_EXTENDED_CL_STATS];
+static char *s_csqc_statss[MAX_EXTENDED_CL_STATS];
+// MVD playback: extended stats are per-player. The tracked player's value is
+// mirrored into the global store above; a non-tracked write must not leak into
+// another player's view.
+static int s_csqc_pstat[MAX_CLIENTS][MAX_EXTENDED_CL_STATS];
+static float s_csqc_pstatsf[MAX_CLIENTS][MAX_EXTENDED_CL_STATS];
+static char *s_csqc_pstatss[MAX_CLIENTS][MAX_EXTENDED_CL_STATS];
+
+// Player whose state is being parsed (MVD), or -1 outside a per-player stream.
+static int CSQC_Client_StatPlayer(void)
+{
+	// In MVD dem_multiple cls.lastto is a player bitmask, not an index; the stat
+	// stream carries a real player only for dem_single/dem_stats.
+	if (!cls.mvdplayback || cls.lasttype == dem_multiple) {
+		return -1;
+	}
+	return (cls.lastto >= 0 && cls.lastto < MAX_CLIENTS) ? cls.lastto : -1;
+}
+
+// Player currently shown by the camera, or -1 when nothing is tracked.
+static int CSQC_Client_StatTrack(void)
+{
+	int track = Cam_TrackNum();
+
+	return (cls.mvdplayback && track >= 0 && track < MAX_CLIENTS) ? track : -1;
+}
+// Standard stats 0..31: exact float cache for getstatf (#331); cl.stats[] is the
+// int store. valid[] marks an explicit float/int value seen.
+static float s_csqc_cl_statsf[32];
+static byte s_csqc_cl_statsf_valid[32];
+
+float CSQC_Client_GetStat(int idx)
+{
+	int p;
+
+	if (idx >= 0 && idx < 32) {
+		return (float)cl.stats[idx];
+	}
+	if (idx >= 32 && idx < MAX_EXTENDED_CL_STATS) {
+		p = CSQC_Client_StatTrack();
+		return (p >= 0) ? (float)s_csqc_pstat[p][idx] : (float)s_csqc_stat[idx];
+	}
+	return 0;
+}
+
+int CSQC_Client_GetStatInt(int idx)
+{
+	int p;
+
+	if (idx >= 0 && idx < 32) {
+		return cl.stats[idx];
+	}
+	if (idx >= 32 && idx < MAX_EXTENDED_CL_STATS) {
+		p = CSQC_Client_StatTrack();
+		return (p >= 0) ? s_csqc_pstat[p][idx] : s_csqc_stat[idx];
+	}
+	return 0;
+}
+
+float CSQC_Client_GetStatFloat(int idx)
+{
+	int p;
+
+	if (idx >= 0 && idx < 32) {
+		// Exact float when the stat arrived as a float (#79), else the int value.
+		return s_csqc_cl_statsf_valid[idx] ? s_csqc_cl_statsf[idx] : (float)cl.stats[idx];
+	}
+	if (idx >= 32 && idx < MAX_EXTENDED_CL_STATS) {
+		p = CSQC_Client_StatTrack();
+		return (p >= 0) ? s_csqc_pstatsf[p][idx] : s_csqc_statsf[idx];
+	}
+	return 0;
+}
+
+const char *CSQC_Client_GetStatString(int idx)
+{
+	int p;
+
+	if (idx >= 32 && idx < MAX_EXTENDED_CL_STATS) {
+		p = CSQC_Client_StatTrack();
+		if (p >= 0) {
+			return s_csqc_pstatss[p][idx] ? s_csqc_pstatss[p][idx] : "";
+		}
+		if (s_csqc_statss[idx]) {
+			return s_csqc_statss[idx];
+		}
+	}
+	return "";
+}
+
+void CSQC_Client_SetStat(int idx, int value)
+{
+	if (idx >= 0 && idx < 32) {
+		// int stat (svc_updatestat / #79 int path): keep the getstatf (#331) float
+		// cache in sync.
+		s_csqc_cl_statsf[idx] = (float)value;
+		s_csqc_cl_statsf_valid[idx] = 1;
+		return;
+	}
+	if (idx >= 32 && idx < MAX_EXTENDED_CL_STATS) {
+		int p = CSQC_Client_StatPlayer();
+
+		if (p >= 0) {
+			s_csqc_pstat[p][idx] = value;
+			s_csqc_pstatsf[p][idx] = (float)value;
+			if (p != CSQC_Client_StatTrack()) {
+				return;
+			}
+		}
+		s_csqc_stat[idx] = value;
+		// The server keeps an int cache in sync when emitting a float stat as an
+		// int - getstatf must see the same value.
+		s_csqc_statsf[idx] = (float)value;
+	}
+}
+
+void CSQC_Client_SetStatFloat(int idx, float value)
+{
+	if (idx >= 0 && idx < 32) {
+		// #79 float stat for a standard index: exact value for getstatf (#331);
+		// cl.stats[] int is set separately by the caller.
+		s_csqc_cl_statsf[idx] = value;
+		s_csqc_cl_statsf_valid[idx] = 1;
+		return;
+	}
+	if (idx >= 32 && idx < MAX_EXTENDED_CL_STATS) {
+		int p = CSQC_Client_StatPlayer();
+
+		if (p >= 0) {
+			s_csqc_pstatsf[p][idx] = value;
+			s_csqc_pstat[p][idx] = (int)value;
+			if (p != CSQC_Client_StatTrack()) {
+				return;
+			}
+		}
+		s_csqc_statsf[idx] = value;
+		s_csqc_stat[idx] = (int)value;
+	}
+}
+
+// Track switch (MVD/multiview) copies cl.players[n].stats into cl.stats; the #79
+// float cache must not keep the previous player's values.
+void CSQC_Client_ResetStatCache(void)
+{
+	memset(s_csqc_cl_statsf, 0, sizeof(s_csqc_cl_statsf));
+	memset(s_csqc_cl_statsf_valid, 0, sizeof(s_csqc_cl_statsf_valid));
+}
+
+void CSQC_Client_SetStatString(int idx, const char *s)
+{
+	if (idx >= 32 && idx < MAX_EXTENDED_CL_STATS) {
+		int p = CSQC_Client_StatPlayer();
+
+		if (p >= 0) {
+			Q_free(s_csqc_pstatss[p][idx]);
+			s_csqc_pstatss[p][idx] = Q_strdup(s ? s : "");
+			if (p != CSQC_Client_StatTrack()) {
+				return;
+			}
+		}
+		Q_free(s_csqc_statss[idx]);
+		s_csqc_statss[idx] = Q_strdup(s ? s : "");
+	}
+}
+
 void CSQC_Client_GetScreenSize(int *w, int *h)
 {
 	if (w) {
@@ -589,7 +766,7 @@ qbool CSQC_Client_DrawPic(float x, float y, float w, float h, const char *name, 
 	mpic_t *pic;
 	float sx, sy, a = bound(0, alpha, 1);
 	float dx, dy, dw, dh, srcx, srcy, srcw, srch;
-	if (!name || !name[0]) {
+	if (!name || !name[0] || !CSQC_Client_PicSafe(name)) {
 		return false;
 	}
 	pic = Draw_CachePicSafe(name, false, false);
@@ -884,7 +1061,7 @@ qbool CSQC_Client_PicSize(const char *name, float *w, float *h)
 	const char *ext;
 	char path[MAX_QPATH];
 	int cw, ch;
-	if (!name || !name[0] || !CSQC_Client_PicSafe(name)) {
+	if (!name || !name[0]) {
 		return false;
 	}
 	// #318: a bare name defaults to ".lmp". A .lmp size is read from its header
@@ -4814,6 +4991,11 @@ static qbool CSQC_Client_Load(const char *path)
 	s_csqc.module_data = data;
 	s_csqc.func_init = s_csqc.func_world = s_csqc.func_update = s_csqc.func_console = s_csqc.func_shutdown = -1;
 	s_csqc.func_entupdate = s_csqc.func_entremove = s_csqc.func_parseevent = s_csqc.func_parsetempent = -1;
+	s_csqc.func_parseprint = s_csqc.func_parsecp = -1;
+	s_csqc.func_parsedamage = -1;
+	s_csqc.func_eventsound = -1;
+	s_csqc.func_parsesetangles = -1;
+	s_csqc.func_rr = -1;
 	s_csqc.func_entspawn = -1;
 	s_csqc.mayread = false;
 	s_csqc.func_input = -1;
@@ -4923,6 +5105,30 @@ static qbool CSQC_Client_Load(const char *path)
 	if (f) {
 		s_csqc.func_parseevent = (int)(f - vm->functions);
 	}
+	f = PR1VM_FindFunction(vm, "CSQC_Parse_Print");
+	if (f) {
+		s_csqc.func_parseprint = (int)(f - vm->functions);
+	}
+	f = PR1VM_FindFunction(vm, "CSQC_Parse_CenterPrint");
+	if (f) {
+		s_csqc.func_parsecp = (int)(f - vm->functions);
+	}
+	f = PR1VM_FindFunction(vm, "CSQC_Parse_Damage");
+	if (f) {
+		s_csqc.func_parsedamage = (int)(f - vm->functions);
+	}
+	f = PR1VM_FindFunction(vm, "CSQC_Event_Sound");
+	if (f) {
+		s_csqc.func_eventsound = (int)(f - vm->functions);
+	}
+	f = PR1VM_FindFunction(vm, "CSQC_Parse_SetAngles");
+	if (f) {
+		s_csqc.func_parsesetangles = (int)(f - vm->functions);
+	}
+	f = PR1VM_FindFunction(vm, "CSQC_RendererRestarted");
+	if (f) {
+		s_csqc.func_rr = (int)(f - vm->functions);
+	}
 	f = PR1VM_FindFunction(vm, "CSQC_Input_Frame");
 	if (f) {
 		s_csqc.func_input = (int)(f - vm->functions);
@@ -5021,6 +5227,9 @@ static qbool CSQC_Client_Load(const char *path)
 	// not broken", so an Init-less module still receives entities/events/frames/
 	// console. A failed CSQC_Init left errored=true, so inited stays false.
 	s_csqc.inited = !s_csqc.errored;
+	// Renderer (re)init notification right after CSQC_Init, before the first
+	// CSQC_WorldLoaded.
+	CSQC_Client_RendererRestarted(R_RendererDescription());
 	return true;
 }
 
@@ -5963,6 +6172,178 @@ The module's read*-builtins are allowed only inside parse callbacks (CSQC_Ent_Up
 qbool CSQC_Client_MayRead(void)
 {
 	return s_csqc.mayread;
+}
+
+/*
+=================
+CSQC_Client_ParsePrint
+
+CSQC_Parse_Print(string, float) - intercept of the network svc_print (chat and
+ordinary). If the callback exists the engine does not print the message itself (the
+module decides whether to forward it to #339 print). Returns whether the callback
+was called.
+=================
+*/
+qbool CSQC_Client_ParsePrint(const char *msg, int level)
+{
+	pr1vm_t *vm = &s_csqc.vm;
+
+	if (!s_csqc.loaded || s_csqc.errored || s_csqc.func_parseprint <= 0) {
+		return false;
+	}
+
+	PR1VM_ClientSetString(vm, (string_t *)&vm->globals[OFS_PARM0], (char *)(msg ? msg : ""));
+	vm->globals[OFS_PARM1] = level;
+	CSQC_Client_Exec(s_csqc.func_parseprint);
+	return true;
+}
+
+/*
+=================
+CSQC_Client_ParseCenterPrint
+
+CSQC_Parse_CenterPrint(string) - intercept of svc_centerprint/svc_finale. A module
+return != 0 => the engine ignores the centerprint. Returns whether to
+suppress the engine output.
+=================
+*/
+qbool CSQC_Client_ParseCenterPrint(const char *msg)
+{
+	pr1vm_t *vm = &s_csqc.vm;
+	float ret = 0;
+
+	if (!s_csqc.loaded || s_csqc.errored || s_csqc.func_parsecp <= 0) {
+		return false;
+	}
+
+	PR1VM_ClientSetString(vm, (string_t *)&vm->globals[OFS_PARM0], (char *)(msg ? msg : ""));
+	CSQC_Client_ExecRet(s_csqc.func_parsecp, &ret);
+	return ret != 0;
+}
+
+/*
+=================
+CSQC_Client_ParseDamage
+
+CSQC_Parse_Damage(float save, float take, vector inflictororg) - parse svc_damage
+(V_ParseDamage). Return !=0 => fully suppress the color shift/view kick. Returns
+whether to
+suppress the engine damage effects.
+=================
+*/
+qbool CSQC_Client_ParseDamage(float save, float take, const vec3_t source)
+{
+	pr1vm_t *vm = &s_csqc.vm;
+	float ret = 0;
+
+	if (!s_csqc.loaded || s_csqc.errored || s_csqc.func_parsedamage <= 0) {
+		return false;
+	}
+
+	vm->globals[OFS_PARM0] = save;
+	vm->globals[OFS_PARM1] = take;
+	vm->globals[OFS_PARM2 + 0] = source[0];
+	vm->globals[OFS_PARM2 + 1] = source[1];
+	vm->globals[OFS_PARM2 + 2] = source[2];
+	CSQC_Client_ExecRet(s_csqc.func_parsedamage, &ret);
+	return ret != 0;
+}
+
+/*
+=================
+CSQC_Client_EventSound
+
+CSQC_Event_Sound(entnum, channel, soundname, vol, attenuation, pos, pitchmod, flags) -
+parse svc_sound (CL_ParseStartSoundPacket / NQD_ParseStartSoundPacket).
+PARM6 = pitchmod*100; self = csqc entity by number or world (not restored after
+the call). Return !=0 => the engine does not play the sound.
+=================
+*/
+qbool CSQC_Client_EventSound(int entnum, int channel, const char *name, float vol,
+	float atten, const vec3_t pos, float pitchmod, float flags)
+{
+	pr1vm_t *vm = &s_csqc.vm;
+	float ret = 0;
+	int slot;
+
+	if (!s_csqc.loaded || s_csqc.errored || s_csqc.func_eventsound <= 0) {
+		return false;
+	}
+
+	slot = CSQC_Client_NumToSlot(entnum);
+	if (slot > 0 && slot < CSQC_MAX_EDICTS && CSQC_Client_EntUsed(slot)) {
+		CSQC_Client_SetContextSlot(vm, (unsigned)slot, (unsigned)entnum);
+	}
+	else if (s_csqc.global_self >= 0) {
+		*(int *)&vm->globals[s_csqc.global_self] = 0;
+	}
+
+	vm->globals[OFS_PARM0] = (float)entnum;
+	vm->globals[OFS_PARM1] = (float)channel;
+	PR1VM_ClientSetString(vm, (string_t *)&vm->globals[OFS_PARM2], (char *)(name ? name : ""));
+	vm->globals[OFS_PARM3] = vol;
+	vm->globals[OFS_PARM4] = atten;
+	vm->globals[OFS_PARM5 + 0] = pos[0];
+	vm->globals[OFS_PARM5 + 1] = pos[1];
+	vm->globals[OFS_PARM5 + 2] = pos[2];
+	vm->globals[OFS_PARM6] = pitchmod * 100.0f;
+	vm->globals[OFS_PARM7] = flags;
+
+	CSQC_Client_ExecRet(s_csqc.func_eventsound, &ret);
+	return ret != 0;
+}
+
+/*
+=================
+CSQC_Client_ParseSetAngles
+
+CSQC_Parse_SetAngles(vector angles, float isdelta) - parse svc_setangle (live/QW demo,
+NQ demo). Return !=0 => the engine does not apply its own angle (the MVD branch
+does not call the hook).
+Returns whether to suppress the engine angle application.
+=================
+*/
+qbool CSQC_Client_ParseSetAngles(const float *angles, float isdelta)
+{
+	pr1vm_t *vm = &s_csqc.vm;
+	float ret = 0;
+
+	if (!s_csqc.loaded || s_csqc.errored || s_csqc.func_parsesetangles <= 0) {
+		return false;
+	}
+
+	vm->globals[OFS_PARM0 + 0] = angles[0];
+	vm->globals[OFS_PARM0 + 1] = angles[1];
+	vm->globals[OFS_PARM0 + 2] = angles[2];
+	vm->globals[OFS_PARM1] = isdelta;
+	CSQC_Client_ExecRet(s_csqc.func_parsesetangles, &ret);
+	return ret != 0;
+}
+
+/*
+=================
+CSQC_Client_RendererRestarted
+
+CSQC_RendererRestarted(string rendererdescription) - engine callback on renderer
+reinit (vid_restart/vid_reload, VID_Startup) and on module load (after CSQC_Init).
+The return value is ignored.
+
+The description is passed as a GC'd temp string (copied, so a GL pointer from
+glGetString is never referenced after vid_restart); a module that stores it in a
+global or field keeps it alive.
+=================
+*/
+
+void CSQC_Client_RendererRestarted(const char *desc)
+{
+	pr1vm_t *vm = &s_csqc.vm;
+
+	if (!s_csqc.loaded || s_csqc.errored || s_csqc.func_rr <= 0) {
+		return;
+	}
+
+	PR1VM_ClientSetString(vm, (string_t *)&vm->globals[OFS_PARM0], (char *)(desc ? desc : ""));
+	CSQC_Client_Exec(s_csqc.func_rr);
 }
 
 /*
@@ -7424,6 +7805,25 @@ void CSQC_Client_Disconnect(void)
 	CSQC_Client_FreeStringPool(); // before the memset
 	CSQC_Client_DrawFontScaleReset();
 	memset(&s_csqc, 0, sizeof(s_csqc));
+	memset(s_csqc_stat, 0, sizeof(s_csqc_stat));
+	memset(s_csqc_statsf, 0, sizeof(s_csqc_statsf));
+	memset(s_csqc_cl_statsf, 0, sizeof(s_csqc_cl_statsf));
+	memset(s_csqc_cl_statsf_valid, 0, sizeof(s_csqc_cl_statsf_valid));
+	// string stats are Q_strdup copies
+	for (i = 0; i < MAX_EXTENDED_CL_STATS; i++) {
+		Q_free(s_csqc_statss[i]);
+		s_csqc_statss[i] = NULL;
+	}
+	for (i = 0; i < MAX_CLIENTS; i++) {
+		int j;
+
+		for (j = 0; j < MAX_EXTENDED_CL_STATS; j++) {
+			Q_free(s_csqc_pstatss[i][j]);
+			s_csqc_pstatss[i][j] = NULL;
+		}
+	}
+	memset(s_csqc_pstat, 0, sizeof(s_csqc_pstat));
+	memset(s_csqc_pstatsf, 0, sizeof(s_csqc_pstatsf));
 	s_csqc.func_init = s_csqc.func_world = s_csqc.func_update = s_csqc.func_console = s_csqc.func_shutdown = -1;
 	s_csqc.func_entupdate = s_csqc.func_entremove = s_csqc.func_parseevent = s_csqc.func_parsetempent = -1;
 	s_csqc.func_entspawn = -1;

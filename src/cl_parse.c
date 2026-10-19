@@ -2218,7 +2218,9 @@ void CL_ParseStartSoundPacket(qbool extended)
 		return;
 	}
 
-	S_StartSound(ent, channel, cl.sound_precache[sound_num], pos, volume / 255.0, attenuation);
+	if (!CSQC_Client_EventSound(ent, channel, cl.sound_name[sound_num], volume / 255.0, attenuation, pos, 1.0f, 0.0f)) {
+		S_StartSound(ent, channel, cl.sound_precache[sound_num], pos, volume / 255.0, attenuation);
+	}
 
 	if (ent == cl.playernum+1)
 		TP_CheckPickupSound (cl.sound_name[sound_num], pos);
@@ -2924,9 +2926,7 @@ static void FlushString (const wchar *s, int level, qbool team, int offset)
 
 	cfrags_format cff = {0, 0, 0, 0, 0, 0, false}; // Stats_ParsePrint stuff
 
-	// During gametime, use notify for team messages only
-	if (con_mm2_only.integer && !team && !(cl.standby || cl.countdown))
-		Print_flags[Print_current] |= PR_NONOTIFY;
+	qbool handled;
 
 	s0 = wcs2str (s);
 	f = strstr (s0, name.string);
@@ -2966,25 +2966,52 @@ static void FlushString (const wchar *s, int level, qbool team, int offset)
 		return;
 	}
 
-	// Colorize player names here
-	if (scr_coloredfrags.value && cff.isFragMsg && cff.p1len) {
-		text = CL_ColorizeFragMessage(text, &cff);
-	}
+	// The module gets the complete line, assembled in cl.sprint_buf and already
+	// filtered by CL_ProcessPrint (ignore/flood/msg_filter/chat sound). A handled
+	// line skips only the console output: the processing below still runs, and the
+	// print attributes (notify/timestamp) must not leak onto the next line.
+	handled = !cls.demoseeking && CSQC_Client_ParsePrint(s0, level);
 
-	/* FIXME
-	 * disconnect: There should be something like Com_PrintfW...
-	 * we have to *Print* message with one Con_Printf/Con_PrintfW call
-	 * else re_triggers with remove option will be fucked
-	 * so we have to use additional buffer
-	 */
-	memset (zomfg, 0, sizeof (zomfg));
-	qwcslcpy (zomfg, str2wcs(mark), sizeof (zomfg) / sizeof (wchar));
-	qwcslcpy (zomfg + qwcslen (zomfg), text, sizeof (zomfg) / sizeof (wchar) - qwcslen (zomfg));
-	if (cl_showFragsMessages.value || !cff.isFragMsg) {
-		if (cl_showFragsMessages.integer == 2 && cff.isFragMsg) {
+	if (!handled) {
+		// During gametime, use notify for team messages only
+		if (con_mm2_only.integer && !team && !(cl.standby || cl.countdown)) {
 			Print_flags[Print_current] |= PR_NONOTIFY;
 		}
-		Con_PrintW(zomfg); // FIXME logging
+
+		if (con_timestamps.integer && s0[0] && s0[0] != '\n' && s0[0] != '\r') {
+			SYSTEMTIME lt;
+			char tmpbuf[16];
+			GetLocalTime(&lt);
+			if (con_timestamps.integer == 2 && (cl.spectator || cls.demoplayback || cl.standby)) {
+				snprintf(tmpbuf, sizeof(tmpbuf), "%2d:%02d:%02d ", lt.wHour, lt.wMinute, lt.wSecond);
+				Com_Printf("%s", tmpbuf);
+			}
+			else {
+				snprintf(tmpbuf, sizeof(tmpbuf), "%2d:%02d ", lt.wHour, lt.wMinute);
+				Com_Printf("%s", tmpbuf);
+			}
+		}
+
+		// Colorize player names here
+		if (scr_coloredfrags.value && cff.isFragMsg && cff.p1len) {
+			text = CL_ColorizeFragMessage(text, &cff);
+		}
+
+		/* FIXME
+		 * disconnect: There should be something like Com_PrintfW...
+		 * we have to *Print* message with one Con_Printf/Con_PrintfW call
+		 * else re_triggers with remove option will be fucked
+		 * so we have to use additional buffer
+		 */
+		memset(zomfg, 0, sizeof(zomfg));
+		qwcslcpy(zomfg, str2wcs(mark), sizeof(zomfg) / sizeof(wchar));
+		qwcslcpy(zomfg + qwcslen(zomfg), text, sizeof(zomfg) / sizeof(wchar) - qwcslen(zomfg));
+		if (cl_showFragsMessages.value || !cff.isFragMsg) {
+			if (cl_showFragsMessages.integer == 2 && cff.isFragMsg) {
+				Print_flags[Print_current] |= PR_NONOTIFY;
+			}
+			Con_PrintW(zomfg); // FIXME logging
+		}
 	}
 
 	if (level >= 4)
@@ -3327,24 +3354,6 @@ void CL_ProcessPrint (int level, char* s0)
 		if (level >= PRINT_HIGH && s[0]) // actually there are no need for level >= PRINT_HIGH check
 			VID_NotifyActivity();
 
-		if (s[0])  // KT sometimes sends empty strings
-		{
-			// @CHECKME@
-			if (con_timestamps.integer) {
-				SYSTEMTIME lt;
-				char tmpbuf[16];
-				GetLocalTime (&lt);
-				if (con_timestamps.integer == 2 && (cl.spectator || cls.demoplayback || cl.standby)) {
-					snprintf(tmpbuf, sizeof(tmpbuf), "%2d:%02d:%02d ", lt.wHour, lt.wMinute, lt.wSecond);
-					Com_Printf(tmpbuf);
-				}
-				else {
-					snprintf(tmpbuf, sizeof(tmpbuf), "%2d:%02d ", lt.wHour, lt.wMinute);
-					Com_Printf(tmpbuf);
-				}
-			}
-		}
-
 		if (cl_nofake.value == 1 || (cl_nofake.value == 2 && flags != 2)) 
 		{
 			for (p = s; *p; p++)
@@ -3382,13 +3391,16 @@ void CL_ProcessPrint (int level, char* s0)
 	qwcslcpy (cl.sprint_buf + qwcslen(cl.sprint_buf), s, sizeof(cl.sprint_buf)/sizeof(wchar) - qwcslen(cl.sprint_buf));
 	cl.sprint_level = level;
 
-	if ((p = qwcsrchr(cl.sprint_buf, '\n'))) 
+	// One CSQC_Parse_Print per line: a single svc_print may carry several
+	// newlines. The chat prefix offset belongs to the first line only.
+	while ((p = qwcschr(cl.sprint_buf, '\n')))
 	{
 		len = p - cl.sprint_buf + 1;
 		memcpy(str, cl.sprint_buf, len * sizeof(wchar));
 		str[len] = '\0';
 		qwcslcpy (cl.sprint_buf, p + 1, sizeof(cl.sprint_buf)/sizeof(wchar));
 		FlushString (str, level, (flags == 2), offset);
+		offset = 0;
 	}
 }
 
@@ -3401,6 +3413,7 @@ void CL_ParsePrint (void)
 		return;
 	}
 
+	// The module is hooked in FlushString, i.e. on the assembled, filtered line.
 	CL_ProcessPrint (level, s0);
 }
 
@@ -3641,6 +3654,13 @@ void CL_SetStat (int stat, int value)
 		return;
 	}
 
+	// Extended stats 32..255 (sent to FTE_PEXT_CSQC clients). cl.stats[] holds only
+	// the standard 0..31; extended stats go to the CSQC store read by getstati/getstatf.
+	if (stat >= MAX_CL_STATS) {
+		CSQC_Client_SetStat(stat, value);
+		return;
+	}
+
 	// Set the stat value for the current player we're parsing in the MVD.
 	if (cls.mvdplayback)
 	{
@@ -3677,6 +3697,10 @@ void CL_SetStat (int stat, int value)
 	}
 
 	cl.stats[stat] = value;
+
+	// Keep the getstatf (#331) float cache in sync with the standard int stat
+	// (extended indices returned earlier).
+	CSQC_Client_SetStat(stat, value);
 
 #ifdef FTE_PEXT_ACCURATETIMINGS
 	if (stat == STAT_TIME && (cls.fteprotocolextensions & FTE_PEXT_ACCURATETIMINGS))
@@ -4057,6 +4081,9 @@ void CL_ParseServerMessage (void)
 					if (CL_Demo_SkipMessage (true))
 						break;
 
+					if (CSQC_Client_ParseCenterPrint(s)) {
+						break;
+					}
 					if (!CL_SearchForReTriggers(s, RE_PRINT_CENTER)) {
 						SCR_CenterPrint(s);
 					}
@@ -4082,6 +4109,8 @@ void CL_ParseServerMessage (void)
 				}
 			case svc_setangle:
 				{
+					qbool sa_handled = false;
+
 					if (cls.mvdplayback || (cls.mvdprotocolextensions1 & MVD_PEXT1_HIGHLAGTELEPORT)) {
 						j = MSG_ReadByte();
 					}
@@ -4096,6 +4125,12 @@ void CL_ParseServerMessage (void)
 
 					CL_DisableLerpMove();
 
+					// Not called for MVD playback; a nonzero return skips the engine's
+					// own angle update below.
+					if (!cls.mvdplayback) {
+						sa_handled = CSQC_Client_ParseSetAngles(newangles, false);
+					}
+
 					if (cls.mvdplayback) 
 					{
 						mvd_fixangle |= 1u << j;
@@ -4104,7 +4139,7 @@ void CL_ParseServerMessage (void)
 							VectorCopy(newangles, cl.viewangles);
 						}
 					} 
-					else {
+					else if (!sa_handled) {
 						VectorCopy (newangles, cl.viewangles);
 
 						if ((cls.mvdprotocolextensions1 & MVD_PEXT1_HIGHLAGTELEPORT) && j) {
@@ -4333,7 +4368,9 @@ void CL_ParseServerMessage (void)
 					cl.solo_completed_time = cl.servertime;
 					vid.recalc_refdef = true;	// go to full screen
 					finstr = MSG_ReadString();
-					SCR_CenterPrint(finstr);
+					if (!CSQC_Client_ParseCenterPrint(finstr)) {
+						SCR_CenterPrint(finstr);
+					}
 					break;
 				}
 			case svc_sellscreen:
@@ -4388,6 +4425,41 @@ void CL_ParseServerMessage (void)
 				{
 					// Sized variant (92): a short length precedes each entity's payload.
 					CSQC_Client_ParseEntities(true);
+					break;
+				}
+				case svc_fte_updatestatstring:
+				{
+					// [byte idx][string]. QW has no standard 0..31 string stats, so
+					// those indices are read and ignored; idx>=32 goes to the extended
+					// CSQC store.
+					i = MSG_ReadByte();
+					s = MSG_ReadString();
+					if (i >= MAX_CL_STATS) {
+						CSQC_Client_SetStatString(i, s);
+					}
+					break;
+				}
+				case svc_fte_updatestatfloat:
+				{
+					// [byte idx][float]. idx < MAX_CL_STATS also updates the standard
+					// engine stat as an int; idx>=32 goes to the extended CSQC store.
+					// The exact float is kept for getstatf (#331) so a standard index
+					// is not truncated.
+					float fstat;
+					i = MSG_ReadByte();
+					fstat = MSG_ReadFloat();
+					// The float is server-controlled. 2147483520 is the largest
+					// float below 2^31, so the result always fits an int.
+					if (i < MAX_CL_STATS) {
+						CL_SetStat(i, (int)boundf(-2147483648.0f, fstat, 2147483520.0f));
+					}
+					// In MVD CL_SetStat routes the int to cl.players[lastto] and
+					// returns early when that player is not tracked; the float cache
+					// must follow the same routing, otherwise getstatf() reports
+					// another player's value.
+					if (i >= MAX_CL_STATS || !cls.mvdplayback || Cam_TrackNum() == cls.lastto) {
+						CSQC_Client_SetStatFloat(i, fstat);
+					}
 					break;
 				}
 #endif
