@@ -1056,9 +1056,14 @@ void CL_FinishDownload(void)
 			Com_DPrintf("Download took %.1f seconds\n", Sys_DoubleTime() - cls.downloadstarttime);
 
 			// rename the temp file to its final name
-			if (strcmp(cls.downloadtempname, cls.downloadname))
+			if (strcmp(cls.downloadtempname, cls.downloadname)) {
+#ifdef _WIN32
+				// rename() does not replace an existing file on Windows.
+				remove(cls.downloadname);
+#endif
 				if (rename(cls.downloadtempname, cls.downloadname))
 					Com_Printf ("Failed to rename %s to %s.\n",	cls.downloadtempname, cls.downloadname);
+			}
 		} else {
 			/* If download didn't complete, remove the unfinished leftover .tmp file ... */
 			unlink(cls.downloadtempname);
