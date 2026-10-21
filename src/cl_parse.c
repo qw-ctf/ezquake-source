@@ -2114,7 +2114,7 @@ void CL_ParseStartSoundPacket(qbool extended)
 				{
 					predict_sound = PM_FilterWeaponSound(sound_num);
 				}
-				else if (strcmp(cl.sound_precache[sound_num]->name, "player/axhit2.wav") == 0)
+				else if (cl.sound_precache[sound_num] && strcmp(cl.sound_precache[sound_num]->name, "player/axhit2.wav") == 0)
 				{
 					predict_sound = false;
 				}
@@ -2128,8 +2128,9 @@ void CL_ParseStartSoundPacket(qbool extended)
 			{
 				if (!(cl_predict_weaponsound.integer & 256))
 				{
-					if (strcmp(cl.sound_precache[sound_num]->name, "weapons/lstart.wav") == 0)
+					if (cl.sound_precache[sound_num] && strcmp(cl.sound_precache[sound_num]->name, "weapons/lstart.wav") == 0) {
 						return;
+					}
 				}
 			}
 		}
@@ -2138,8 +2139,9 @@ void CL_ParseStartSoundPacket(qbool extended)
 		{
 			if (channel == 4)
 			{
-				if (strcmp(cl.sound_precache[sound_num]->name, "player/plyrjmp8.wav") == 0)
+				if (cl.sound_precache[sound_num] && strcmp(cl.sound_precache[sound_num]->name, "player/plyrjmp8.wav") == 0) {
 					return;
+				}
 			}
 		}
 	}
