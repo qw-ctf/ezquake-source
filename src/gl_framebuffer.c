@@ -38,6 +38,7 @@ extern cvar_t vid_framebuffer_hdr;
 extern cvar_t vid_framebuffer_blit;
 extern cvar_t vid_framebuffer_smooth;
 extern cvar_t vid_framebuffer_multisample;
+extern cvar_t vid_framebuffer_hud_multisample;
 extern cvar_t gl_outline;
 
 static framebuffer_id VID_MultisampledAlternateId(framebuffer_id id);
@@ -850,9 +851,16 @@ static void GL_FramebufferEnsureDeleted(framebuffer_id id)
 	}
 }
 
+// The HUD is 2D and only its lines and circles gain from multisampling, which costs a
+// full-resolution multisampled target and a resolve every frame, so it is opt-in
+static qbool VID_FramebufferMultisampled(framebuffer_id id)
+{
+	return vid_framebuffer_multisample.integer && (id != framebuffer_hud || vid_framebuffer_hud_multisample.integer);
+}
+
 static framebuffer_id VID_MultisampledAlternateId(framebuffer_id id)
 {
-	if (vid_framebuffer_multisample.integer && framebuffer_multisample_alternate[id] && framebuffer_multisample_alternate[id] != id) {
+	if (VID_FramebufferMultisampled(id) && framebuffer_multisample_alternate[id] && framebuffer_multisample_alternate[id] != id) {
 		return framebuffer_multisample_alternate[id];
 	}
 	return id;
@@ -897,6 +905,12 @@ void GL_FramebufferScreenDrawStart(void)
 qbool GL_Framebuffer2DSwitch(void)
 {
 	if (vid_framebuffer.integer == USE_FRAMEBUFFER_3DONLY) {
+		if (!VID_FramebufferMultisampled(framebuffer_hud)) {
+			// Also stops a stale multisampled HUD from being resolved over this one
+			GL_FramebufferEnsureDeleted(framebuffer_hud_ms);
+			GL_FramebufferEnsureDeleted(framebuffer_hud_blit_ms);
+			GL_FramebufferEnsureDeleted(framebuffer_hud_blit);
+		}
 
 		if (VID_FramebufferInit(framebuffer_hud, glConfig.vidWidth, glConfig.vidHeight)) {
 			R_Viewport(0, 0, glConfig.vidWidth, glConfig.vidHeight);

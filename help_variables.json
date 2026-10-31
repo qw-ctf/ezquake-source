@@ -21667,6 +21667,13 @@
       "remarks": "Setting vid_framebuffer_scale overrides custom FBO width/height.",
       "type": "integer"
     },
+    "vid_framebuffer_hud_multisample": {
+      "default": "0",
+      "desc": "Toggles multisampling of the separate HUD framebuffer used with vid_framebuffer 2, with the sample count from vid_framebuffer_multisample.",
+      "group-id": "52",
+      "remarks": "Only lines and circles in the HUD, such as the radar, get smoother edges, at the cost of a full-resolution multisampled target and a resolve every frame.",
+      "type": "boolean"
+    },
     "vid_framebuffer_multisample": {
       "default": "0",
       "desc": "The number of samples used around each pixel for anti-aliasing when using custom FBOs.",
