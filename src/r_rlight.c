@@ -214,7 +214,8 @@ void R_RenderDlights(void)
 						if (gl_rl_globe.integer & 1) {
 							R_RenderDlight(l);
 						}
-						if (gl_rl_globe.integer & 2) {
+						// Hardware lighting lights surfaces with every active dlight, so mark them all
+						if ((gl_rl_globe.integer & 2) || R_HardwareLighting()) {
 							R_MarkLights(l, 1u << (i * 32 + j), cl.worldmodel->nodes);
 						}
 						continue;
@@ -251,7 +252,7 @@ void R_MarkLights(dlight_t *light, unsigned int bit, mnode_t *node)
 	msurface_t	*surf;
 	int			i;
 
-	if (!R_SoftwareLighting()) {
+	if (R_NoLighting()) {
 		return;
 	}
 

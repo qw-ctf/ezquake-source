@@ -294,7 +294,7 @@ void R_BrushModelDrawEntity(entity_t *e)
 					if ((cl_dlight_active[li] & (1u << lj)) && li * 32 + lj < MAX_DLIGHTS) {
 						k = li * 32 + lj;
 
-						if (!gl_flashblend.integer || (cl_dlights[k].bubble && gl_flashblend.integer != 2)) {
+						if (R_HardwareLighting() || !gl_flashblend.integer || (cl_dlights[k].bubble && gl_flashblend.integer != 2)) {
 							R_MarkLights(&cl_dlights[k], 1u << k, clmodel->nodes + clmodel->firstnode);
 						}
 					}
