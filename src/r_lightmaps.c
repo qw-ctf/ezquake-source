@@ -476,7 +476,7 @@ void R_UploadChangedLightmaps(void)
 
 	R_TraceEnterNamedRegion(__func__);
 	if (R_HardwareLighting()) {
-		if (R_FullBrightAllowed() || !cl.worldmodel || !cl.worldmodel->lightdata) {
+		if (R_LightmapsFullBright()) {
 			int i;
 
 			for (i = frameStats.lightmap_min_changed; i <= frameStats.lightmap_max_changed; ++i) {
@@ -1049,6 +1049,12 @@ qbool R_FullBrightAllowed(void)
 	extern cvar_t r_fullbright;
 
 	return r_fullbright.value && r_refdef2.allow_cheats;
+}
+
+// Lightmaps are filled with full brightness on the CPU rather than lit
+qbool R_LightmapsFullBright(void)
+{
+	return R_FullBrightAllowed() || !cl.worldmodel || !cl.worldmodel->lightdata;
 }
 
 void R_CheckReloadLightmaps(void)

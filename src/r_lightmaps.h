@@ -22,6 +22,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 void R_BuildLightmaps(void);
 qbool R_FullBrightAllowed(void);
+qbool R_LightmapsFullBright(void);
 void R_CheckReloadLightmaps(void);
 void R_RenderAllDynamicLightmaps(struct model_s* model);
 void R_LightmapFrameInit(void);

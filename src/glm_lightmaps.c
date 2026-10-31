@@ -117,6 +117,10 @@ void GLM_ComputeLightmaps(void)
 {
 	int i, start;
 
+	if (frameStats.lightmap_min_changed >= lightmap_array_size) {
+		return;
+	}
+
 	if (!GLM_CompileLightmapComputeProgram()) {
 		return;
 	}
@@ -143,12 +147,13 @@ void GLM_ComputeLightmaps(void)
 	GL_BindImageTexture(2, lightmap_data_array, 0, GL_TRUE, 0, GL_READ_ONLY, GL_RGBA32I);
 
 	start = -1;
-	for (i = 0; i < lightmap_array_size; ++i) {
+	for (i = frameStats.lightmap_min_changed; i <= frameStats.lightmap_max_changed; ++i) {
 		if (lightmaps[i].modified) {
 			if (start < 0) {
 				start = i;
 			}
 			lightmaps[i].modified = false;
+			frameStats.lightmap_updates++;
 		}
 		else if (start >= 0) {
 			R_ProgramUniform1i(r_program_uniform_lighting_firstLightmap, start);
@@ -160,7 +165,7 @@ void GLM_ComputeLightmaps(void)
 
 	if (start >= 0) {
 		R_ProgramUniform1i(r_program_uniform_lighting_firstLightmap, start);
-		R_ProgramComputeDispatch(r_program_lightmap_compute, LIGHTMAP_WIDTH / HW_LIGHTING_BLOCK_SIZE, LIGHTMAP_HEIGHT / HW_LIGHTING_BLOCK_SIZE, lightmap_array_size - start);
+		R_ProgramComputeDispatch(r_program_lightmap_compute, LIGHTMAP_WIDTH / HW_LIGHTING_BLOCK_SIZE, LIGHTMAP_HEIGHT / HW_LIGHTING_BLOCK_SIZE, frameStats.lightmap_max_changed + 1 - start);
 	}
 	R_ProgramMemoryBarrier(r_program_lightmap_compute);
 }
@@ -197,6 +202,9 @@ void GLM_CreateLightmapTextures(void)
 	lightmap_compute_arrays_current = false;
 	if (R_HardwareLighting()) {
 		GLM_CreateComputeLightmapArrays();
+		// The texels uploaded next are baked on the CPU, which rounds differently from the
+		// shader, so have the shader relight every surface the first time it is drawn
+		R_ForceReloadLightMaps();
 	}
 
 	if (R_TextureReferenceIsValid(lightmap_texture_array) && lightmap_depth >= lightmap_array_size) {
@@ -242,11 +250,37 @@ void GLM_LightmapShutdown(void)
 	surfaceTodoLength = 0;
 }
 
+// With hardware lighting, flags a world surface for the compute shader only when its result can
+// differ from the texels it last wrote: cached_light holds the style values they were lit with,
+// and cached_dlight is set while they include a dynamic light or when a reload is forced.
 void GLM_RenderDynamicLightmaps(msurface_t* s, qbool world)
 {
-	R_RenderDynamicLightmaps(s, world);
+	int maps;
+	qbool recompute;
 
-	if (R_HardwareLighting() && world && surfaceTodoData && s->surfacenum < maximumSurfaceNumber) {
+	// The shader only lights world surfaces, and full-bright pages are filled on the CPU
+	if (!R_HardwareLighting() || !world || R_LightmapsFullBright()) {
+		R_RenderDynamicLightmaps(s, world);
+		return;
+	}
+	if (!surfaceTodoData || s->surfacenum >= maximumSurfaceNumber) {
+		return;
+	}
+
+	recompute = s->cached_dlight;
+	for (maps = 0; maps < MAXLIGHTMAPS && s->styles[maps] != 255; maps++) {
+		if (s->cached_light[maps] != d_lightstylevalue[s->styles[maps]]) {
+			s->cached_light[maps] = d_lightstylevalue[s->styles[maps]];
+			recompute = true;
+		}
+	}
+	// A light that left the surface needs one more pass to clear its contribution
+	s->cached_dlight = (s->dlightframe == r_framecount);
+	if (s->cached_dlight) {
+		recompute = true;
+	}
+
+	if (recompute) {
 		surfaceTodoData[s->surfacenum / 32] |= (1u << (s->surfacenum % 32));
 		if (s->lightmaptexturenum >= 0 && s->lightmaptexturenum < lightmap_array_size) {
 			lightmaps[s->lightmaptexturenum].modified = true;
