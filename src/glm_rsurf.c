@@ -940,14 +940,6 @@ void GLM_DrawBrushModel(entity_t* ent, qbool polygonOffset, qbool caustics)
 		return;
 	}
 
-	if (model->drawflat_chain) {
-		req = GLM_NextBatchRequest(model, ent->alpha, 0, 0, NULL, polygonOffset, caustics, false);
-
-		req = GLM_DrawFlatChain(req, model->drawflat_chain);
-
-		model->drawflat_chain = NULL;
-	}
-
 	for (i = first_material; i <= last_material; ++i) {
 		texture_t* tex;
 		texture_t* frame;
@@ -962,6 +954,16 @@ void GLM_DrawBrushModel(entity_t* ent, qbool polygonOffset, qbool caustics)
 		GLM_AssignTexture(i, frame);
 
 		req = GLM_DrawTexturedChain(req, tex->texturechain);
+	}
+
+	// After the textured surfaces, so the sky they cover fails the depth test instead of being
+	// shaded first and then overwritten
+	if (model->drawflat_chain) {
+		req = GLM_NextBatchRequest(model, ent->alpha, 0, 0, NULL, polygonOffset, caustics, false);
+
+		req = GLM_DrawFlatChain(req, model->drawflat_chain);
+
+		model->drawflat_chain = NULL;
 	}
 }
 
@@ -981,6 +983,15 @@ static int GL_DrawCallComparison(const void* lhs_, const void* rhs_)
 		return 1;
 	}
 	else if (!lhs->isAlphaTested && rhs->isAlphaTested) {
+		return -1;
+	}
+
+	// Requests without a material hold the drawflat chain with the sky, which is drawn after the
+	// textured surfaces so the parts they cover fail the depth test
+	if (!lhs->samplerMappingCount && rhs->samplerMappingCount) {
+		return 1;
+	}
+	else if (lhs->samplerMappingCount && !rhs->samplerMappingCount) {
 		return -1;
 	}
 
