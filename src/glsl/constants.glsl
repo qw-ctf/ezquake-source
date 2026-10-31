@@ -66,8 +66,8 @@
 #define EZQ_ALIAS_MODE_OUTLINES      2
 #define EZQ_ALIAS_MODE_OUTLINES_SPEC 4
 
-// 8x8 block
-#define HW_LIGHTING_BLOCK_SIZE 4
+// Lighting compute work groups are 8x8: 64 invocations fill whole warps and wavefronts
+#define HW_LIGHTING_BLOCK_SIZE 8
 
 // HUD rendering
 #define IMAGEPROG_FLAGS_TEXTURE     1    // Texture the image (otherwise colored rectangle)
