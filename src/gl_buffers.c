@@ -382,6 +382,10 @@ static void GL_ResizeBuffer(r_buffer_id id, int size, void* data)
 	assert(glBufferState.buffers[id].glref);
 
 	if (glBufferState.buffers[id].using_storage) {
+		// GL_BufferAllocateSlot clears the slot before copying the name into it
+		char name[sizeof(glBufferState.buffers[id].name)];
+
+		strlcpy(name, glBufferState.buffers[id].name, sizeof(name));
 		if (glBufferState.buffers[id].persistent_mapped_ptr) {
 			if (GL_Available(glUnmapNamedBuffer)) {
 				GL_Procedure(glUnmapNamedBuffer, glBufferState.buffers[id].glref);
@@ -394,7 +398,7 @@ static void GL_ResizeBuffer(r_buffer_id id, int size, void* data)
 
 		// Leave deleting the old buffer to GL_BufferAllocateSlot, which also forgets the cached
 		// bindings of its name: the driver usually hands out the same name for the new buffer
-		GL_CreateFixedBuffer(id, glBufferState.buffers[id].type, glBufferState.buffers[id].name, size, data, glBufferState.buffers[id].usage);
+		GL_CreateFixedBuffer(id, glBufferState.buffers[id].type, name, size, data, glBufferState.buffers[id].usage);
 	}
 	else {
 		if (GL_Available(glNamedBufferData)) {
