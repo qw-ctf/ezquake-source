@@ -57,10 +57,16 @@ void chain_surfaces_simple(msurface_t** chain_head, msurface_t* surf)
 	*chain_head = surf;
 }
 
-void chain_surfaces_simple_drawflat(msurface_t** chain_head, msurface_t* surf)
+// Appends like CHAIN_SURF_F2B, so drawflat surfaces are drawn near-to-far too. Renderers clear
+// the chain after drawing it, so a head of NULL also resets the tail.
+void R_ChainDrawflatSurface(model_t *model, msurface_t *surf)
 {
-	surf->drawflatchain = *chain_head;
-	*chain_head = surf;
+	if (!model->drawflat_chain) {
+		model->drawflat_chain_tail = &model->drawflat_chain;
+	}
+	*model->drawflat_chain_tail = surf;
+	model->drawflat_chain_tail = &surf->drawflatchain;
+	surf->drawflatchain = NULL;
 }
 
 void chain_surfaces_by_lightmap(msurface_t** chain_head, msurface_t* surf)
@@ -260,7 +266,7 @@ void R_RecursiveWorldNode(mnode_t *node, int clipflags)
 			alphaSurface = (surf->flags & SURF_DRAWALPHA);
 			if (surf->flags & SURF_DRAWSKY) {
 				if (r_fastsky.integer || R_UseModernOpenGL()) {
-					chain_surfaces_simple_drawflat(&cl.worldmodel->drawflat_chain, surf);
+					R_ChainDrawflatSurface(cl.worldmodel, surf);
 					cl.worldmodel->drawflat_todo = true;
 				}
 				else if (!r_fastsky.integer) {
@@ -269,7 +275,7 @@ void R_RecursiveWorldNode(mnode_t *node, int clipflags)
 			}
 			else if (turbSurface) {
 				if (r_fastturb.integer && r_refdef2.wateralpha == 1) {
-					chain_surfaces_simple_drawflat(&cl.worldmodel->drawflat_chain, surf);
+					R_ChainDrawflatSurface(cl.worldmodel, surf);
 					cl.worldmodel->drawflat_todo = true;
 				}
 				else if (r_refdef2.solidTexTurb && R_UseModernOpenGL()) {
@@ -286,7 +292,7 @@ void R_RecursiveWorldNode(mnode_t *node, int clipflags)
 						R_AddDrawflatChainSurface(surf, true);
 					}
 					else {
-						chain_surfaces_simple_drawflat(&cl.worldmodel->drawflat_chain, surf);
+						R_ChainDrawflatSurface(cl.worldmodel, surf);
 					}
 					cl.worldmodel->drawflat_todo = true;
 				}
@@ -295,7 +301,7 @@ void R_RecursiveWorldNode(mnode_t *node, int clipflags)
 						R_AddDrawflatChainSurface(surf, false);
 					}
 					else {
-						chain_surfaces_simple_drawflat(&cl.worldmodel->drawflat_chain, surf);
+						R_ChainDrawflatSurface(cl.worldmodel, surf);
 					}
 					cl.worldmodel->drawflat_todo = true;
 				}

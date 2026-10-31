@@ -1527,7 +1527,7 @@ void GLC_ChainBrushModelSurfaces(model_t* clmodel, entity_t* ent)
 			(!(psurf->flags & SURF_PLANEBACK) && (dot > BACKFACE_EPSILON))) {
 			if (psurf->flags & SURF_DRAWSKY) {
 				if (r_fastsky.integer) {
-					CHAIN_SURF_B2F(psurf, clmodel->drawflat_chain);
+					R_ChainDrawflatSurface(clmodel, psurf);
 					clmodel->drawflat_todo = true;
 				}
 				else {

@@ -140,7 +140,7 @@ void GLM_ChainBrushModelSurfaces(model_t* clmodel, entity_t* ent)
 	for (i = 0; i < clmodel->nummodelsurfaces; i++, psurf++) {
 		if (psurf->flags & SURF_DRAWSKY) {
 			// FIXME: Find an example...
-			CHAIN_SURF_B2F(psurf, clmodel->drawflat_chain);
+			R_ChainDrawflatSurface(clmodel, psurf);
 			clmodel->drawflat_todo = true;
 
 			clmodel->first_texture_chained = min(clmodel->first_texture_chained, psurf->texinfo->miptex);
@@ -150,7 +150,7 @@ void GLM_ChainBrushModelSurfaces(model_t* clmodel, entity_t* ent)
 			extern cvar_t r_fastturb;
 			// FIXME: Find an example...
 			if (r_fastturb.integer) {
-				CHAIN_SURF_B2F(psurf, clmodel->drawflat_chain);
+				R_ChainDrawflatSurface(clmodel, psurf);
 				clmodel->drawflat_todo = true;
 			}
 			else {
@@ -166,11 +166,11 @@ void GLM_ChainBrushModelSurfaces(model_t* clmodel, entity_t* ent)
 			qbool alphaSurface = (psurf->flags & SURF_DRAWALPHA);
 
 			if (!alphaSurface && drawFlatFloors && (psurf->flags & SURF_DRAWFLAT_FLOOR)) {
-				chain_surfaces_simple_drawflat(&clmodel->drawflat_chain, psurf);
+				R_ChainDrawflatSurface(clmodel, psurf);
 				clmodel->drawflat_todo = true;
 			}
 			else if (!alphaSurface && drawFlatWalls && !(psurf->flags & SURF_DRAWFLAT_FLOOR)) {
-				chain_surfaces_simple_drawflat(&clmodel->drawflat_chain, psurf);
+				R_ChainDrawflatSurface(clmodel, psurf);
 				clmodel->drawflat_todo = true;
 			}
 			else {

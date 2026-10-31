@@ -573,6 +573,7 @@ typedef struct model_s {
 	float               simpletexture_scalingT[MAX_SIMPLE_TEXTURES];
 
 	msurface_t*         drawflat_chain;
+	msurface_t **drawflat_chain_tail;
 	qbool               drawflat_todo;
 	qbool               alphapass_todo;
 	int                 first_texture_chained;
