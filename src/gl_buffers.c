@@ -391,12 +391,9 @@ static void GL_ResizeBuffer(r_buffer_id id, int size, void* data)
 				GL_Procedure(glUnmapBuffer, GL_BufferTypeToTarget(glBufferState.buffers[id].type));
 			}
 		}
-		GL_Procedure(glDeleteBuffers, 1, &glBufferState.buffers[id].glref);
-		glBufferState.buffers[id].glref = 0;
-#ifdef DEBUG_MEMORY_ALLOCATIONS
-		Sys_Printf("\nbuffer,free-resize,%d,%s,%u\n", id, glBufferState.buffers[id].name, glBufferState.buffers[id].size * (glBufferState.buffers[id].persistent_mapped_ptr ? 3 : 1));
-#endif
 
+		// Leave deleting the old buffer to GL_BufferAllocateSlot, which also forgets the cached
+		// bindings of its name: the driver usually hands out the same name for the new buffer
 		GL_CreateFixedBuffer(id, glBufferState.buffers[id].type, glBufferState.buffers[id].name, size, data, glBufferState.buffers[id].usage);
 	}
 	else {
