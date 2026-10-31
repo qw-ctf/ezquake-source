@@ -385,13 +385,12 @@ qbool GL_FramebufferCreate(framebuffer_id id, int width, int height)
 	strlcat(label, "/", sizeof(label));
 	strlcat(label, framebuffer_texture_names[fbtex_standard], sizeof(label));
 
-	// Create standard rendering texture
-	GL_FramebufferCreateRenderingTexture(fb, fbtex_standard, texture_type_2d, framebuffer_format, label, width, height);
-
-	// Create multi-sampled texture
 	if (fb->samples) {
 		GL_CreateTexturesWithIdentifier(texture_type_2d_multisampled, 1, &fb->texture[fbtex_standard], label);
 		GL_TexStorage2DMultisample(fb->texture[fbtex_standard], fb->samples, framebuffer_format, width, height, EZ_USE_FIXED_SAMPLE_LOCATIONS);
+	}
+	else {
+		GL_FramebufferCreateRenderingTexture(fb, fbtex_standard, texture_type_2d, framebuffer_format, label, width, height);
 	}
 
 	// Set linear filtering if requested
