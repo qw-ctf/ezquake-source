@@ -549,7 +549,7 @@ static void GL_MultiSamplingResolve(framebuffer_id src, framebuffer_id target, f
 		}
 	}
 	if (temp_dst) {
-		if (fb_blit_dst->width != fb_orig_dst->width || fb_blit_src->height != fb_orig_dst->height) {
+		if (fb_blit_dst->width != fb_orig_dst->width || fb_blit_dst->height != fb_orig_dst->height) {
 			GL_FramebufferDelete(temp_dst);
 		}
 		if (!fb_blit_dst->glref && !GL_FramebufferCreate(temp_dst, fb_orig_dst->width, fb_orig_dst->height)) {
