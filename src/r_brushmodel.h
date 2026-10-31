@@ -49,6 +49,15 @@ qbool R_DrawWorldOutlines(void);
 		(surf)->texturechain = (chain);			\
 		(chain) = (surf);						\
 	}
+// R_RecursiveWorldNode visits surfaces front to back, so appending draws each texture's
+// surfaces near-to-far and hidden ones fail the depth test instead of being shaded and then
+// overwritten. Only append to a chain whose tail was reset along with its head.
+#define CHAIN_SURF_F2B(surf, chain_tail)		\
+	{											\
+		*(chain_tail) = (surf);					\
+		(chain_tail) = &(surf)->texturechain;	\
+		(surf)->texturechain = NULL;			\
+	}
 void chain_surfaces_simple(msurface_t** chain_head, msurface_t* surf);
 void chain_surfaces_simple_drawflat(msurface_t** chain_head, msurface_t* surf);
 void chain_surfaces_by_lightmap(msurface_t** chain_head, msurface_t* surf);

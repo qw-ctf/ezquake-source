@@ -154,7 +154,7 @@ void GLM_ChainBrushModelSurfaces(model_t* clmodel, entity_t* ent)
 				clmodel->drawflat_todo = true;
 			}
 			else {
-				CHAIN_SURF_B2F(psurf, psurf->texinfo->texture->texturechain);
+				CHAIN_SURF_F2B(psurf, psurf->texinfo->texture->texturechain_tail);
 			}
 
 			clmodel->first_texture_chained = min(clmodel->first_texture_chained, psurf->texinfo->miptex);
@@ -174,7 +174,7 @@ void GLM_ChainBrushModelSurfaces(model_t* clmodel, entity_t* ent)
 				clmodel->drawflat_todo = true;
 			}
 			else {
-				chain_surfaces_simple(&psurf->texinfo->texture->texturechain, psurf);
+				CHAIN_SURF_F2B(psurf, psurf->texinfo->texture->texturechain_tail);
 
 				clmodel->first_texture_chained = min(clmodel->first_texture_chained, psurf->texinfo->miptex);
 				clmodel->last_texture_chained = max(clmodel->last_texture_chained, psurf->texinfo->miptex);

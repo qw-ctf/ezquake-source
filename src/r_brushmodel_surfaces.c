@@ -82,19 +82,6 @@ void chain_surfaces_by_lightmap(msurface_t** chain_head, msurface_t* surf)
 	*chain_head = surf;
 }
 
-#define CHAIN_SURF_F2B(surf, chain_tail)		\
-	{											\
-		*(chain_tail) = (surf);					\
-		(chain_tail) = &(surf)->texturechain;	\
-		(surf)->texturechain = NULL;			\
-	}
-
-#define CHAIN_SURF_B2F(surf, chain) 			\
-	{											\
-		(surf)->texturechain = (chain);			\
-		(chain) = (surf);						\
-	}
-
 #define CHAIN_RESET(chain)			\
 {								\
 	chain = NULL;				\
@@ -286,7 +273,7 @@ void R_RecursiveWorldNode(mnode_t *node, int clipflags)
 					cl.worldmodel->drawflat_todo = true;
 				}
 				else if (r_refdef2.solidTexTurb && R_UseModernOpenGL()) {
-					chain_surfaces_simple(&surf->texinfo->texture->texturechain, surf);
+					CHAIN_SURF_F2B(surf, surf->texinfo->texture->texturechain_tail);
 				}
 				else {
 					chain_surfaces_simple(&waterchain, surf);
@@ -325,7 +312,7 @@ void R_RecursiveWorldNode(mnode_t *node, int clipflags)
 						}
 					}
 					else {
-						chain_surfaces_simple(&surf->texinfo->texture->texturechain, surf);
+						CHAIN_SURF_F2B(surf, surf->texinfo->texture->texturechain_tail);
 					}
 				}
 			}
