@@ -478,9 +478,37 @@ qbool GL_FramebufferCreate(framebuffer_id id, int width, int height)
 	return false;
 }
 
+static qbool GL_FramebufferEnsureWorldNormals(framebuffer_id id)
+{
+	framebuffer_data_t *fb = &framebuffer_data[id];
+	char label[128];
+
+	if (R_TextureReferenceIsValid(fb->texture[fbtex_worldnormals])) {
+		return true;
+	}
+
+	strlcpy(label, framebuffer_names[id], sizeof(label));
+	strlcat(label, "/", sizeof(label));
+	strlcat(label, framebuffer_texture_names[fbtex_worldnormals], sizeof(label));
+
+	if (fb->samples) {
+		GL_CreateTexturesWithIdentifier(texture_type_2d_multisampled, 1, &fb->texture[fbtex_worldnormals], label);
+		if (!R_TextureReferenceIsValid(fb->texture[fbtex_worldnormals])) {
+			return false;
+		}
+		GL_TexStorage2DMultisample(fb->texture[fbtex_worldnormals], fb->samples, GL_RGBA16F, fb->width, fb->height, EZ_USE_FIXED_SAMPLE_LOCATIONS);
+		R_TextureSetFlag(fb->texture[fbtex_worldnormals], R_TextureGetFlag(fb->texture[fbtex_worldnormals]) | TEX_NO_TEXTUREMODE);
+	}
+	else {
+		GL_FramebufferCreateRenderingTexture(fb, fbtex_worldnormals, texture_type_2d, GL_RGBA16F, label, fb->width, fb->height);
+	}
+	return R_TextureReferenceIsValid(fb->texture[fbtex_worldnormals]);
+}
+
 qbool GL_FramebufferStartWorldNormals(framebuffer_id id)
 {
 	framebuffer_data_t* fb = NULL;
+	framebuffer_id resolve_id = id;
 	GLenum buffers[2] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
 	float clearValue[] = { 0.0f, 0.0f, 0.0f, 0.0f };
 
@@ -490,35 +518,12 @@ qbool GL_FramebufferStartWorldNormals(framebuffer_id id)
 
 	id = VID_MultisampledAlternateId(id);
 	fb = &framebuffer_data[id];
-	if (!fb->glref) {
+	if (!fb->glref || !GL_FramebufferEnsureWorldNormals(id)) {
 		return false;
 	}
-
-	if (!R_TextureReferenceIsValid(fb->texture[fbtex_worldnormals])) {
-		char label[128];
-
-		// normals
-		strlcpy(label, framebuffer_names[id], sizeof(label));
-		strlcat(label, "/", sizeof(label));
-		strlcat(label, framebuffer_texture_names[fbtex_worldnormals], sizeof(label));
-
-		if (fb->samples) {
-			GL_CreateTexturesWithIdentifier(texture_type_2d_multisampled, 1, &fb->texture[fbtex_worldnormals], label);
-			if (!R_TextureReferenceIsValid(fb->texture[fbtex_worldnormals])) {
-				return false;
-			}
-			GL_TexStorage2DMultisample(fb->texture[fbtex_worldnormals], fb->samples, GL_RGBA16F, fb->width, fb->height, EZ_USE_FIXED_SAMPLE_LOCATIONS);
-		}
-		else {
-			GL_CreateTexturesWithIdentifier(texture_type_2d, 1, &fb->texture[fbtex_worldnormals], label);
-			if (!R_TextureReferenceIsValid(fb->texture[fbtex_worldnormals])) {
-				return false;
-			}
-			GL_TexStorage2D(fb->texture[fbtex_worldnormals], 1, GL_RGBA16F, fb->width, fb->height, false);
-			renderer.TextureSetFiltering(fb->texture[fbtex_worldnormals], texture_minification_nearest, texture_magnification_nearest);
-			renderer.TextureWrapModeClamp(fb->texture[fbtex_worldnormals]);
-		}
-		R_TextureSetFlag(fb->texture[fbtex_worldnormals], R_TextureGetFlag(fb->texture[fbtex_worldnormals]) | TEX_NO_TEXTUREMODE);
+	// Multisampled normals are resolved into the single-sample framebuffer the outline pass reads
+	if (id != resolve_id && !GL_FramebufferEnsureWorldNormals(resolve_id)) {
+		return false;
 	}
 
 	GL_FramebufferTexture(fb->glref, GL_COLOR_ATTACHMENT1, GL_TextureNameFromReference(fb->texture[fbtex_worldnormals]), 0);
