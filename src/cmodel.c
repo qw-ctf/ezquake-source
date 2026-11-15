@@ -1813,6 +1813,90 @@ bspx_header_t* Mod_LoadBSPX(int filesize, byte* mod_base)
 	// success
 	return xheader;
 }
+
+/*
+ * Returns the offset one past the last byte of map data in the .bsp open on
+ * vf: the end of the furthest core lump or, when a BSPX header follows the
+ * core lumps where CM_BSPX_FindOffset expects it, the end of its lump
+ * directory or of its furthest lump if that is later. Anything after that
+ * offset is not part of the map.
+ * Returns -1 if the header can't be read, the BSP version is one CM_LoadMap
+ * rejects, the file is too large for int offsets, or a lump or the BSPX lump
+ * directory lies outside the file. The file position is left undefined.
+ */
+int Mod_BSPX_FindDataEnd(vfsfile_t *vf)
+{
+	dheader_t header;
+	bspx_header_t xheader;
+	bspx_lump_t xlump;
+	unsigned long len;
+	int filesize, end, xofs, numlumps, i;
+
+	len = VFS_GETLEN(vf);
+	if (len > INT_MAX) {
+		return -1;
+	}
+	filesize = (int)len;
+
+	if (VFS_SEEK(vf, 0, SEEK_SET) < 0 || VFS_READ(vf, &header, sizeof(header), NULL) != sizeof(header)) {
+		return -1;
+	}
+	for (i = 0; i < (int)(sizeof(header) / 4); i++) {
+		((int *)&header)[i] = LittleLong(((int *)&header)[i]);
+	}
+
+	switch (header.version) {
+		case Q1_BSPVERSION:
+		case HL_BSPVERSION:
+		case Q1_BSPVERSION2:
+		case Q1_BSPVERSION29a:
+			break;
+		default:
+			return -1;
+	}
+
+	if (!CM_CheckLumps(vf, &header)) {
+		return -1;
+	}
+
+	// CM_CheckLumps bounded every lump by filesize, so these sums fit an int
+	end = 0;
+	for (i = 0; i < HEADER_LUMPS; i++) {
+		end = max(end, header.lumps[i].fileofs + header.lumps[i].filelen);
+	}
+
+	xofs = CM_BSPX_FindOffset(&header, filesize);
+	if (xofs < 0) {
+		return end;
+	}
+	if (VFS_SEEK(vf, xofs, SEEK_SET) < 0 || VFS_READ(vf, &xheader, sizeof(xheader), NULL) != sizeof(xheader)) {
+		return -1;
+	}
+	if (memcmp(xheader.id, "BSPX", sizeof(xheader.id))) {
+		return end;
+	}
+
+	end = xofs + (int)sizeof(xheader);
+	numlumps = LittleLong(xheader.numlumps);
+	if (numlumps < 0 || numlumps > (filesize - end) / (int)sizeof(xlump)) {
+		return -1;
+	}
+	end += numlumps * (int)sizeof(xlump);
+
+	for (i = 0; i < numlumps; i++) {
+		if (VFS_READ(vf, &xlump, sizeof(xlump), NULL) != sizeof(xlump)) {
+			return -1;
+		}
+		xlump.fileofs = LittleLong(xlump.fileofs);
+		xlump.filelen = LittleLong(xlump.filelen);
+		if (xlump.fileofs < 0 || xlump.filelen < 0 || xlump.filelen > filesize - xlump.fileofs) {
+			return -1;
+		}
+		end = max(end, xlump.fileofs + xlump.filelen);
+	}
+
+	return end;
+}
 #endif
 
 static byte* CM_BSPX_ReadLump(vfsfile_t *vf, bspx_header_t *xheader, bspx_lump_t* lump, char* lumpname, int* plumpsize)

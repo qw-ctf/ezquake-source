@@ -126,8 +126,10 @@ typedef struct bspx_header_s {
 } bspx_header_t;
 
 #ifndef SERVERONLY
+struct vfsfile_s;
 void* Mod_BSPX_FindLump(bspx_header_t* bspx_header, char* lumpname, int* plumpsize, byte* mod_base);
 bspx_header_t* Mod_LoadBSPX(int filesize, byte* mod_base);
+int Mod_BSPX_FindDataEnd(struct vfsfile_s *vf);
 #endif
 
 #endif /* !__CMODEL_H__ */
