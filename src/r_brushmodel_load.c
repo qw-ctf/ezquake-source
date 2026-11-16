@@ -819,6 +819,18 @@ static void Mod_LoadVertexes(model_t* mod, lump_t *l, byte* mod_base)
 	}
 }
 
+// Refuses an edge whose vertices lie outside the vertex lump. A surface edge
+// can't use edge 0, as it can't be negated, so some compilers leave it
+// uninitialised: it isn't checked, and Mod_LoadSurfedges refuses its use.
+static void Mod_CheckEdge(model_t *loadmodel, int edgenum, const medge_t *edge)
+{
+	unsigned int numvertexes = (unsigned int)loadmodel->numvertexes;
+
+	if (edgenum > 0 && (edge->v[0] >= numvertexes || edge->v[1] >= numvertexes)) {
+		Host_Error("[%s] edge %d references invalid vertexes %u and %u/%d", loadmodel->name, edgenum, edge->v[0], edge->v[1], loadmodel->numvertexes);
+	}
+}
+
 static void Mod_LoadEdges(model_t* loadmodel, lump_t* l, byte* mod_base)
 {
 	dedge_t *in;
@@ -844,6 +856,7 @@ static void Mod_LoadEdges(model_t* loadmodel, lump_t* l, byte* mod_base)
 	for (i = 0; i < count; i++, in++, out++) {
 		out->v[0] = (unsigned short) LittleShort(in->v[0]);
 		out->v[1] = (unsigned short) LittleShort(in->v[1]);
+		Mod_CheckEdge(loadmodel, i, out);
 	}
 }
 
@@ -870,6 +883,7 @@ static void Mod_LoadEdgesBSP2(model_t* loadmodel, lump_t* l, byte* mod_base)
 	for (i = 0; i < count; i++, in++, out++) {
 		out->v[0] = LittleLong(in->v[0]);
 		out->v[1] = LittleLong(in->v[1]);
+		Mod_CheckEdge(loadmodel, i, out);
 	}
 }
 
@@ -893,6 +907,10 @@ static void Mod_LoadSurfedges(model_t* loadmodel, lump_t* l, byte* mod_base)
 
 	for (i = 0; i < count; i++) {
 		out[i] = LittleLong(in[i]);
+		// an edge used backwards is negated, so edge 0 can't be used
+		if (out[i] == 0 || out[i] <= -loadmodel->numedges || out[i] >= loadmodel->numedges) {
+			Host_Error("[%s] surface edge %d references invalid edge %d/%d", loadmodel->name, i, out[i], loadmodel->numedges);
+		}
 	}
 }
 
