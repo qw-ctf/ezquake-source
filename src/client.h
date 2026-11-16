@@ -379,6 +379,7 @@ typedef enum
 	dl_none,
 	dl_model,
 	dl_vwep_model,
+	dl_map,
 	dl_sound,
 	dl_skin,
 	dl_single
@@ -971,6 +972,7 @@ void CL_BeginServerConnect(void);
 void CL_Disconnect (void);
 void CL_Disconnect_f (void);
 void CL_Reconnect_f (void);
+void CL_UnmountMapPackage(void);
 qbool CL_ConnectedToProxy(void);
 void CL_MakeActive(void);
 
