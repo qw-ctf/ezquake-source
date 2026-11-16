@@ -197,6 +197,14 @@ int FS_ZipGetNextFile (unzFile zip_file, sys_dirent *ent);
 #endif // WITH_ZIP
 
 qbool FS_UnsafeFilename(const char* name);
+qbool FS_IsSafeRelativePath(const char *path);
 void FS_SaveGameDirectory(char* buffer, int buffer_size);
+
+#ifndef SERVERONLY
+extern cvar_t mod_loadmappackages;
+void FS_MapPackage_Mount(const char *bspname);
+qbool FS_MapPackage_Unmount(void);
+qbool FS_IsMapPackageFile(const char *path);
+#endif
 
 #endif // __FS_H__

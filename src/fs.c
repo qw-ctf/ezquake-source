@@ -106,6 +106,9 @@ void FS_AddHomeDirectory(char *dir, FS_Load_File_Types loadstuff);
 
 static void FS_AddDataFiles(char *pathto, searchpath_t *search, char *extension, searchpathfuncs_t *funcs);
 static searchpath_t *FS_AddPathHandle(char *probablepath, searchpathfuncs_t *funcs, void *handle, qbool copyprotect, qbool istemporary, FS_Load_File_Types loadstuff);
+#ifndef SERVERONLY
+static void FS_MapPackage_Close(void);
+#endif
 
 qbool Sys_PathProtection(const char *pattern);
 void FS_Dir_f (void);
@@ -666,6 +669,10 @@ char *FS_NextPath (char *prevpath)
 }
 
 void FS_ShutDown( void ) {
+
+#ifndef SERVERONLY
+	FS_MapPackage_Close();
+#endif
 
 	// free data
 	while (fs_searchpaths)	{
@@ -1976,6 +1983,9 @@ void FS_InitModuleFS (void)
 
 	Cvar_SetCurrentGroup(CVAR_GROUP_FILESYSTEM);
 	Cvar_Register(&fs_cache);
+#ifndef SERVERONLY
+	Cvar_Register(&mod_loadmappackages);
+#endif
 	Cvar_Register(&fs_savegame_home);
 	Cvar_ResetCurrentGroup();
 
@@ -2296,6 +2306,299 @@ out:
 		return depth;
 	}
 }
+
+#ifndef SERVERONLY
+/*
+ * FTE lets a map carry its own assets in a zip archive appended to the .bsp,
+ * a map package. A mounted package is the last search path, so that everything
+ * installed takes precedence, and holds only the entries FS_MapPackage_Accept
+ * admits.
+ */
+
+cvar_t mod_loadmappackages = { "mod_loadmappackages", "1" };
+
+static searchpath_t *map_package;
+static char map_package_bsp[MAX_QPATH];
+// Set when a package is mounted, and cleared only when FS_MapPackage_Unmount
+// reports it, so that no other way of closing a package hides that data read
+// from it may still be cached.
+static qbool map_package_unreported;
+
+// Appends the map package to the search paths, after the base paths, which
+// FS_SetGamedir doesn't free.
+static void FS_MapPackage_Link(void)
+{
+	searchpath_t **link = &fs_searchpaths;
+
+	while (*link) {
+		link = &(*link)->next;
+	}
+	*link = map_package;
+
+	// a valid hash keeps the first provider of a name and a dirty one is
+	// rebuilt in search path order, so either way the package comes last
+	if (filesystemhash && !filesystemchanged) {
+		map_package->funcs->BuildHash(map_package->handle);
+	}
+}
+
+// Takes the map package out of the search paths, and the hash, which may point
+// into its file table, with it.
+static void FS_MapPackage_Unlink(void)
+{
+	searchpath_t **link = &fs_searchpaths;
+
+	while (*link && *link != map_package) {
+		link = &(*link)->next;
+	}
+	if (*link) {
+		*link = map_package->next;
+	}
+	map_package->next = NULL;
+
+	FS_FlushFSHash();
+}
+
+// Unmounts and frees the map package if there is one, without reporting it.
+static void FS_MapPackage_Close(void)
+{
+	if (!map_package) {
+		return;
+	}
+
+	FS_MapPackage_Unlink();
+	map_package->funcs->ClosePath(map_package->handle);
+	Q_free(map_package);
+	map_package_bsp[0] = '\0';
+}
+
+#ifdef WITH_ZIP
+// A zip archive ends with a 22-byte end of central directory record, so a map
+// followed by no more than that carries no package.
+#define ZIP_END_RECORD_SIZE 22
+
+// The image loaders take images of up to 4096 pixels a side
+// (IMAGE_MAX_DIMENSIONS in image.c), and no image is larger than one of that
+// size stored as uncompressed RGBA, plus 64 KiB for file headers.
+#define MAP_PACKAGE_MAX_IMAGE_SIZE (4096 * 4096 * 4 + 65536)
+
+// Models, .lit files and sounds are read whole into the hunk, where running out
+// of room is fatal. A sixteenth of the hunk's default size, 256 MiB, leaves
+// room for the map, and only the .lit files of the largest single-player maps
+// are bigger.
+#define MAP_PACKAGE_MAX_HUNK_FILE_SIZE (16 * 1024 * 1024)
+
+static const char *map_package_image_exts[] = { "tga", "png", "jpg", "pcx", NULL };
+static const char *map_package_model_exts[] = { "mdl", "md3", "spr", "bsp", NULL };
+
+static int map_package_seen, map_package_accepted;
+
+static qbool FS_MapPackage_HasExtension(const char *ext, const char **exts)
+{
+	for (; *exts; exts++) {
+		if (!strcmp(ext, *exts)) {
+			return true;
+		}
+	}
+	return false;
+}
+
+static qbool FS_MapPackage_HasPrefix(const char *name, const char *prefix)
+{
+	return !strncmp(name, prefix, strlen(prefix));
+}
+
+static qbool FS_MapPackage_IsImagePath(const char *name)
+{
+	if (FS_MapPackage_HasPrefix(name, "textures/")) {
+		return !FS_MapPackage_HasPrefix(name, "textures/charsets/") &&
+			!FS_MapPackage_HasPrefix(name, "textures/wad/") &&
+			!FS_MapPackage_HasPrefix(name, "textures/particles/");
+	}
+	return FS_MapPackage_HasPrefix(name, "env/") || FS_MapPackage_HasPrefix(name, "gfx/env/");
+}
+
+// Returns true if a search path has name with any of exts in place of its own
+// extension.
+static qbool FS_MapPackage_IsInstalled(const char *name, const char **exts)
+{
+	char path[MAX_QPATH];
+
+	for (; *exts; exts++) {
+		COM_StripExtension(name, path, sizeof(path));
+		strlcat(path, ".", sizeof(path));
+		strlcat(path, *exts, sizeof(path));
+		if (FS_FLocateFile(path, FSLFRT_IFFOUND, NULL)) {
+			return true;
+		}
+	}
+	return false;
+}
+
+/*
+ * Decides which entries of a map package are mounted. The archive comes from
+ * the server along with the map, so it may supply map content only, never
+ * configs, progs or other files that run or change settings, and only where
+ * nothing is installed. An entry is admitted only if all of these hold:
+ * - its name is a safe relative path (FS_IsSafeRelativePath) without '\';
+ * - uncompressed, it is at most MAP_PACKAGE_MAX_IMAGE_SIZE bytes if it is an
+ *   image and MAP_PACKAGE_MAX_HUNK_FILE_SIZE bytes otherwise;
+ * - it is in one of these classes:
+ *     images:   tga png jpg pcx, under textures/ (but not textures/charsets/,
+ *               textures/wad/ or textures/particles/), env/ or gfx/env/
+ *     models:   mdl md3 spr bsp, anywhere
+ *     lighting: lit, anywhere
+ *     sounds:   wav, under sound/
+ *   These are the formats the image and model loaders try, and wav is the
+ *   only sound format servers can already send. Directories, names without
+ *   an extension and all other types are left out;
+ * - if it is an image or a model, no search path has its name in any format
+ *   of its class. The loaders take the first format they find and try .md3
+ *   before .mdl, so a package .tga would otherwise beat an installed .png,
+ *   and a package progs/player.md3 the installed progs/player.mdl.
+ * This runs before the package is linked into the search paths, so
+ * FS_FLocateFile sees installed files only.
+ */
+static qbool FS_MapPackage_Accept(const char *name, unsigned long size)
+{
+	const char *ext;
+
+	map_package_seen++;
+
+	if (!FS_IsSafeRelativePath(name) || strchr(name, '\\')) {
+		return false;
+	}
+
+	ext = COM_FileExtension(name);
+	if (FS_MapPackage_HasExtension(ext, map_package_image_exts)) {
+		if (size > MAP_PACKAGE_MAX_IMAGE_SIZE || !FS_MapPackage_IsImagePath(name) ||
+			FS_MapPackage_IsInstalled(name, map_package_image_exts)) {
+			return false;
+		}
+	}
+	else if (size > MAP_PACKAGE_MAX_HUNK_FILE_SIZE) {
+		return false;
+	}
+	else if (FS_MapPackage_HasExtension(ext, map_package_model_exts)) {
+		if (FS_MapPackage_IsInstalled(name, map_package_model_exts)) {
+			return false;
+		}
+	}
+	else if (!strcmp(ext, "wav")) {
+		if (!FS_MapPackage_HasPrefix(name, "sound/")) {
+			return false;
+		}
+	}
+	else if (strcmp(ext, "lit")) {
+		return false;
+	}
+
+	map_package_accepted++;
+	return true;
+}
+
+/*
+ * Links the archive appended to the map bspname, which is looked up as
+ * CM_OpenMap does, in as the last search path. Does nothing for a map in a
+ * pk3, where a seek means inflating the entry again, or one followed by no
+ * more than a zip end record, which costs an ordinary map one header read.
+ */
+static void FS_MapPackage_Open(const char *bspname)
+{
+	searchpath_t *search;
+	vfsfile_t *vf;
+	void *handle;
+	int end;
+
+	if (!(vf = FS_OpenVFS(bspname, "rb", FS_ANY))) {
+		return;
+	}
+
+	end = vf->seekingisabadplan ? -1 : Mod_BSPX_FindDataEnd(vf);
+	if (end < 0 || VFS_GETLEN(vf) - (unsigned long)end <= ZIP_END_RECORD_SIZE) {
+		VFS_CLOSE(vf);
+		return;
+	}
+
+	map_package_seen = map_package_accepted = 0;
+	if (!(handle = FSZIP_LoadFromVFS(vf, bspname, FS_MapPackage_Accept))) {
+		Com_DPrintf("%s: the data after the map is not a usable zip archive\n", bspname);
+		VFS_CLOSE(vf);
+		return;
+	}
+
+	Com_DPrintf("%s: mounting %d of %d map package entries\n", bspname, map_package_accepted, map_package_seen);
+	if (!map_package_accepted) {
+		zipfilefuncs.ClosePath(handle);
+		return;
+	}
+
+	search = Q_calloc(1, sizeof(*search));
+	search->funcs = &zipfilefuncs;
+	search->handle = handle;
+	search->copyprotected = true;
+	search->istemporary = true;
+
+	map_package = search;
+	strlcpy(map_package_bsp, bspname, sizeof(map_package_bsp));
+	map_package_unreported = true;
+	FS_MapPackage_Link();
+}
+#endif // WITH_ZIP
+
+/*
+ * Mounts the package appended to the map bspname, if mod_loadmappackages is
+ * set, until FS_MapPackage_Unmount; FS_ReloadPackFilesFlags keeps it. A package
+ * already mounted for bspname is kept as it is; one mounted for another map is
+ * closed first, so that a package never serves a map it doesn't belong to.
+ */
+void FS_MapPackage_Mount(const char *bspname)
+{
+	if (map_package && !strcmp(map_package_bsp, bspname)) {
+		return;
+	}
+	FS_MapPackage_Close();
+
+#ifdef WITH_ZIP
+	if (mod_loadmappackages.integer) {
+		FS_MapPackage_Open(bspname);
+	}
+#endif
+}
+
+/*
+ * Unmounts the map package, if one is mounted. Returns true if a package has
+ * been mounted since the last call that returned true, whether or not it is
+ * still mounted: data read from it may then be cached by name.
+ */
+qbool FS_MapPackage_Unmount(void)
+{
+	qbool unreported = map_package_unreported;
+
+	FS_MapPackage_Close();
+	map_package_unreported = false;
+
+	return unreported;
+}
+
+// Returns true if path resolves to an entry of the map package, that is, if
+// FS_LoadFile would read it from there.
+qbool FS_IsMapPackageFile(const char *path)
+{
+	char name[MAX_OSPATH];
+	flocation_t loc;
+
+	if (!map_package) {
+		return false;
+	}
+
+	// FS_LoadFile looks the name up after this has turned '\' into '/'
+	strlcpy(name, path, sizeof(name));
+	Sys_PathProtection(name);
+
+	return FS_FLocateFile(name, FSLFRT_IFFOUND, &loc) && loc.search == map_package;
+}
+#endif // !SERVERONLY
 
 char *FS_GetPackHashes(char *buffer, int buffersize, qbool referencedonly)
 {
@@ -3029,6 +3332,14 @@ void FS_ReloadPackFilesFlags(FS_Load_File_Types reloadflags)
 		}
 	}
 
+#ifndef SERVERONLY
+	// the client may still hold the map the package belongs to, so it is kept
+	// out of the paths rebuilt here and appended to them again afterwards
+	if (map_package) {
+		FS_MapPackage_Unlink();
+	}
+#endif
+
 	FS_FlushFSHash();
 
 	oldpaths = fs_searchpaths;
@@ -3075,6 +3386,12 @@ void FS_ReloadPackFilesFlags(FS_Load_File_Types reloadflags)
 
 	if (!fs_base_searchpaths)
 		fs_base_searchpaths = fs_searchpaths;
+
+#ifndef SERVERONLY
+	if (map_package) {
+		FS_MapPackage_Link();
+	}
+#endif
 }
 
 void FS_UnloadPackFiles(void)
@@ -3256,10 +3573,47 @@ qbool FS_UnsafeFilename(const char* fileName)
 		strstr(fileName, "..");
 }
 
+/*
+ * Returns true if path is relative and can't leave the directory it is
+ * resolved against: it isn't empty, doesn't start with a separator, has no ':'
+ * and no empty, "." or ".." component. Both '/' and '\' separate components.
+ */
+qbool FS_IsSafeRelativePath(const char *path)
+{
+	const char *segment;
+
+	if (!path[0] || path[0] == '/' || path[0] == '\\' || strchr(path, ':')) {
+		return false;
+	}
+
+	segment = path;
+	for (;;) {
+		size_t len;
+		const char *slash = strpbrk(segment, "/\\");
+
+		len = slash ? (size_t)(slash - segment) : strlen(segment);
+		if (!len || (len == 1 && segment[0] == '.') ||
+			(len == 2 && segment[0] == '.' && segment[1] == '.')) {
+			return false;
+		}
+
+		if (!slash) {
+			break;
+		}
+		segment = slash + 1;
+	}
+
+	return true;
+}
+
 void FS_Shutdown(void)
 {
 	searchpath_t* path;
 	searchpath_t* next;
+
+#ifndef SERVERONLY
+	FS_MapPackage_Close();
+#endif
 
 	Hash_ShutdownTable(filesystemhash);
 	filesystemhash = NULL;
