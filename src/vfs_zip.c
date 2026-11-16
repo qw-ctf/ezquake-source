@@ -33,25 +33,26 @@
 //===========================
 // These functions provide IO support for the unzip library using our VFS layer
 
+// The opaque pointer is the archive's vfsfile_t, which minizip then passes
+// back as the stream to every other callback.
 static void *FSZIP_ZOpenFile(void *fin, const char *filename, int mode) {
-	vfsfile_t *vfs_fin = (vfsfile_t *)fin;
-
-	// VFS-TODO Maybe need to increase reference count
-	if ((mode & ZLIB_FILEFUNC_MODE_READWRITEFILTER)==ZLIB_FILEFUNC_MODE_READ) {
-	} else if (mode & ZLIB_FILEFUNC_MODE_EXISTING) {
-		Sys_Error("FSZIP_ZOpenFile: Unsupported file mode: MODE_EXISTING");
-		return NULL;
-	} else if (mode & ZLIB_FILEFUNC_MODE_CREATE) {
-		Sys_Error("FSZIP_ZOpenFile: Unsupported file mode: write");
+	if ((mode & ZLIB_FILEFUNC_MODE_READWRITEFILTER) != ZLIB_FILEFUNC_MODE_READ) {
 		return NULL;
 	}
 
-	return vfs_fin;
+	return fin;
 }
 
 static unsigned long FSZIP_ZReadFile(void *fin, void *stream, void *buf, unsigned long size) {
 	vfsfile_t *vfs_fin = (vfsfile_t *)stream;
-	return VFS_READ(vfs_fin, buf, size, NULL);
+	int r;
+
+	if (size > INT_MAX) {
+		return 0;
+	}
+
+	r = VFS_READ(vfs_fin, buf, (int)size, NULL);
+	return r > 0 ? r : 0;
 }
 
 static unsigned long FSZIP_ZWriteFile(void *fin, void *stream, const void *buf, unsigned long size) {
@@ -74,8 +75,7 @@ static long FSZIP_ZSeekFile(void *fin, void *stream, unsigned long offset, int o
 	case ZLIB_FILEFUNC_SEEK_CUR: fseek_origin = SEEK_CUR; break;
 	case ZLIB_FILEFUNC_SEEK_END: fseek_origin = SEEK_END; break;
 	case ZLIB_FILEFUNC_SEEK_SET: fseek_origin = SEEK_SET; break;
-	default: 
-		Sys_Error("FSZIP_ZSeekFile: Unsupported seek origin: Unknown");
+	default:
 		return -1;
 	}
 
@@ -84,11 +84,10 @@ static long FSZIP_ZSeekFile(void *fin, void *stream, unsigned long offset, int o
 	return r;
 }
 
+// The zipfile_t owns the archive's vfsfile_t and closes it after unzClose,
+// and a failed open must leave it to the caller.
 static int FSZIP_ZCloseFile(void *fin, void *stream) {
-	// vfsfile_t *vfs_fin = (vfsfile_t *)stream;
-	// VFS-TODO: Need to decrease references 
-	// VFS_CLOSE(vfs_fin);
-	return 0; 
+	return 0;
 }
 
 static int FSZIP_ZErrorFileFile(void *fin, void *stream) {
@@ -479,42 +478,45 @@ static int FSZIP_EnumerateFiles (void *handle, char *match, int (*func)(char *, 
 	return true;
 }
 
+// A map package has no use for zip64, so archives opened through a VFS handle
+// are held to the classic zip limit, which also bounds their file table.
+#define FSZIP_MAX_VFS_ENTRIES 65535
+
 // A central directory entry takes at least this many bytes of the archive.
 #define FSZIP_MIN_CENTRAL_ENTRY_SIZE 46
 
 /*
-=================
-COM_LoadZipFile
-
-Takes an explicit (not game tree related) path to a pak file.
-
-Loads the header and directory, adding the files at the beginning
-of the list so they override previous pack files. Entries whose name
-or size doesn't fit a packfile_t are left out. An archive whose end
-record counts more entries than its size can hold is refused.
-=================
-*/
-static void *FSZIP_LoadZipFile(vfsfile_t *packhandle, const char *desc)
+ * Reads the central directory of a zip archive into a new handle that owns raw
+ * and closes it in FSZIP_ClosePath. With through_vfs, minizip reads the
+ * archive through raw and desc only names it; otherwise minizip opens desc by
+ * OS path. Entries whose name or size doesn't fit a packfile_t, or that a
+ * non-NULL accept rejects, are left out. An archive whose end record counts
+ * more entries than raw's size can hold is refused. Returns NULL on failure,
+ * leaving raw open and to the caller.
+ */
+static void *FSZIP_Open(vfsfile_t *raw, const char *desc, qbool through_vfs, qbool (*accept)(const char *name, unsigned long size))
 {
 	int i, r, numentries;
 
 	zipfile_t *zip;
 	packfile_t *pf;
-	zlib_filefunc_def *funcs = NULL;
 	unz_global_info64 info;
 
 	zip   = (zipfile_t *) Q_calloc(1, sizeof(*zip));
 	strlcpy (zip->filename, desc, sizeof (zip->filename));
 	FSZIP_CreteFileFuncs(&(zip->zlib_funcs));
-	zip->raw = packhandle;
-	zip->handle = unzOpen2(desc, funcs);
+	zip->zlib_funcs.opaque = raw;
+	zip->raw = raw;
+	zip->handle = unzOpen2(desc, through_vfs ? &zip->zlib_funcs : NULL);
 	if (!zip->handle) goto fail;
 
 	if (unzGetGlobalInfo64(zip->handle, &info) != UNZ_OK)
 		goto fail;
+	if (through_vfs && info.number_entry > FSZIP_MAX_VFS_ENTRIES)
+		goto fail;
 	// the second bound keeps the file table's size in an int, so it can't
 	// wrap a 32-bit size_t either
-	if (info.number_entry > VFS_GETLEN(packhandle) / FSZIP_MIN_CENTRAL_ENTRY_SIZE || info.number_entry > INT_MAX / sizeof(packfile_t)) {
+	if (info.number_entry > VFS_GETLEN(raw) / FSZIP_MIN_CENTRAL_ENTRY_SIZE || info.number_entry > INT_MAX / sizeof(packfile_t)) {
 		Com_Printf("%s: corrupt zip archive with %llu entries\n", desc, (unsigned long long)info.number_entry);
 		goto fail;
 	}
@@ -532,9 +534,12 @@ static void *FSZIP_LoadZipFile(vfsfile_t *packhandle, const char *desc)
 		// minizip leaves a name that doesn't fit unterminated
 		if (file_info.size_filename < sizeof(pf->name) && file_info.uncompressed_size <= INT_MAX) {
 			Q_strlwr(pf->name);
-			pf->filelen = (int)file_info.uncompressed_size;
-			pf->filepos = unzGetOffset(zip->handle); // VFS-FIXME: Need to verify this
-			zip->numfiles++;
+			if (!accept || accept(pf->name, (unsigned long)file_info.uncompressed_size)) {
+				pf->filelen = (int)file_info.uncompressed_size;
+				// relative to the archive, so data in front of it doesn't matter
+				pf->filepos = unzGetOffset(zip->handle);
+				zip->numfiles++;
+			}
 		}
 
 		r = unzGoToNextFile (zip->handle);
@@ -551,13 +556,35 @@ static void *FSZIP_LoadZipFile(vfsfile_t *packhandle, const char *desc)
 	return zip;
 
 fail:
-	// Q_free is safe to call on NULL pointers
-	Q_free(funcs);
 	if (zip->handle)
 		unzClose(zip->handle);
 	Q_free(zip->files);
 	Q_free(zip);
 	return NULL;
+}
+
+// The OpenNew slot, used for pk3 and pk4 files. minizip reopens desc by OS
+// path; packhandle gives the archive's size and is closed with the path.
+static void *FSZIP_LoadZipFile(vfsfile_t *packhandle, const char *desc)
+{
+	return FSZIP_Open(packhandle, desc, false, NULL);
+}
+
+/*
+ * Opens the zip archive read through file, which may have other data in front
+ * of it, such as the map a zip has been appended to; desc names it in path
+ * listings. accept, unless NULL, is called once for each entry whose name is
+ * shorter than MAX_QPATH and whose size fits an int, with the lowercased name
+ * and the uncompressed size, and leaves the entry out by returning false; the
+ * other entries are always left out. Archives of more than
+ * FSZIP_MAX_VFS_ENTRIES entries are refused.
+ * Returns a handle for the zipfilefuncs slots that owns file and closes it
+ * when FSZIP_ClosePath drops the last reference, or NULL, in which case file
+ * is still open and still the caller's.
+ */
+void *FSZIP_LoadFromVFS(vfsfile_t *file, const char *desc, qbool (*accept)(const char *name, unsigned long size))
+{
+	return FSZIP_Open(file, desc, true, accept);
 }
 
 // VFS-FIXME: Don't really seem to know what this does
