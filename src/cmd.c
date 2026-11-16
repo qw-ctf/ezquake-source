@@ -600,6 +600,19 @@ void Cmd_StuffCmds_f (void)
 	Q_free (token);
 }
 
+// Returns true, after a warning, if exec would read name from the map package.
+// The package comes from the server with the map, so whatever its files are
+// called, none of them may run with the console's rights.
+static qbool Cmd_RefuseMapPackageExec(const char *name)
+{
+	if (!FS_IsMapPackageFile(name)) {
+		return false;
+	}
+
+	Com_Printf("Warning: \"%s\" is part of a map package and is not allowed to be executed\n", name);
+	return true;
+}
+
 void Cmd_Exec_f (void)
 {
 	char *f, name[MAX_OSPATH];
@@ -621,7 +634,7 @@ void Cmd_Exec_f (void)
 #endif
 
 	strlcpy(name, Cmd_Argv(1), sizeof(name) - 4);
-	if (Cmd_RefuseDownloadableExec(name)) {
+	if (Cmd_RefuseDownloadableExec(name) || Cmd_RefuseMapPackageExec(name)) {
 		return;
 	}
 	if (!(f = (char *) FS_LoadHeapFile(name, NULL)))	{
@@ -630,7 +643,7 @@ void Cmd_Exec_f (void)
 		if (!strchr (p, '.')) {
 			// no extension, so try the default (.cfg)
 			strlcat (name, ".cfg", sizeof (name));
-			if (Cmd_RefuseDownloadableExec(name)) {
+			if (Cmd_RefuseDownloadableExec(name) || Cmd_RefuseMapPackageExec(name)) {
 				return;
 			}
 			f = (char *)FS_LoadHeapFile(name, NULL);
