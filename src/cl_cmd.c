@@ -676,6 +676,9 @@ void CL_Download_f (void){
 	else
 		dir = cls.gamedir; // not a demo
 
+	if (!CL_SetDownloadNames(dir, ondiskname))
+		return;
+
 	// download to a temp name, and only rename
 	// to the real name when done, so if interrupted
 	// a runt file wont be left
@@ -683,10 +686,6 @@ void CL_Download_f (void){
 	cls.downloadtype      = dl_single;
 	cls.downloadmethod    = DL_QW; // by default its DL_QW, if server support DL_QWCHUNKED it will be changed.
 	cls.downloadstarttime = Sys_DoubleTime();
-
-	snprintf(cls.downloadname, sizeof(cls.downloadname), "%s/%s", dir, ondiskname);
-	COM_StripExtension(cls.downloadname, cls.downloadtempname, sizeof(cls.downloadtempname));
-	strlcat(cls.downloadtempname, ".tmp", sizeof(cls.downloadtempname));
 
 	if (cls.mvdplayback == QTV_PLAYBACK)
 	{

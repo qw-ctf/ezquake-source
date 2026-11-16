@@ -971,6 +971,24 @@ qbool VFS_COPYPROTECTED(struct vfsfile_s *vf) {
 // some general function to open VFS file, except VFSTCP
 //
 
+/*
+ * Formats a path to open into out, which holds size bytes, and returns false
+ * if the path doesn't fit. A path cut to fit names another file than the one
+ * asked for, so it must not be opened.
+ */
+qbool FS_FormatOSPath(char *out, size_t size, const char *format, ...)
+{
+	va_list args;
+	int len;
+
+	va_start(args, format);
+	len = vsnprintf(out, size, format, args);
+	va_end(args);
+
+	// where vsnprintf is _vsnprintf, a path that doesn't fit gives -1
+	return len >= 0 && (size_t)len < size;
+}
+
 /* ================
  * FS_OpenVFS
  * ================
