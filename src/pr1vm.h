@@ -6,8 +6,9 @@ per-instance, in pr1vm_t. The "module" globals (progs/pr_functions/...) are
 shared between PR1 and PR2 and read by sv_*.c, so they remain globals; the
 server instance mirrors them through PR1VM_BindServer().
 
-PR1 runs under the CLIENTONLY gate (server build). The client instance API
-is added together with its loader/wiring.
+The interpreter is always built. The server binding (PR1VM_BindServer and the
+PR_* wrappers) is built only with the server. The client instance API is added
+together with its loader/wiring.
 */
 
 #ifndef PR1VM_H

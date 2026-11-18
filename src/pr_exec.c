@@ -19,7 +19,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
    
 */
 
-#ifndef CLIENTONLY
 #include "qwsvdef.h"
 #include "pr1vm.h"
 #include <limits.h>
@@ -62,6 +61,7 @@ void PR1VM_UnLoad(pr1vm_t *vm)
 void PR_PrintStatement(dstatement_t *s);
 void PR_StackTrace(void);
 
+#ifndef CLIENTONLY
 // Server host_error: prints the faulting statement and stack, then SV_Error
 // (never returns). The client instance installs its own callback.
 static void PR1VM_ServerHostError(pr1vm_t *vm, const char *msg)
@@ -108,6 +108,7 @@ void PR1VM_TestError_f(void)
 	g_active = vm;
 	PR_RunError("PR1VM test error (host_error path)");
 }
+#endif // !CLIENTONLY
 
 char *pr_opnames[] =
     {
@@ -198,6 +199,8 @@ char *pr_opnames[] =
         "BITOR"
     };
 
+// Statement/stack printing and profiling read the server's progs.
+#ifndef CLIENTONLY
 char *PR_GlobalString (int ofs);
 char *PR_GlobalStringNoContents (int ofs);
 
@@ -316,6 +319,7 @@ void PR_Profile_f (void)
 	}
 	while (best);
 }
+#endif // !CLIENTONLY
 
 
 /*
@@ -340,6 +344,10 @@ void PR_RunError (char *error, ...)
 		return;
 	}
 
+#ifdef CLIENTONLY
+	// No server to take down: an instance without host_error fails the client.
+	Host_Error("Program error: %s", string);
+#else
 	// No instance or no host_error: the classic fatal server path.
 	sv_error = true;
 	if (vm) {
@@ -352,6 +360,7 @@ void PR_RunError (char *error, ...)
 	Con_Printf ("%s\n", string);
 
 	SV_Error ("Program error (PR_RunError)");
+#endif
 }
 
 // Entity addressing through the instance mirrors (progs.h formulas on vm).
@@ -409,8 +418,9 @@ int PR1VM_LeaveFunction(pr1vm_t *vm)
 {
 	int i, c;
 
-	if (vm->depth <= 0)
-		SV_Error ("prog stack underflow");
+	if (vm->depth <= 0) {
+		PR_RunError("prog stack underflow");
+	}
 
 	c = vm->xfunction->locals;
 	vm->localstack_used -= c;
@@ -450,10 +460,12 @@ void PR1VM_ExecuteProgram(pr1vm_t *vm, func_t fnum)
 
 	if (!fnum || fnum >= vm->progs->numfunctions)
 	{
+#ifndef CLIENTONLY
 		if (vm->global_struct && vm->global_struct->self && vm->edicts) {
 			ED_Print(PR1VM_ProgToEdict(vm, vm->global_struct->self));
 		}
-		SV_Error ("PR_ExecuteProgram: NULL function");
+#endif
+		PR_RunError("PR_ExecuteProgram: NULL function");
 	}
 
 	f = &vm->functions[fnum];
@@ -481,8 +493,10 @@ void PR1VM_ExecuteProgram(pr1vm_t *vm, func_t fnum)
 		vm->xfunction->profile++;
 		vm->xstatement = s;
 
+#ifndef CLIENTONLY
 		if (vm->trace)
 			PR_PrintStatement (st);
+#endif
 
 		switch (st->op)
 		{
@@ -753,6 +767,7 @@ void PR1VM_ExecuteProgram(pr1vm_t *vm, func_t fnum)
 
 }
 
+#ifndef CLIENTONLY
 /*
 ============
 PR_ExecuteProgram

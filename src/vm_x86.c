@@ -16,6 +16,8 @@
  *
  */
 
+// The QVM runs server mods only.
+#ifndef CLIENTONLY
 #ifdef USE_PR2
 #ifdef SERVERONLY
 #include "qwsvdef.h"
@@ -2966,3 +2968,4 @@ qbool VM_Compile( vm_t *vm, vmHeader_t *header ) { return false; }
 #endif
 #endif				/* USE_PR2 */
 
+#endif // !CLIENTONLY

@@ -19,13 +19,178 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 	
 */
 
-#ifndef CLIENTONLY
 #include "qwsvdef.h"
 #include "pr1vm.h"
 
 // argc/trace live in the active instance (a builtin call is always inside exec).
 #define pr_argc (PR1VM_Active()->argc)
 #define pr_trace (PR1VM_Active()->trace)
+
+/*
+===============================================================================
+
+Builtins that only read their parameters and write the return value. They work
+on any VM instance, so they are built without the server too.
+
+===============================================================================
+*/
+
+/*
+=================
+PF_normalize
+
+vector normalize(vector)
+=================
+*/
+void PF_normalize(void)
+{
+	float *value1;
+	vec3_t newvalue;
+	float nuw;
+
+	value1 = G_VECTOR(OFS_PARM0);
+
+	nuw = value1[0] * value1[0] + value1[1] * value1[1] + value1[2] * value1[2];
+	nuw = sqrt(nuw);
+
+	if (nuw == 0) {
+		newvalue[0] = newvalue[1] = newvalue[2] = 0;
+	}
+	else {
+		nuw = 1 / nuw;
+		newvalue[0] = value1[0] * nuw;
+		newvalue[1] = value1[1] * nuw;
+		newvalue[2] = value1[2] * nuw;
+	}
+
+	VectorCopy(newvalue, G_VECTOR(OFS_RETURN));
+}
+
+/*
+=================
+PF_vlen
+
+scalar vlen(vector)
+=================
+*/
+void PF_vlen(void)
+{
+	float *value1;
+	float nuw;
+
+	value1 = G_VECTOR(OFS_PARM0);
+
+	nuw = value1[0] * value1[0] + value1[1] * value1[1] + value1[2] * value1[2];
+	nuw = sqrt(nuw);
+
+	G_FLOAT(OFS_RETURN) = nuw;
+}
+
+void PF_fabs(void)
+{
+	float v;
+	v = G_FLOAT(OFS_PARM0);
+	G_FLOAT(OFS_RETURN) = fabs(v);
+}
+
+void PF_rint(void)
+{
+	float f;
+	f = G_FLOAT(OFS_PARM0);
+	if (f > 0) {
+		G_FLOAT(OFS_RETURN) = (int)(f + 0.5);
+	}
+	else {
+		G_FLOAT(OFS_RETURN) = (int)(f - 0.5);
+	}
+}
+
+void PF_floor(void)
+{
+	G_FLOAT(OFS_RETURN) = floor(G_FLOAT(OFS_PARM0));
+}
+
+void PF_ceil(void)
+{
+	G_FLOAT(OFS_RETURN) = ceil(G_FLOAT(OFS_PARM0));
+}
+
+//DP_QC_SINCOSSQRTPOW
+//float sin(float x) = #60
+void PF_sin(void)
+{
+	G_FLOAT(OFS_RETURN) = sin(G_FLOAT(OFS_PARM0));
+}
+
+//DP_QC_SINCOSSQRTPOW
+//float cos(float x) = #61
+void PF_cos(void)
+{
+	G_FLOAT(OFS_RETURN) = cos(G_FLOAT(OFS_PARM0));
+}
+
+//DP_QC_SINCOSSQRTPOW
+//float sqrt(float x) = #62
+void PF_sqrt(void)
+{
+	G_FLOAT(OFS_RETURN) = sqrt(G_FLOAT(OFS_PARM0));
+}
+
+//DP_QC_MINMAXBOUND
+//float min(float a, float b, ...) = #94
+void PF_min(void)
+{
+	// LordHavoc: 3+ argument enhancement suggested by FrikaC
+	if (pr_argc == 2) {
+		G_FLOAT(OFS_RETURN) = min(G_FLOAT(OFS_PARM0), G_FLOAT(OFS_PARM1));
+	}
+	else if (pr_argc >= 3) {
+		int i;
+		float f = G_FLOAT(OFS_PARM0);
+		for (i = 1; i < pr_argc; i++) {
+			if (G_FLOAT((OFS_PARM0 + i * 3)) < f) {
+				f = G_FLOAT((OFS_PARM0 + i * 3));
+			}
+		}
+		G_FLOAT(OFS_RETURN) = f;
+	}
+	else {
+		Sys_Error("min: must supply at least 2 floats");
+	}
+}
+
+//DP_QC_MINMAXBOUND
+//float max(float a, float b, ...) = #95
+void PF_max(void)
+{
+	// LordHavoc: 3+ argument enhancement suggested by FrikaC
+	if (pr_argc == 2) {
+		G_FLOAT(OFS_RETURN) = max(G_FLOAT(OFS_PARM0), G_FLOAT(OFS_PARM1));
+	}
+	else if (pr_argc >= 3) {
+		int i;
+		float f = G_FLOAT(OFS_PARM0);
+		for (i = 1; i < pr_argc; i++) {
+			if (G_FLOAT((OFS_PARM0 + i * 3)) > f) {
+				f = G_FLOAT((OFS_PARM0 + i * 3));
+			}
+		}
+		G_FLOAT(OFS_RETURN) = f;
+	}
+	else {
+		Sys_Error("max: must supply at least 2 floats");
+	}
+}
+
+//DP_QC_MINMAXBOUND
+//float bound(float min, float value, float max) = #96
+void PF_bound(void)
+{
+	G_FLOAT(OFS_RETURN) = bound(G_FLOAT(OFS_PARM0), G_FLOAT(OFS_PARM1), G_FLOAT(OFS_PARM2));
+}
+
+// Everything below needs the server.
+#ifndef CLIENTONLY
 
 static tokenizecontext_t pr1_tokencontext;
 
@@ -360,58 +525,6 @@ void PF_centerprint (void)
 		}
 	}
 	//<-
-}
-
-
-/*
-=================
-PF_normalize
- 
-vector normalize(vector)
-=================
-*/
-void PF_normalize (void)
-{
-	float	*value1;
-	vec3_t	newvalue;
-	float	nuw;
-
-	value1 = G_VECTOR(OFS_PARM0);
-
-	nuw = value1[0] * value1[0] + value1[1] * value1[1] + value1[2]*value1[2];
-	nuw = sqrt(nuw);
-
-	if (nuw == 0)
-		newvalue[0] = newvalue[1] = newvalue[2] = 0;
-	else
-	{
-		nuw = 1/nuw;
-		newvalue[0] = value1[0] * nuw;
-		newvalue[1] = value1[1] * nuw;
-		newvalue[2] = value1[2] * nuw;
-	}
-
-	VectorCopy (newvalue, G_VECTOR(OFS_RETURN));
-}
-
-/*
-=================
-PF_vlen
- 
-scalar vlen(vector)
-=================
-*/
-void PF_vlen (void)
-{
-	float	*value1;
-	float	nuw;
-
-	value1 = G_VECTOR(OFS_PARM0);
-
-	nuw = value1[0] * value1[0] + value1[1] * value1[1] + value1[2]*value1[2];
-	nuw = sqrt(nuw);
-
-	G_FLOAT(OFS_RETURN) = nuw;
 }
 
 /*
@@ -1264,13 +1377,6 @@ void PF_ftos (void)
 	PF_SetTempString();
 }
 
-void PF_fabs (void)
-{
-	float	v;
-	v = G_FLOAT(OFS_PARM0);
-	G_FLOAT(OFS_RETURN) = fabs(v);
-}
-
 void PF_vtos (void)
 {
 	snprintf (pr_string_temp, MAX_PR_STRING_SIZE, "'%5.1f %5.1f %5.1f'", G_VECTOR(OFS_PARM0)[0], G_VECTOR(OFS_PARM0)[1], G_VECTOR(OFS_PARM0)[2]);
@@ -1550,25 +1656,6 @@ void PF_lightstyle (void)
 		}
 	}
 }
-
-void PF_rint (void)
-{
-	float	f;
-	f = G_FLOAT(OFS_PARM0);
-	if (f > 0)
-		G_FLOAT(OFS_RETURN) = (int)(f + 0.5);
-	else
-		G_FLOAT(OFS_RETURN) = (int)(f - 0.5);
-}
-void PF_floor (void)
-{
-	G_FLOAT(OFS_RETURN) = floor(G_FLOAT(OFS_PARM0));
-}
-void PF_ceil (void)
-{
-	G_FLOAT(OFS_RETURN) = ceil(G_FLOAT(OFS_PARM0));
-}
-
 
 /*
 =============
@@ -2443,78 +2530,10 @@ void PF_multicast (void)
 }
 
 //DP_QC_SINCOSSQRTPOW
-//float sin(float x) = #60
-void PF_sin (void)
-{
-	G_FLOAT(OFS_RETURN) = sin(G_FLOAT(OFS_PARM0));
-}
-
-//DP_QC_SINCOSSQRTPOW
-//float cos(float x) = #61
-void PF_cos (void)
-{
-	G_FLOAT(OFS_RETURN) = cos(G_FLOAT(OFS_PARM0));
-}
-
-//DP_QC_SINCOSSQRTPOW
-//float sqrt(float x) = #62
-void PF_sqrt (void)
-{
-	G_FLOAT(OFS_RETURN) = sqrt(G_FLOAT(OFS_PARM0));
-}
-
-//DP_QC_SINCOSSQRTPOW
 //float pow(float x, float y) = #97;
 static void PF_pow (void)
 {
 	G_FLOAT(OFS_RETURN) = pow(G_FLOAT(OFS_PARM0), G_FLOAT(OFS_PARM1));
-}
-
-//DP_QC_MINMAXBOUND
-//float min(float a, float b, ...) = #94
-void PF_min (void)
-{
-	// LordHavoc: 3+ argument enhancement suggested by FrikaC
-	if (pr_argc == 2)
-		G_FLOAT(OFS_RETURN) = min(G_FLOAT(OFS_PARM0), G_FLOAT(OFS_PARM1));
-	else if (pr_argc >= 3)
-	{
-		int i;
-		float f = G_FLOAT(OFS_PARM0);
-		for (i = 1;i < pr_argc;i++)
-			if (G_FLOAT((OFS_PARM0+i*3)) < f)
-				f = G_FLOAT((OFS_PARM0+i*3));
-		G_FLOAT(OFS_RETURN) = f;
-	}
-	else
-		Sys_Error("min: must supply at least 2 floats");
-}
-
-//DP_QC_MINMAXBOUND
-//float max(float a, float b, ...) = #95
-void PF_max (void)
-{
-	// LordHavoc: 3+ argument enhancement suggested by FrikaC
-	if (pr_argc == 2)
-		G_FLOAT(OFS_RETURN) = max(G_FLOAT(OFS_PARM0), G_FLOAT(OFS_PARM1));
-	else if (pr_argc >= 3)
-	{
-		int i;
-		float f = G_FLOAT(OFS_PARM0);
-		for (i = 1;i < pr_argc;i++)
-			if (G_FLOAT((OFS_PARM0+i*3)) > f)
-				f = G_FLOAT((OFS_PARM0+i*3));
-		G_FLOAT(OFS_RETURN) = f;
-	}
-	else
-		Sys_Error("max: must supply at least 2 floats");
-}
-
-//DP_QC_MINMAXBOUND
-//float bound(float min, float value, float max) = #96
-void PF_bound (void)
-{
-	G_FLOAT(OFS_RETURN) = bound(G_FLOAT(OFS_PARM0), G_FLOAT(OFS_PARM1), G_FLOAT(OFS_PARM2));
 }
 
 /*

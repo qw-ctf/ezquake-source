@@ -27,6 +27,8 @@ and one exported function: Perform
 
 
 */
+// The QVM runs server mods only.
+#ifndef CLIENTONLY
 #ifdef USE_PR2
 #include "qwsvdef.h"
 #include "vm_local.h"
@@ -1621,3 +1623,4 @@ void VM_LogSyscalls(int *args) {
 #endif
 }
 #endif				/* USE_PR2 */
+#endif // !CLIENTONLY
