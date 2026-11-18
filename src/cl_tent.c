@@ -632,8 +632,6 @@ static void CL_Parse_TE_WIZSPIKE(vec3_t pos)
 	S_StartSound(-1, 0, cl_sfx_wizhit, pos, 1, 1);
 }
 
-// FIXME: D-Kure: This seems to be unused
-#if 0
 static void CL_Parse_TE_KNIGHTSPIKE(vec3_t pos)
 {
 	if (amf_part_sparks.value && !Rulesets_RestrictParticles())
@@ -648,7 +646,6 @@ static void CL_Parse_TE_KNIGHTSPIKE(vec3_t pos)
 
 	S_StartSound(-1, 0, cl_sfx_knighthit, pos, 1, 1);
 }
-#endif
 
 static void CL_Parse_TE_SPIKE(vec3_t pos)
 {
@@ -950,6 +947,39 @@ static void CL_Parse_TE_LIGHTNINGBLOOD(vec3_t pos)
 		}
 
 		R_RunParticleEffect(pos, vec3_origin, gl_part_blood.value ? 225 : r_lgbloodColor.integer, 50); // 225 default
+	}
+}
+
+/*
+Runs the effect of a position-only temp entity without reading a network message
+(CSQC te_* builtins). count is only used by TE_GUNSHOT.
+*/
+void CL_TempEntityEffect(int type, vec3_t pos, int count)
+{
+	switch (type) {
+		case TE_GUNSHOT:
+			CL_TE_GunshotEffect(pos, count);
+			break;
+		case TE_WIZSPIKE:
+			CL_Parse_TE_WIZSPIKE(pos);
+			break;
+		case TE_KNIGHTSPIKE:
+			CL_Parse_TE_KNIGHTSPIKE(pos);
+			break;
+		case TE_EXPLOSION:
+			CL_Parse_TE_EXPLOSION(pos, false);
+			break;
+		case TE_TAREXPLOSION:
+			CL_Parse_TE_TAREXPLOSION(pos);
+			break;
+		case TE_LAVASPLASH:
+			R_LavaSplash(pos);
+			break;
+		case TE_TELEPORT:
+			CL_Parse_TE_TELEPORT(pos);
+			break;
+		default:
+			break;
 	}
 }
 

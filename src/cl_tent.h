@@ -22,6 +22,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define __CL_TENT_H__
 
 void CL_CreateBeam(int type, int ent, vec3_t start, vec3_t end);
+void CL_TempEntityEffect(int type, vec3_t pos, int count);
 
 // client-side "fake" projectiles: spawned locally by weapon prediction
 // and/or driven by server-sent simple projectile states
