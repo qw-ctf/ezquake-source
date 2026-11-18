@@ -664,6 +664,13 @@ void CL_Download_f (void){
 		return;
 	}
 
+	// from the request on, not only once its file is open: what the server
+	// sends for it is written under the names a new download would replace
+	if (cls.downloadmethod != DL_NONE) {
+		Com_Printf("Can't download %s while %s is downloading\n", filename, COM_SkipPath(cls.downloadname));
+		return;
+	}
+
 	// hack: save demos in demo_dir
 	if (
 				    Utils_RegExpMatch("\\.mvd(\\.(gz|bz2|rar|zip))?$", filename)

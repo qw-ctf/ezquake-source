@@ -503,7 +503,12 @@ qbool CL_SetDownloadNames(const char *dir, const char *name)
 	return true;
 }
 
-// Returns true if the file exists, otherwise it attempts to start a download from the server.
+/*
+ * Returns true if the file exists or can't be downloaded, otherwise false
+ * after asking the server for it. While another download is in progress it
+ * returns false without asking: CL_FinishDownload of that download then calls
+ * the stage cls.downloadtype names, the caller's, which asks again.
+ */
 qbool CL_CheckOrDownloadFile(char *filename)
 {
 	if (!CL_Download_Accept(filename))
@@ -530,6 +535,11 @@ qbool CL_CheckOrDownloadFile(char *filename)
 	{
 		Com_DPrintf ("Unable to download %s, not connected\n", filename);
 		return true;
+	}
+
+	if (cls.downloadmethod != DL_NONE) {
+		Com_Printf("Waiting for %s before downloading %s\n", COM_SkipPath(cls.downloadname), filename);
+		return false;
 	}
 
 	if (!CL_SetDownloadNames(cls.gamedir, filename)) {
