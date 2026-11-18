@@ -1686,6 +1686,7 @@ void Mod_LoadBrushModel(model_t *mod, void *buffer, int filesize)
 	dmodel_t *bm;
 	vec3_t normal;
 	bspx_header_t* bspx_header;
+	qbool world;
 
 	mod->type = mod_brush;
 
@@ -1775,6 +1776,11 @@ void Mod_LoadBrushModel(model_t *mod, void *buffer, int filesize)
 	// regular and alternate animation
 	mod->numframes = 2;
 
+	// The model list of the server names the world first, and its submodels
+	// *1 to *N, which share the world's arrays. The submodels of any other
+	// brush model aren't named, so that they can't replace the world's.
+	world = !strcmp(mod->name, cl.model_name[1]);
+
 	// set up the submodels (FIXME: this is confusing)
 	for (i = 0; i < mod->numsubmodels; i++) {
 		bm = &mod->submodels[i];
@@ -1805,6 +1811,9 @@ void Mod_LoadBrushModel(model_t *mod, void *buffer, int filesize)
 			char name[16];
 			model_t* submodel;
 
+			if (!world) {
+				break;
+			}
 			snprintf(name, sizeof(name), "*%i", i + 1);
 			submodel = Mod_FindName(name);
 			*submodel = *mod;
