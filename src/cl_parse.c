@@ -559,6 +559,23 @@ qbool CL_CheckOrDownloadFile(char *filename)
 	return false;
 }
 
+/*
+ * Closes and removes the .tmp file of the download in progress, if it is open.
+ * A download that doesn't complete is never renamed to its name, and would
+ * otherwise leave the file behind with whatever the server sent.
+ */
+static void CL_DiscardDownloadFile(void)
+{
+	if (!cls.download) {
+		return;
+	}
+
+	fclose(cls.download);
+	cls.download = NULL;
+	cls.downloadpercent = 0;
+	unlink(cls.downloadtempname);
+}
+
 void CL_FindModelNumbers (void) 
 {
 	int i, j;
@@ -944,9 +961,7 @@ void CL_ParseChunkedDownload(void)
 			if (totalsize != -3) // -3 = dl stopped, so this known issue, do not warn
 				Com_Printf ("cls.download shouldn't have been set\n");
 
-			fclose (cls.download);
-			cls.download = NULL;
-			cls.downloadpercent = 0;
+			CL_DiscardDownloadFile();
 		}
 
 		if (cls.demoplayback)
@@ -1084,8 +1099,10 @@ void CL_FinishDownload(void)
 
 			// rename the temp file to its final name
 			if (strcmp(cls.downloadtempname, cls.downloadname))
-				if (rename(cls.downloadtempname, cls.downloadname))
+				if (rename(cls.downloadtempname, cls.downloadname)) {
 					Com_Printf ("Failed to rename %s to %s.\n",	cls.downloadtempname, cls.downloadname);
+					unlink(cls.downloadtempname);
+				}
 		} else {
 			/* If download didn't complete, remove the unfinished leftover .tmp file ... */
 			unlink(cls.downloadtempname);
@@ -1162,8 +1179,7 @@ void CL_ParseDownload (void)
 		Com_Printf ("File not found.\n");
 		if (cls.download) {
 			Com_Printf ("cls.download shouldn't have been set\n");
-			fclose (cls.download);
-			cls.download = NULL;
+			CL_DiscardDownloadFile();
 		}
 		CL_FinishDownload(); // this also request next dl
 		return;
