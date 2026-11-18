@@ -127,6 +127,7 @@ void Draw_ColoredString(float x, float y, const char *str, int red, qbool propor
 void Draw_SColoredStringBasic(float x, float y, const char *text, int red, float scale, qbool proportional);
 void Draw_ColoredString3(float x, float y, const char *text, clrinfo_t *clr, int clr_cnt, int red);
 float Draw_SColoredAlphaString(float x, float y, const char *text, clrinfo_t *color, int color_count, int red, float scale, float alpha, qbool proportional);
+float Draw_SForceColoredAlphaString(float x, float y, const char *text, clrinfo_t *color, int color_count, float scale, float alpha, qbool proportional);
 void Draw_SAlt_String(float x, float y, const char *text, float scale, qbool proportional);
 float Draw_SString(float x, float y, const char *str, float scale, qbool proportional);
 float Draw_SStringAlpha(int x, int y, const char* text, float scale, float alpha, qbool proportional);

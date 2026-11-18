@@ -37,6 +37,15 @@ void Draw_InitFont(void);
 cvar_t gl_alphafont    = { "gl_alphafont", "1" };
 cvar_t gl_consolefont  = { "gl_consolefont", "povo5", CVAR_AUTO, OnChange_gl_consolefont };
 cvar_t scr_coloredText = { "scr_coloredText", "1" };
+
+// Set while drawing a string whose colors are part of its content and are applied
+// whatever scr_coloredText says (Draw_SForceColoredAlphaString).
+static qbool draw_force_colored_text;
+
+static qbool Draw_ColoredTextEnabled(void)
+{
+	return scr_coloredText.integer || draw_force_colored_text;
+}
 cvar_t gl_charsets_min = { "gl_charsets_min", "1" };
 
 static byte *draw_chars; // 8*8 graphic characters
@@ -319,7 +328,7 @@ static float Draw_StringBase(float x, float y, const char *text, clrinfo_t *colo
 	// Make sure we set the color from scratch so that the 
 	// overall opacity is applied properly.
 	rgba[0] = rgba[1] = rgba[2] = rgba[3] = 255;
-	if (scr_coloredText.integer && color_count > 0) {
+	if (Draw_ColoredTextEnabled() && color_count > 0) {
 		COLOR_TO_RGBA(color[0].c, rgba);
 	}
 
@@ -335,7 +344,7 @@ static float Draw_StringBase(float x, float y, const char *text, clrinfo_t *colo
 					b = HexToInt(text[i + 4]);
 
 					if (r >= 0 && g >= 0 && b >= 0) {
-						if (scr_coloredText.value) {
+						if (Draw_ColoredTextEnabled()) {
 							rgba[0] = (r * 16);
 							rgba[1] = (g * 16);
 							rgba[2] = (b * 16);
@@ -365,11 +374,12 @@ static float Draw_StringBase(float x, float y, const char *text, clrinfo_t *colo
 				}
 			}
 		}
-		else if (scr_coloredText.value && (color_index < color_count) && (i == color[color_index].i)) {
+		else if (Draw_ColoredTextEnabled() && (color_index < color_count) && (i == color[color_index].i)) {
 			// Change color if the color array tells us this index should have a new color.
 
-			// Set the new color if it's not the same as the last.
-			if (color[color_index].c != last_color) {
+			// Set the new color if it's not the same as the last. The first one is
+			// always set, so that the opacity is applied to white text too.
+			if (color_index == 0 || color[color_index].c != last_color) {
 				last_color = color[color_index].c;
 				COLOR_TO_RGBA(color[color_index].c, rgba);
 				rgba[3] = 255 * alpha;
@@ -408,6 +418,20 @@ void Draw_BigString(float x, float y, const char *text, clrinfo_t *color, int co
 float Draw_SColoredAlphaString(float x, float y, const char *text, clrinfo_t *color, int color_count, int red, float scale, float alpha, qbool proportional)
 {
 	return Draw_StringBase(x, y, text, color, color_count, red, scale, alpha, false, 0, proportional, 0);
+}
+
+// Like Draw_SColoredAlphaString with a color array, but the colors are applied even
+// when the user has turned scr_coloredText off. For text whose colors come from
+// the content being drawn rather than from the client's own decoration.
+float Draw_SForceColoredAlphaString(float x, float y, const char *text, clrinfo_t *color, int color_count, float scale, float alpha, qbool proportional)
+{
+	float width;
+
+	draw_force_colored_text = true;
+	width = Draw_StringBase(x, y, text, color, color_count, 0, scale, alpha, false, 0, proportional, 0);
+	draw_force_colored_text = false;
+
+	return width;
 }
 
 void Draw_SColoredStringAligned(int x, int y, const char *text, clrinfo_t* color, int color_count, float scale, float alpha, qbool proportional, text_alignment_t align, float max_x)
@@ -834,9 +858,7 @@ void R_Draw_ResetCharGLState(void)
 
 void R_Draw_SetColor(byte* rgba)
 {
-	extern cvar_t scr_coloredText;
-
-	if (scr_coloredText.integer) {
+	if (Draw_ColoredTextEnabled()) {
 		Draw_TextCacheSetColor(rgba);
 	}
 }
