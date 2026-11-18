@@ -20,7 +20,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 */
 // sv_edict.c -- entity dictionary
 
-#ifndef CLIENTONLY
 #include "qwsvdef.h"
 #include "pr1vm.h"
 #include <limits.h>
@@ -41,11 +40,15 @@ int				pr_edict_size;	// in bytes
 qbool pr_nqprogs;
 int pr_fieldoffsetpatch[106];
 int pr_globaloffsetpatch[62];
+#ifndef CLIENTONLY
 static int pr_globaloffsetpatch_nq[62] = {0,0,0,0,0,666,-4,-4,8,8,
 8,8,8,8,8,8,8,8,8,8, 8,8,8,8,8,8,8,8,8,8, 8,8,8,8,8,8,8,8,8,8, 
 8,8,8,8,8,8,8,8,8,8, 8,8,8,8,8,8,8,8,8,8, 8,8};
 #endif
+#endif
 
+// Edicts, entity parsing/printing and the progs globals are the server's.
+#ifndef CLIENTONLY
 static int type_size[8] =
 {
 	1,                  // void
@@ -1136,6 +1139,7 @@ void PR_InitPatchTables (void)
 	}
 }
 #endif
+#endif // !CLIENTONLY
 
 /*
 =================
@@ -1213,6 +1217,7 @@ void PR1VM_LoadData(pr1vm_t *vm, dprograms_t *hdr)
 	PR1VM_FillAndSwapLumps(vm, p);
 }
 
+#ifndef CLIENTONLY
 /*
 =================
 PR1VM_CommitServer
@@ -1233,6 +1238,7 @@ void PR1VM_CommitServer(pr1vm_t *vm)
 	pr_globals = vm->globals;
 	pr_edict_size = vm->edict_size;
 }
+#endif // !CLIENTONLY
 
 /*
 =================
@@ -1293,10 +1299,12 @@ char *PR1VM_GetString(pr1vm_t *vm, int num)
 		return NULL;
 	}
 
+#ifndef CLIENTONLY
 	// dual: the server instance delegates to the global tables (read by PR2/sv_*)
 	if (vm == PR1VM_Server()) {
 		return PR1_GetString(num);
 	}
+#endif
 
 	if (!vm->strings) {
 		return NULL;
@@ -1331,11 +1339,13 @@ void PR1VM_SetString(pr1vm_t *vm, string_t *address, char *s)
 		return;
 	}
 
+#ifndef CLIENTONLY
 	// dual: the server instance uses the global table (as before)
 	if (vm == PR1VM_Server()) {
 		PR1_SetString(address, s);
 		return;
 	}
+#endif
 
 	if (!s || !s[0]) {
 		*address = 0;
@@ -1447,6 +1457,7 @@ void PR1VM_CSQCSmoke_f(void)
 	Con_Printf("csqc_smoke: CSQC_WorldLoaded executed ok (server PR1 still alive)\n");
 }
 
+#ifndef CLIENTONLY
 void PR1_LoadProgs (void)
 {
 	int	i;
