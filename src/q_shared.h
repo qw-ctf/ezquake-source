@@ -78,6 +78,17 @@ typedef unsigned char byte;
 #define bound(a,b,c) ((a) >= (c) ? (a) : \
 					(b) < (a) ? (a) : (b) > (c) ? (c) : (b))
 
+// bound() for floats that also handles NaN, which bound() returns unchanged. NaN is
+// treated as 0. Use it before converting an untrusted float to an integer type:
+// that conversion is undefined for NaN and for values the type cannot hold.
+static inline float boundf(float low, float value, float high)
+{
+	if (value != value) {
+		value = 0;
+	}
+	return bound(low, value, high);
+}
+
 #define isspace2(c) ((c) == 0x09 || (c) == 0x0D || (c) == 0x0A || (c) == 0x20)
 
 //============================================================================
