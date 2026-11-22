@@ -1148,6 +1148,8 @@ void CL_InitTEnts (void);
 void CL_InitTEntsCvar(void);
 void CL_ClearTEnts (void);
 void CL_ParseTEnt (void);
+// svc_fte_effect, or svc_fte_effect2 with a short model index and start frame.
+void CL_ParseEffect(qbool effect2);
 // svc_fte_trailparticles: a trail of a server numbered effect, continued
 // between messages for the same entity. Without the effect a blood trail.
 void CL_ParseTrailParticles(void);

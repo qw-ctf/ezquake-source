@@ -4197,6 +4197,16 @@ void CL_ParseServerMessage (void)
 					CL_ParseFTEPrecache();
 					break;
 				}
+			case svc_fte_effect:
+				{
+					CL_ParseEffect(false);
+					break;
+				}
+			case svc_fte_effect2:
+				{
+					CL_ParseEffect(true);
+					break;
+				}
 			case svc_fte_trailparticles:
 				{
 					CL_ParseTrailParticles();
