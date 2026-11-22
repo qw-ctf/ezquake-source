@@ -49,6 +49,14 @@ void CL_TE_TeiG3(vec3_t start, vec3_t end);
 // TE_LIGHTNING1-3 and TEQW_BEAM as beam types 1-4
 void CL_CreateBeam(int type, int ent, vec3_t start, vec3_t end);
 
+struct model_s;
+// The model at org, animated from startframe for framecount frames (0 = through
+// the model's last frame) at framerate frames per second, then removed. Sprites
+// stay opaque, other models fade out over the effect's life. Nothing for a NULL
+// model, a rate that is not positive, a negative frame count or a start frame
+// outside the model.
+void CL_ModelEffect(vec3_t org, struct model_s *model, int startframe, int framecount, float framerate);
+
 // Particle effects the server numbered with svc_fte_precache, 1 to 1023.
 // An out-of-range index or an empty name is ignored.
 void CL_SetServerParticleEffect(int index, const char *name);

@@ -67,6 +67,10 @@ typedef struct explosion_s
 	vec3_t origin;
 	float start;
 	model_t *model;
+	int firstframe;
+	int numframes; // 0 = through the model's last frame
+	float framerate;
+	qbool fade;
 } explosion_t;
 
 
@@ -764,6 +768,63 @@ void CL_ExplosionSprite(vec3_t pos)
 	if (!cl_explo_mod)
 		cl_explo_mod = Mod_CustomModel(custom_model_explosion, true);
 	ex->model = cl_explo_mod;
+	ex->firstframe = 0;
+	ex->numframes = 0;
+	ex->framerate = 10;
+	ex->fade = false;
+}
+
+void CL_ModelEffect(vec3_t org, model_t *model, int startframe, int framecount, float framerate)
+{
+	explosion_t *ex;
+
+	// The rate must be positive for the effect to end and finite for it to have a frame.
+	if (!model || !(framerate > 0) || !isfinite(framerate)) {
+		return;
+	}
+	if (startframe < 0 || startframe >= model->numframes || framecount < 0) {
+		return;
+	}
+	if (framecount > model->numframes - startframe) {
+		framecount = 0;
+	}
+
+	ex = CL_AllocExplosion();
+	VectorCopy(org, ex->origin);
+	ex->start = cl.time;
+	ex->model = model;
+	ex->firstframe = startframe;
+	ex->numframes = framecount;
+	ex->framerate = framerate;
+	ex->fade = (model->type != mod_sprite);
+}
+
+void CL_ParseEffect(qbool effect2)
+{
+	vec3_t org;
+	int modelindex, startframe, framecount, framerate;
+
+	org[0] = MSG_ReadCoord();
+	org[1] = MSG_ReadCoord();
+	org[2] = MSG_ReadCoord();
+	if (effect2) {
+		modelindex = (unsigned short)MSG_ReadShort();
+		startframe = (unsigned short)MSG_ReadShort();
+	}
+	else {
+		modelindex = MSG_ReadByte();
+		startframe = MSG_ReadByte();
+	}
+	framecount = MSG_ReadByte();
+	framerate = MSG_ReadByte();
+
+	if (msg_badread || CL_Demo_SkipMessage(true)) {
+		return;
+	}
+	if (modelindex >= MAX_MODELS) {
+		return;
+	}
+	CL_ModelEffect(org, cl.model_precache[modelindex], startframe, framecount, framerate);
 }
 
 /* dir may be NULL. Returns true when the effect ran, so the caller skips its own particles. */
@@ -1968,7 +2029,8 @@ static void CL_UpdateBeams(void)
 
 static void CL_UpdateExplosions(void)
 {
-	int f;
+	int f, numframes;
+	double progress;
 	explosion_t	*ex, *next, *hnode;
 	entity_t ent;
 
@@ -1978,16 +2040,29 @@ static void CL_UpdateExplosions(void)
 	hnode = &cl_explosions_headnode;
 	for (ex = hnode->next; ex != hnode; ex = next) {
 		next = ex->next;
-		f = 10 * (cl.time - ex->start);
+		progress = ex->framerate * (cl.time - ex->start);
+		numframes = ex->numframes ? ex->numframes : ex->model->numframes - ex->firstframe;
 
-		if (f >= ex->model->numframes) {
+		if (progress >= numframes) {
 			CL_FreeExplosion (ex);
 			continue;
 		}
+		f = progress;
 
 		VectorCopy (ex->origin, ent.origin);
 		ent.model = ex->model;
-		ent.frame = f;
+		ent.frame = ex->firstframe + f;
+		if (ex->fade) {
+			// Blends in from the previous frame, and fades from 1 towards 0, which is opaque.
+			ent.oldframe = f ? ent.frame - 1 : ent.frame;
+			ent.framelerp = progress - f;
+			ent.alpha = 1 - progress / numframes;
+		}
+		else {
+			ent.oldframe = 0;
+			ent.framelerp = 0;
+			ent.alpha = 0;
+		}
 
 		CL_AddEntity (&ent);
 	}
