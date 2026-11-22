@@ -931,6 +931,7 @@ void CL_SetupPacketEntity (int number, entity_state_t *state, qbool changed) {
 		}
 		PScript_DelinkTrailstate(&cent->pscript_trail);
 		PScript_DelinkTrailstate(&cent->pscript_emit);
+		PScript_DelinkTrailstate(&cent->pscript_msgtrail);
 		cent->pscript_trailframe = 0;
 	}
 	else {

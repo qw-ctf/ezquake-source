@@ -110,9 +110,84 @@ void CL_InitTEntsCvar(void)
 	Cvar_ResetCurrentGroup();
 }
 
+// Particle effects the server numbered with svc_fte_precache; [0] is unused.
+#define MAX_SERVER_PARTICLE_EFFECTS 1024
+
+typedef struct {
+	char *name;
+	int type;  // scripted effect type, valid while refresh is pscript_refreshcount
+	int refresh;
+} server_particle_effect_t;
+
+static server_particle_effect_t cl_server_peffects[MAX_SERVER_PARTICLE_EFFECTS];
+
+static void CL_ClearServerParticleEffects(void)
+{
+	int i;
+
+	for (i = 1; i < MAX_SERVER_PARTICLE_EFFECTS; i++) {
+		Q_free(cl_server_peffects[i].name);
+	}
+	memset(cl_server_peffects, 0, sizeof(cl_server_peffects));
+}
+
+void CL_SetServerParticleEffect(int index, const char *name)
+{
+	server_particle_effect_t *e;
+
+	if (index < 1 || index >= MAX_SERVER_PARTICLE_EFFECTS || !name || !name[0]) {
+		return;
+	}
+	e = &cl_server_peffects[index];
+	Q_free(e->name);
+	e->name = Q_strdup(name);
+	e->type = P_INVALID;
+	e->refresh = 0;
+}
+
+int CL_FindServerParticleEffect(const char *name)
+{
+	int i;
+
+	if (!name || !name[0]) {
+		return 0;
+	}
+	for (i = 1; i < MAX_SERVER_PARTICLE_EFFECTS; i++) {
+		if (cl_server_peffects[i].name && !strcmp(cl_server_peffects[i].name, name)) {
+			return i;
+		}
+	}
+	return 0;
+}
+
+const char *CL_ServerParticleEffectName(int index)
+{
+	if (index < 1 || index >= MAX_SERVER_PARTICLE_EFFECTS) {
+		return NULL;
+	}
+	return cl_server_peffects[index].name;
+}
+
+int CL_ServerParticleEffectType(int index)
+{
+	server_particle_effect_t *e;
+
+	if (index < 1 || index >= MAX_SERVER_PARTICLE_EFFECTS || !cl_server_peffects[index].name) {
+		return P_INVALID;
+	}
+	e = &cl_server_peffects[index];
+	if (e->refresh != pscript_refreshcount) {
+		e->type = PScript_FindParticleType(e->name);
+		e->refresh = pscript_refreshcount;
+	}
+	return e->type;
+}
+
 void CL_ClearTEnts(void) 
 {
 	int i;
+
+	CL_ClearServerParticleEffects();
 
 	cl_explo_mod = cl_bolt1_mod = cl_bolt2_mod = cl_bolt3_mod = cl_beam_mod = NULL;
 
@@ -1593,6 +1668,84 @@ void CL_ParseTEnt (void)
 	temp_entities.list[temp_entities.count].time = cls.demoplayback ? cls.demotime : cls.realtime; // FIXME: Use realtime here?
 	temp_entities.list[temp_entities.count].type = type;
 	temp_entities.count = (temp_entities.count + 1 >= MAX_TEMP_ENTITIES) ? 0 : temp_entities.count + 1;
+}
+
+// Runs a scripted trail, keeping key, when given, to the trail of that type.
+static qbool CL_ServerParticleTrail(vec3_t start, vec3_t end, int type, int dlkey, trailkey_t *key, int *keytype)
+{
+	if (type == P_INVALID) {
+		return false;
+	}
+	if (key) {
+		PScript_MatchTrailstate(key, keytype, type);
+	}
+	return PScript_ParticleTrail(start, end, type, 1, dlkey, key);
+}
+
+void CL_ParseTrailParticles(void)
+{
+	int ent, effect;
+	vec3_t start, end;
+	trailkey_t *key = NULL;
+	int *keytype = NULL;
+	int dlkey = 0;
+
+	ent = (cls.fteprotocolextensions2 & FTE_PEXT2_REPLACEMENTDELTAS) ? MSG_RD_ReadEntityRef() : (unsigned short)MSG_ReadShort();
+	effect = (unsigned short)MSG_ReadShort();
+
+	start[0] = MSG_ReadCoord();
+	start[1] = MSG_ReadCoord();
+	start[2] = MSG_ReadCoord();
+	end[0] = MSG_ReadCoord();
+	end[1] = MSG_ReadCoord();
+	end[2] = MSG_ReadCoord();
+
+	if (msg_badread || CL_Demo_SkipMessage(true)) {
+		return;
+	}
+
+	if (ent > 0 && ent < CL_MAX_EDICTS) {
+		key = &cl_entities[ent].pscript_msgtrail;
+		keytype = &cl_entities[ent].pscript_msgtype;
+		dlkey = ent;
+	}
+
+	// The scripted and the classic fallback are both the gib trail.
+	if (!CL_ServerParticleTrail(start, end, CL_ServerParticleEffectType(effect), dlkey, key, keytype) &&
+		!CL_ServerParticleTrail(start, end, PScript_EffectType(PSCRIPT_TR_BLOOD), dlkey, key, keytype)) {
+		R_ParticleTrail(start, end, BLOOD_TRAIL);
+	}
+}
+
+void CL_ParsePointParticles(qbool compact)
+{
+	int effect;
+	float count;
+	vec3_t org, dir;
+
+	effect = (unsigned short)MSG_ReadShort();
+	org[0] = MSG_ReadCoord();
+	org[1] = MSG_ReadCoord();
+	org[2] = MSG_ReadCoord();
+	if (compact) {
+		VectorClear(dir);
+		count = 1;
+	}
+	else {
+		dir[0] = MSG_ReadCoord();
+		dir[1] = MSG_ReadCoord();
+		dir[2] = MSG_ReadCoord();
+		count = (unsigned short)MSG_ReadShort();
+	}
+
+	if (msg_badread || CL_Demo_SkipMessage(true)) {
+		return;
+	}
+
+	if (!PScript_RunParticleEffectState(org, dir, count, CL_ServerParticleEffectType(effect), NULL) &&
+		!PScript_RunParticleEffect(org, dir, 15, 15)) {
+		R_RunParticleEffect(org, dir, 15, 15);
+	}
 }
 
 void vectoangles(vec3_t vec, vec3_t ang);
