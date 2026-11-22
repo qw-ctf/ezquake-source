@@ -1291,12 +1291,13 @@ qbool PScript_RunParticleEffect(vec3_t org, vec3_t dir, int color, int count)
 
 // Spawns count times the type's count single particles of typenum at random
 // points of the box minb..maxb. With tint, colour replaces its colorindex.
-static qbool PScript_RunBox(int typenum, vec3_t minb, vec3_t maxb, vec3_t dir, float count, qbool tint, int colour)
+// With dir2, each particle gets a random direction between dir and dir2.
+static qbool PScript_RunBox(int typenum, vec3_t minb, vec3_t maxb, vec3_t dir, vec3_t dir2, float count, qbool tint, int colour)
 {
 	pscript_type_t *ptype = &pscript_types[typenum];
 	float total, invcount;
 	int oldindex, i, j;
-	vec3_t org;
+	vec3_t org, spread;
 
 	if (!ptype->loaded) {
 		return false;
@@ -1317,7 +1318,12 @@ static qbool PScript_RunBox(int typenum, vec3_t minb, vec3_t maxb, vec3_t dir, f
 		for (j = 0; j < 3; j++) {
 			org[j] = minb[j] + frandom() * (maxb[j] - minb[j]);
 		}
-		PScript_RunEffect(org, dir, invcount, typenum, NULL);
+		if (dir2) {
+			for (j = 0; j < 3; j++) {
+				spread[j] = dir[j] + frandom() * (dir2[j] - dir[j]);
+			}
+		}
+		PScript_RunEffect(org, dir2 ? spread : dir, invcount, typenum, NULL);
 	}
 	ptype->colorindex = oldindex;
 
@@ -1351,13 +1357,14 @@ qbool PScript_RunParticleWeather(vec3_t minb, vec3_t maxb, vec3_t dir, float cou
 		tint = true;
 	}
 
-	return PScript_RunBox(type, minb, maxb, dir, count, tint, colour);
+	return PScript_RunBox(type, minb, maxb, dir, NULL, count, tint, colour);
 }
 
 // Particle cubes: typenum, else te_cube[_g]_<colour>, else te_cube[_g] or
-// pe_default tinted to colour, _g for gravity. Fails while
+// pe_default tinted to colour, _g for gravity. dir2 is NULL, or the other end
+// of the range each particle's direction is picked from. Fails while
 // PScript_DynamicActive is false, as these are events.
-qbool PScript_RunParticleCube(int typenum, vec3_t minb, vec3_t maxb, vec3_t dir, float count, int colour, qbool gravity)
+qbool PScript_RunParticleCube(int typenum, vec3_t minb, vec3_t maxb, vec3_t dir, vec3_t dir2, float count, int colour, qbool gravity)
 {
 	char name[32];
 	qbool tint = false;
@@ -1382,5 +1389,5 @@ qbool PScript_RunParticleCube(int typenum, vec3_t minb, vec3_t maxb, vec3_t dir,
 		tint = true;
 	}
 
-	return PScript_RunBox(typenum, minb, maxb, dir, count, tint, colour);
+	return PScript_RunBox(typenum, minb, maxb, dir, dir2, count, tint, colour);
 }

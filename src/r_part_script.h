@@ -125,7 +125,7 @@ qbool PScript_RunParticleEffectTypeString(vec3_t org, vec3_t dir, float count, c
 qbool PScript_RunParticleEffectTinted(vec3_t org, vec3_t dir, float count, int typenum, int colorindex, int colorrand);
 qbool PScript_RunParticleEffect(vec3_t org, vec3_t dir, int color, int count);
 qbool PScript_RunParticleWeather(vec3_t minb, vec3_t maxb, vec3_t dir, float count, int colour, const char *efname);
-qbool PScript_RunParticleCube(int typenum, vec3_t minb, vec3_t maxb, vec3_t dir, float count, int colour, qbool gravity);
+qbool PScript_RunParticleCube(int typenum, vec3_t minb, vec3_t maxb, vec3_t dir, vec3_t dir2, float count, int colour, qbool gravity);
 qbool PScript_ParticleTrail(vec3_t start, vec3_t end, int typenum, float timeinterval, int dlkey, trailkey_t *tk);
 void PScript_DelinkTrailstate(trailkey_t *tk);
 void PScript_MatchTrailstate(trailkey_t *tk, int *tktype, int typenum);
