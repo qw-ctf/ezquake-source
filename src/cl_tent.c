@@ -742,66 +742,50 @@ static void CL_TE_KnightSpike(vec3_t pos, qbool scripted)
 	S_StartSound(-1, 0, cl_sfx_knighthit, pos, 1, 1);
 }
 
-/* Spike and bullet impacts; scripted tells that a scripted effect drew the particles. */
-static void CL_Parse_TE_SPIKE(vec3_t pos, qbool scripted)
+/* Spike and bullet impact particles; scripted tells that a scripted effect drew them. */
+static void CL_TE_SpikeParticles(vec3_t pos, qbool scripted, int count)
 {
-	int rnd;
-
-	if (!scripted)
-	{
-		if (amf_part_spikes.value && !Rulesets_RestrictParticles() && !gl_no24bit.integer)
-			VXNailhit(pos, 10 * amf_part_spikes.value);
-		else
-		{
-			R_RunParticleEffect(pos, vec3_origin, 0, 10);
-		}
+	if (scripted) {
+		return;
 	}
-
-	if ( rand() % 5 ) 
-	{
-		S_StartSound(-1, 0, cl_sfx_tink1, pos, 1, 1);
+	if (amf_part_spikes.value && !Rulesets_RestrictParticles() && !gl_no24bit.integer) {
+		VXNailhit(pos, count * amf_part_spikes.value);
 	}
-	else
-	{
-		rnd = rand() & 3;
-		if (rnd == 1)
-			S_StartSound(-1, 0, cl_sfx_ric1, pos, 1, 1);
-		else if (rnd == 2)
-			S_StartSound(-1, 0, cl_sfx_ric2, pos, 1, 1);
-		else
-			S_StartSound(-1, 0, cl_sfx_ric3, pos, 1, 1);
+	else {
+		R_RunParticleEffect(pos, vec3_origin, 0, count);
 	}
 }
 
-/* Super spike and bullet impacts; scripted tells that a scripted effect drew the particles. */
-static void CL_Parse_TE_SUPERSPIKE(vec3_t pos, qbool scripted)
+static void CL_TE_RicochetSound(vec3_t pos)
 {
 	int rnd;
 
-	if (!scripted)
-	{
-		if (amf_part_spikes.value && !Rulesets_RestrictParticles() && !gl_no24bit.integer)
-			VXNailhit(pos, 20 * amf_part_spikes.value);
-		else
-		{
-			R_RunParticleEffect(pos, vec3_origin, 0, 20);
-		}
-	}
-
-	if (rand() % 5) 
-	{
+	if (rand() % 5) {
 		S_StartSound(-1, 0, cl_sfx_tink1, pos, 1, 1);
+		return;
 	}
-	else
-	{
-		rnd = rand() & 3;
-		if (rnd == 1)
-			S_StartSound(-1, 0, cl_sfx_ric1, pos, 1, 1);
-		else if (rnd == 2)
-			S_StartSound(-1, 0, cl_sfx_ric2, pos, 1, 1);
-		else
-			S_StartSound(-1, 0, cl_sfx_ric3, pos, 1, 1);
+	rnd = rand() & 3;
+	if (rnd == 1) {
+		S_StartSound(-1, 0, cl_sfx_ric1, pos, 1, 1);
 	}
+	else if (rnd == 2) {
+		S_StartSound(-1, 0, cl_sfx_ric2, pos, 1, 1);
+	}
+	else {
+		S_StartSound(-1, 0, cl_sfx_ric3, pos, 1, 1);
+	}
+}
+
+static void CL_Parse_TE_SPIKE(vec3_t pos, qbool scripted)
+{
+	CL_TE_SpikeParticles(pos, scripted, 10);
+	CL_TE_RicochetSound(pos);
+}
+
+static void CL_Parse_TE_SUPERSPIKE(vec3_t pos, qbool scripted)
+{
+	CL_TE_SpikeParticles(pos, scripted, 20);
+	CL_TE_RicochetSound(pos);
 }
 
 /*
@@ -1347,6 +1331,30 @@ static void CL_TE_BigExplosion(vec3_t pos)
 	}
 }
 
+qbool CL_TE_SpikeImpact(int type, vec3_t pos)
+{
+	switch (type) {
+		case TE_SPIKE:
+			CL_TE_SpikeParticles(pos, CL_TE_SpikeEffect(PSCRIPT_TE_SPIKE, pos), 10);
+			return true;
+
+		case TE_SUPERSPIKE:
+			CL_TE_SpikeParticles(pos, CL_TE_SuperSpikeEffect(PSCRIPT_TE_SUPERSPIKE, PSCRIPT_TE_SPIKE, pos), 20);
+			return true;
+
+		case TEDP_SPIKEQUAD:
+			CL_TE_SpikeParticles(pos, CL_TE_Effect(PSCRIPT_TE_SPIKEQUAD, pos, NULL, 1) || CL_TE_SpikeEffect(PSCRIPT_TE_SPIKE, pos), 10);
+			return true;
+
+		case TEDP_SUPERSPIKEQUAD:
+			CL_TE_SpikeParticles(pos, CL_TE_Effect(PSCRIPT_TE_SUPERSPIKEQUAD, pos, NULL, 1) || CL_TE_SuperSpikeEffect(PSCRIPT_TE_SUPERSPIKE, PSCRIPT_TE_SPIKE, pos), 20);
+			return true;
+
+		default:
+			return false;
+	}
+}
+
 qbool CL_TempEntityEffect(int type, vec3_t pos)
 {
 	switch (type) {
@@ -1362,16 +1370,15 @@ qbool CL_TempEntityEffect(int type, vec3_t pos)
 
 		// Spike hitting wall.
 		case TE_SPIKE:
-			CL_Parse_TE_SPIKE(pos, CL_TE_SpikeEffect(PSCRIPT_TE_SPIKE, pos));
+		case TE_SUPERSPIKE:
+		case TEDP_SPIKEQUAD:
+		case TEDP_SUPERSPIKEQUAD:
+			CL_TE_SpikeImpact(type, pos);
+			CL_TE_RicochetSound(pos);
 			return true;
 
 		case TE_BULLET:
 			CL_Parse_TE_SPIKE(pos, CL_TE_SpikeEffect(PSCRIPT_TE_BULLET, pos));
-			return true;
-
-		// Super spike hitting wall.
-		case TE_SUPERSPIKE:
-			CL_Parse_TE_SUPERSPIKE(pos, CL_TE_SuperSpikeEffect(PSCRIPT_TE_SUPERSPIKE, PSCRIPT_TE_SPIKE, pos));
 			return true;
 
 		case TEQW_SUPERBULLET:
@@ -1414,14 +1421,6 @@ qbool CL_TempEntityEffect(int type, vec3_t pos)
 			if (!CL_TE_Effect(PSCRIPT_TE_GUNSHOTQUAD, pos, NULL, 1) && !CL_TE_Effect(PSCRIPT_TE_GUNSHOT, pos, NULL, 1) && !PScript_RunParticleEffect(pos, vec3_origin, 0, 20)) {
 				CL_TE_GunshotEffect(pos, 1);
 			}
-			return true;
-
-		case TEDP_SPIKEQUAD:
-			CL_Parse_TE_SPIKE(pos, CL_TE_Effect(PSCRIPT_TE_SPIKEQUAD, pos, NULL, 1) || CL_TE_SpikeEffect(PSCRIPT_TE_SPIKE, pos));
-			return true;
-
-		case TEDP_SUPERSPIKEQUAD:
-			CL_Parse_TE_SUPERSPIKE(pos, CL_TE_Effect(PSCRIPT_TE_SUPERSPIKEQUAD, pos, NULL, 1) || CL_TE_SuperSpikeEffect(PSCRIPT_TE_SUPERSPIKE, PSCRIPT_TE_SPIKE, pos));
 			return true;
 
 		case TEDP_EXPLOSIONQUAD:
