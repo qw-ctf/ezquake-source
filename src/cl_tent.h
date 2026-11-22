@@ -26,6 +26,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 // Position-only types and TE_LIGHTNINGBLOOD; false for an unknown type.
 qbool CL_TempEntityEffect(int type, vec3_t pos);
+// TE_SPIKE, TE_SUPERSPIKE, TEDP_SPIKEQUAD and TEDP_SUPERSPIKEQUAD without the ricochet sound; false for another type
+qbool CL_TE_SpikeImpact(int type, vec3_t pos);
 // TE_GUNSHOT
 void CL_TE_Gunshot(vec3_t pos, int count);
 // TE_BLOOD
