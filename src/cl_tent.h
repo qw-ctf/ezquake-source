@@ -49,6 +49,17 @@ void CL_TE_TeiG3(vec3_t start, vec3_t end);
 // TE_LIGHTNING1-3 and TEQW_BEAM as beam types 1-4
 void CL_CreateBeam(int type, int ent, vec3_t start, vec3_t end);
 
+// Particle effects the server numbered with svc_fte_precache, 1 to 1023.
+// An out-of-range index or an empty name is ignored.
+void CL_SetServerParticleEffect(int index, const char *name);
+// The number of the effect with exactly this name, 0 when there is none.
+int CL_FindServerParticleEffect(const char *name);
+// NULL when the number is not set.
+const char *CL_ServerParticleEffectName(int index);
+// The scripted effect type, P_INVALID when the number is not set or the
+// loaded particle sets do not have the effect.
+int CL_ServerParticleEffectType(int index);
+
 // client-side "fake" projectiles: spawned locally by weapon prediction
 // and/or driven by server-sent simple projectile states
 #if defined(MVD_PEXT1_WEAPONPREDICTION) || defined(MVD_PEXT1_SIMPLEPROJECTILE)

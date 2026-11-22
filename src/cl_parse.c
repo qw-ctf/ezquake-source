@@ -47,6 +47,7 @@ $Id: cl_parse.c,v 1.135 2007-10-28 19:56:44 qqshka Exp $
 #include "demo_spawnwarn.h"
 #include "central.h"
 #include "r_part_script.h"
+#include "cl_tent.h"
 
 int CL_LoginImageId(const char* name);
 
@@ -3866,6 +3867,19 @@ static void CL_RotateCmd(usercmd_t* cmd, float yaw_delta)
 	cmd->forwardmove = result[1];
 }
 
+// svc_fte_precache: a model, sound or particle effect precached after the map started.
+static void CL_ParseFTEPrecache(void)
+{
+	int code = (unsigned short)MSG_ReadShort();
+	const char *name = MSG_ReadString();
+	int type = code & FTEPC_TYPE;
+	int index = code & ~FTEPC_TYPE;
+
+	if (type == FTEPC_PARTICLE) {
+		CL_SetServerParticleEffect(index, name);
+	}
+}
+
 void CL_ParseServerMessage (void) 
 {
 	int cmd, i, j = 0;
@@ -4175,6 +4189,27 @@ void CL_ParseServerMessage (void)
 			case svc_temp_entity:
 				{
 					CL_ParseTEnt();
+					break;
+				}
+			// FTE servers send these without negotiation.
+			case svc_fte_precache:
+				{
+					CL_ParseFTEPrecache();
+					break;
+				}
+			case svc_fte_trailparticles:
+				{
+					CL_ParseTrailParticles();
+					break;
+				}
+			case svc_fte_pointparticles:
+				{
+					CL_ParsePointParticles(false);
+					break;
+				}
+			case svc_fte_pointparticles1:
+				{
+					CL_ParsePointParticles(true);
 					break;
 				}
 			case svc_killedmonster:

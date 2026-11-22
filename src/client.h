@@ -325,6 +325,8 @@ typedef struct
 	int             pscript_emitframe;
 	int             pscript_trailtype;  // the type pscript_trail was last used for
 	int             pscript_emittype;   // the type pscript_emit was last used for
+	trailkey_t      pscript_msgtrail;   // svc_fte_trailparticles trail of this entity
+	int             pscript_msgtype;    // the type pscript_msgtrail was last used for
 } centity_t;
 
 // Scripted emitter of the static entity with the same index, kept out of
@@ -1146,6 +1148,12 @@ void CL_InitTEnts (void);
 void CL_InitTEntsCvar(void);
 void CL_ClearTEnts (void);
 void CL_ParseTEnt (void);
+// svc_fte_trailparticles: a trail of a server numbered effect, continued
+// between messages for the same entity. Without the effect a blood trail.
+void CL_ParseTrailParticles(void);
+// svc_fte_pointparticles, or svc_fte_pointparticles1 when compact. Without
+// the effect a burst of classic particles.
+void CL_ParsePointParticles(qbool compact);
 void CL_ExplosionSprite (vec3_t);
 void CL_ClearPlayerBeams(void);
 void CL_UpdateTEnts(void);
