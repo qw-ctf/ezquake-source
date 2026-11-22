@@ -1310,10 +1310,10 @@ qbool CL_TE_ParticleBox(int type, vec3_t mins, vec3_t maxs, vec3_t dir, int coun
 {
 	switch (type) {
 		case TEDP_BLOODSHOWER:
-			return PScript_RunParticleCube(PScript_FindParticleType("te_bloodshower"), mins, maxs, dir, count, 0, false);
+			return PScript_RunParticleCube(PScript_FindParticleType("te_bloodshower"), mins, maxs, dir, NULL, count, 0, false);
 
 		case TEDP_PARTICLECUBE:
-			return PScript_RunParticleCube(P_INVALID, mins, maxs, dir, count, color, gravity);
+			return PScript_RunParticleCube(P_INVALID, mins, maxs, dir, NULL, count, color, gravity);
 
 		case TEDP_PARTICLERAIN:
 			return PScript_RunParticleWeather(mins, maxs, dir, count, color, "rain");
