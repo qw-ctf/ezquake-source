@@ -770,12 +770,56 @@ static int V_CurrentWeaponModel(void)
 
 extern void TP_ParseWeaponModel(model_t *model);
 
+static float v_weaponbob; // the bob the view weapon was last placed with
+
+float V_ViewWeaponBob(void)
+{
+	return v_weaponbob;
+}
+
+// View weapon origin for the current r_refdef.vieworg/viewangles.
+void V_CalcViewWeaponOrigin(float bob, vec3_t origin)
+{
+	extern cvar_t scr_fovmode, scr_newHud;
+	vec3_t forward, right, up;
+
+	AngleVectors(r_refdef.viewangles, forward, right, up);
+	VectorCopy(r_refdef.vieworg, origin);
+
+	VectorMA(origin, bob * 0.4, forward, origin);
+
+	if (r_viewmodeloffset.string[0]) {
+		float offset[3];
+		int size = sizeof(offset) / sizeof(offset[0]);
+
+		ParseFloats(r_viewmodeloffset.string, offset, &size);
+		VectorMA(origin, offset[0], right, origin);
+		VectorMA(origin, -offset[1], up, origin);
+		VectorMA(origin, offset[2], forward, origin);
+	}
+
+	// fudge position around to keep amount of weapon visible roughly equal with different FOV
+	if (!scr_fovmode.value) {
+		if (cl_sbar.value && scr_newHud.value == 0 && scr_viewsize.value == 110) {
+			origin[2] += 1;
+		}
+		else if (cl_sbar.value && scr_newHud.value == 0 && scr_viewsize.value == 100) {
+			origin[2] += 2;
+		}
+		else if (scr_viewsize.value == 90) {
+			origin[2] += 1;
+		}
+		else if (scr_viewsize.value == 80) {
+			origin[2] += 0.5;
+		}
+	}
+}
+
 static void V_AddViewWeapon(float bob)
 {
-	vec3_t forward, right, up;
 	centity_t *cent;
 	int gunmodel = V_CurrentWeaponModel();
-	extern cvar_t scr_fov, scr_fovmode, scr_newHud;
+	extern cvar_t scr_fov;
 
 	cent = CL_WeaponModelForView();
 	if ((unsigned)gunmodel >= MAX_MODELS) {
@@ -799,33 +843,7 @@ static void V_AddViewWeapon(float bob)
 	cent->current.angles[PITCH] = -r_refdef.viewangles[PITCH];
 	cent->current.angles[ROLL] = r_refdef.viewangles[ROLL];
 	//origin
-
-	AngleVectors(r_refdef.viewangles, forward, right, up);
-	VectorCopy(r_refdef.vieworg, cent->current.origin);
-
-	VectorMA(cent->current.origin, bob * 0.4, forward, cent->current.origin);
-
-	if (r_viewmodeloffset.string[0]) {
-		float offset[3];
-		int size = sizeof(offset) / sizeof(offset[0]);
-
-		ParseFloats(r_viewmodeloffset.string, offset, &size);
-		VectorMA(cent->current.origin, offset[0], right, cent->current.origin);
-		VectorMA(cent->current.origin, -offset[1], up, cent->current.origin);
-		VectorMA(cent->current.origin, offset[2], forward, cent->current.origin);
-	}
-
-	// fudge position around to keep amount of weapon visible roughly equal with different FOV
-	if (!scr_fovmode.value) {
-		if (cl_sbar.value && scr_newHud.value == 0 && scr_viewsize.value == 110)
-			cent->current.origin[2] += 1;
-		else if (cl_sbar.value && scr_newHud.value == 0 && scr_viewsize.value == 100)
-			cent->current.origin[2] += 2;
-		else if (scr_viewsize.value == 90)
-			cent->current.origin[2] += 1;
-		else if (scr_viewsize.value == 80)
-			cent->current.origin[2] += 0.5;
-	}
+	V_CalcViewWeaponOrigin(bob, cent->current.origin);
 
 #ifdef MVD_PEXT1_WEAPONPREDICTION
 	if (PM_WeaponPredictionActive())
@@ -855,6 +873,7 @@ static void V_CalcIntermissionRefdef(void)
 
 	// we don't draw weapon in intermission
 	CL_WeaponModelForView()->current.modelindex = 0;
+	v_weaponbob = 0;
 
 	// always idle in intermission
 	old = v_idlescale.value;
@@ -939,7 +958,8 @@ static void V_CalcRefdef(void)
 
 	// meag: really viewheight shouldn't be here, but it was incorrectly passed for years instead of bob,
 	//       and so without it the gun is rendered too far forward if e.g. viewheight -6
-	V_AddViewWeapon(bob + height_adjustment);
+	v_weaponbob = bob + height_adjustment;
+	V_AddViewWeapon(v_weaponbob);
 }
 
 void DropPunchAngle (void) {
