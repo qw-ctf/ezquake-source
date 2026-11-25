@@ -2193,7 +2193,7 @@
     },
     "cl_pext_accuratetimings": {
       "default": "1",
-      "desc": "If set, requests FTE's accurate timings protocol extension during connect, giving millisecond-precision server time for entity interpolation. Used by the antilag 1 prototype.",
+      "desc": "If set, requests FTE's accurate timings protocol extension during connect, giving millisecond-precision server time for entity interpolation.",
       "group-id": "21",
       "type": "boolean"
     },
