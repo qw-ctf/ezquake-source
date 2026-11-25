@@ -7603,13 +7603,28 @@ static csqc_buf_t *CSQC_Client_BufAt(int handle)
 	return &s_bufs[handle - 1];
 }
 
+// Total bytes held by all module string buffers. Without a cap a module can
+// fill buffers until Q_strdup/Q_realloc end in Sys_Error and the client exits
+// (review S42). Over the cap a store fails like any other bufstr failure, with
+// one warning per module.
+#define CSQC_MAX_BUF_BYTES	(16 * 1024 * 1024)
+static size_t s_buf_bytes;
+static qbool s_buf_full_warned;
+
+static void CSQC_Client_BufDrop(csqc_buf_t *b, int idx)
+{
+	if (b->str[idx]) {
+		s_buf_bytes -= strlen(b->str[idx]) + 1;
+		Q_free(b->str[idx]);
+		b->str[idx] = NULL;
+	}
+}
+
 static void CSQC_Client_BufClear(csqc_buf_t *b)
 {
 	int i;
 	for (i = 0; i < b->num; i++) {
-		if (b->str[i]) {
-			Q_free(b->str[i]);
-		}
+		CSQC_Client_BufDrop(b, i);
 	}
 	Q_free(b->str);
 	b->str = NULL;
@@ -7681,15 +7696,29 @@ static qbool CSQC_Client_BufEnsure(csqc_buf_t *b, int idx)
 static qbool CSQC_Client_BufStore(csqc_buf_t *b, int idx, const char *s)
 {
 	char *c;
+	size_t len, old;
 
+	if (!s) {
+		s = "";
+	}
+	len = strlen(s) + 1;
+	old = (idx >= 0 && idx < b->cap && b->str[idx]) ? strlen(b->str[idx]) + 1 : 0;
+	if (s_buf_bytes - old + len > CSQC_MAX_BUF_BYTES) {
+		if (!s_buf_full_warned) {
+			Con_Printf("CSQC: string buffers full (%d bytes), bufstr store refused\n", CSQC_MAX_BUF_BYTES);
+			s_buf_full_warned = true;
+		}
+		return false;
+	}
 	if (idx < 0 || !CSQC_Client_BufEnsure(b, idx)) {
 		return false;
 	}
-	c = Q_strdup(s ? s : "");
+	c = Q_strdup(s);
 	if (!c) {
 		return false;
 	}
-	Q_free(b->str[idx]);
+	CSQC_Client_BufDrop(b, idx);
+	s_buf_bytes += len;
 	b->str[idx] = c;
 	if (idx >= b->num) {
 		b->num = idx + 1;
@@ -7742,8 +7771,7 @@ int CSQC_Client_BufFree(int handle, int idx)
 	if (!b || idx < 0 || idx >= b->num) {
 		return 0;
 	}
-	Q_free(b->str[idx]);
-	b->str[idx] = NULL;
+	CSQC_Client_BufDrop(b, idx);
 	return 1;
 }
 
@@ -7751,6 +7779,7 @@ int CSQC_Client_BufCopy(int from, int to)
 {
 	csqc_buf_t *f = CSQC_Client_BufAt(from);
 	csqc_buf_t *t = CSQC_Client_BufAt(to);
+	size_t total;
 	int i;
 
 	if (!f || !t) {
@@ -7758,6 +7787,25 @@ int CSQC_Client_BufCopy(int from, int to)
 	}
 	if (f == t) {
 		return 1;
+	}
+	// Refuse an over-budget copy before the target is touched (review S42).
+	total = s_buf_bytes;
+	for (i = 0; i < t->num; i++) {
+		if (t->str[i]) {
+			total -= strlen(t->str[i]) + 1;
+		}
+	}
+	for (i = 0; i < f->num; i++) {
+		if (f->str[i]) {
+			total += strlen(f->str[i]) + 1;
+		}
+	}
+	if (total > CSQC_MAX_BUF_BYTES) {
+		if (!s_buf_full_warned) {
+			Con_Printf("CSQC: string buffers full (%d bytes), buf_copy refused\n", CSQC_MAX_BUF_BYTES);
+			s_buf_full_warned = true;
+		}
+		return 0;
 	}
 	CSQC_Client_BufClear(t);
 	if (!f->num) {
@@ -7769,7 +7817,10 @@ int CSQC_Client_BufCopy(int from, int to)
 	}
 	t->cap = t->num = f->num;
 	for (i = 0; i < f->num; i++) {
-		t->str[i] = f->str[i] ? Q_strdup(f->str[i]) : NULL;
+		if (f->str[i]) {
+			t->str[i] = Q_strdup(f->str[i]);
+			s_buf_bytes += strlen(f->str[i]) + 1;
+		}
 	}
 	return 1;
 }
@@ -7871,6 +7922,8 @@ void CSQC_Client_BufReset(void)
 	Q_free(s_bufs);
 	s_bufs = NULL;
 	s_numbufs = 0;
+	s_buf_bytes = 0;
+	s_buf_full_warned = false;
 }
 
 void CSQC_Client_Disconnect(void)
