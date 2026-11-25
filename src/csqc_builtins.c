@@ -4212,7 +4212,8 @@ static void CSQC_Checkextension(void)
 	if (!ext) {
 		return;
 	}
-	if (!strcmp(ext, "EXT_CSQC")) {
+	// Protocol, not builtins; FTE gates EXT_CSQC_SHARED on the same bit.
+	if (!strcmp(ext, "EXT_CSQC") || !strcmp(ext, "EXT_CSQC_SHARED")) {
 		vm->globals[OFS_RETURN] = !!(cls.fteprotocolextensions & FTE_PEXT_CSQC);
 		return;
 	}
