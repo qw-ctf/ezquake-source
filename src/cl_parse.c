@@ -476,6 +476,34 @@ int CL_CalcNetStatistics(
 
 qbool CL_Download_Accept(const char *filename);
 
+/*
+ * Sets cls.downloadname to the file a download of name into dir is saved as,
+ * and cls.downloadtempname to the .tmp file it is written to until it is
+ * complete. Returns false, after a warning and leaving both as they were, if
+ * either doesn't fit: cut to fit, it could name a file of any type, such as a
+ * config that runs at startup.
+ */
+qbool CL_SetDownloadNames(const char *dir, const char *name)
+{
+	char downloadname[sizeof(cls.downloadname)];
+	char tempname[sizeof(cls.downloadtempname)];
+	qbool fits;
+
+	fits = FS_FormatOSPath(downloadname, sizeof(downloadname), "%s/%s", dir, name);
+	if (fits) {
+		COM_StripExtension(downloadname, tempname, sizeof(tempname));
+		fits = strlcat(tempname, ".tmp", sizeof(tempname)) < sizeof(tempname);
+	}
+	if (!fits) {
+		Com_Printf("Warning: \"%s\" is too long a name to download\n", name);
+		return false;
+	}
+
+	strlcpy(cls.downloadname, downloadname, sizeof(cls.downloadname));
+	strlcpy(cls.downloadtempname, tempname, sizeof(cls.downloadtempname));
+	return true;
+}
+
 // Returns true if the file exists, otherwise it attempts to start a download from the server.
 qbool CL_CheckOrDownloadFile(char *filename)
 {
@@ -505,7 +533,9 @@ qbool CL_CheckOrDownloadFile(char *filename)
 		return true;
 	}
 
-	snprintf (cls.downloadname, sizeof(cls.downloadname), "%s/%s", cls.gamedir, filename);
+	if (!CL_SetDownloadNames(cls.gamedir, filename)) {
+		return true;
+	}
 	Com_Printf ("Downloading %s...\n", filename);
 
 	// download to a temp name, and only rename
@@ -514,9 +544,6 @@ qbool CL_CheckOrDownloadFile(char *filename)
 
 	cls.downloadmethod    = DL_QW; // by default its DL_QW, if server support DL_QWCHUNKED it will be changed.
 	cls.downloadstarttime = Sys_DoubleTime();
-
-	COM_StripExtension (cls.downloadname, cls.downloadtempname, sizeof(cls.downloadtempname));
-	strlcat (cls.downloadtempname, ".tmp", sizeof(cls.downloadtempname));
 
 	if (cls.mvdplayback == QTV_PLAYBACK) 
 	{
