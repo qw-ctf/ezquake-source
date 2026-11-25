@@ -1159,7 +1159,7 @@ static void Mod_LoadTexinfo(model_t* loadmodel, lump_t* l, byte* mod_base)
 }
 
 // Extension to support lightmaps that aren't tied to texture scale.
-static int Mod_LoadDecoupledLM(dlminfo_t* lminfos, int surfnum, msurface_t *out)
+static int Mod_LoadDecoupledLM(model_t *loadmodel, dlminfo_t *lminfos, int surfnum, msurface_t *out)
 {
 	dlminfo_t *lminfo;
 	unsigned short lmwidth, lmheight;
@@ -1176,6 +1176,12 @@ static int Mod_LoadDecoupledLM(dlminfo_t* lminfos, int surfnum, msurface_t *out)
 
 	if (lmwidth <= 0 || lmheight <= 0) {
 		return -1;
+	}
+	// lightmaps are built from the extents of surfaces without TEX_SPECIAL,
+	// which these are unless the face falls back on its own lighting, so
+	// they must not wrap in the short
+	if (LittleLong(lminfo->lightofs) >= 0 && !(out->texinfo->flags & TEX_SPECIAL) && (lmwidth > 32768 || lmheight > 32768)) {
+		Host_Error("[%s] surface %d has a decoupled lightmap of %dx%d samples", loadmodel->name, surfnum, lmwidth, lmheight);
 	}
 
 	for (i = 0; i < 2; i++) {
@@ -1259,7 +1265,7 @@ static void Mod_LoadFaces(model_t* loadmodel, lump_t* l, byte* mod_base, bspx_he
 		out->plane = loadmodel->planes + planenum;
 		out->texinfo = loadmodel->texinfo + texinfo;
 
-		lightofs = Mod_LoadDecoupledLM(lminfos, surfnum, out);
+		lightofs = Mod_LoadDecoupledLM(loadmodel, lminfos, surfnum, out);
 		if (lightofs < 0) {
 			memcpy(out->lmvecs, out->texinfo->vecs, sizeof(out->lmvecs));
 			out->lmshift = DEFAULT_LMSHIFT;
@@ -1323,7 +1329,7 @@ static void Mod_LoadFacesBSP2(model_t* loadmodel, lump_t* l, byte* mod_base, bsp
 		out->plane = loadmodel->planes + planenum;
 		out->texinfo = loadmodel->texinfo + texinfo;
 
-		lightofs = Mod_LoadDecoupledLM(lminfos, surfnum, out);
+		lightofs = Mod_LoadDecoupledLM(loadmodel, lminfos, surfnum, out);
 		if (lightofs < 0) {
 			memcpy(out->lmvecs, out->texinfo->vecs, sizeof(out->lmvecs));
 			out->lmshift = DEFAULT_LMSHIFT;
