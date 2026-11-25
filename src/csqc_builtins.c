@@ -7070,6 +7070,21 @@ static void CSQC_Cl_Rotatemoves(void)
  file subsystems, readback pics or per-field dlight access. Registered so modules
  do not hit "Bad builtin".
 */
+/*
+ float(string strname, float accessmode) fopen = #110
+ The client has no file I/O for modules, so every open fails. FTE's failure value
+ is -1; 0 is a valid FTE handle, and a module checking `fh >= 0` would think the
+ file opened.
+*/
+static void CSQC_Fopen_Unavailable(void)
+{
+	pr1vm_t *vm = CSQCVM_Active();
+	if (!vm) {
+		return;
+	}
+	vm->globals[OFS_RETURN] = -1;
+}
+
 static void CSQC_Light_Nop_Ret0(void)
 {
 	pr1vm_t *vm = CSQCVM_Active();
@@ -7758,7 +7773,7 @@ void CSQCVM_RegisterBuiltins(pr1vm_t *vm)
 	PR1VM_RegisterBuiltin(vm, 741, (builtin_t)CSQC_Vmrest_Nop); // #741 void() controller_rumble
 	PR1VM_RegisterBuiltin(vm, 742, (builtin_t)CSQC_Vmrest_Nop); // #742 void() controller_rumbletriggers
 	// FLOAT0 stubs - type-correct no-op.
-	PR1VM_RegisterBuiltin(vm, 110, (builtin_t)CSQC_Light_Nop_Ret0); // #110 float(string strname, float accessmode) fopen (FRIK_FILE)
+	PR1VM_RegisterBuiltin(vm, 110, (builtin_t)CSQC_Fopen_Unavailable); // #110 float(string strname, float accessmode) fopen (FRIK_FILE)
 	PR1VM_RegisterBuiltin(vm, 200, (builtin_t)CSQC_Getmodelindex); // #200 float(string modelname, optional float queryonly) getmodelindex
 	PR1VM_RegisterBuiltin(vm, 201, (builtin_t)CSQC_Light_Nop_Ret0); // #201 __variant(float prnum, string funcname, ...) externcall - no-op in classic v6: variant exchange between VMs (no v6 types)
 	PR1VM_RegisterBuiltin(vm, 202, (builtin_t)CSQC_Light_Nop_Ret0); // #202 float(string progsname) addprogs
