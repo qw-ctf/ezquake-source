@@ -53,41 +53,13 @@ void DemoExtension_StopDemo(void)
 	DemoExtensionVoice_StopDemo();
 }
 
-static qbool DemoExtension_IsSafePath(const char *path)
-{
-	const char *segment;
-
-	if (!path[0] || path[0] == '/' || path[0] == '\\' || strchr(path, ':')) {
-		return false;
-	}
-
-	segment = path;
-	while (*segment) {
-		size_t len;
-		const char *slash = strpbrk(segment, "/\\");
-
-		len = slash ? (size_t)(slash - segment) : strlen(segment);
-		if (!len || (len == 1 && segment[0] == '.') ||
-			(len == 2 && segment[0] == '.' && segment[1] == '.')) {
-			return false;
-		}
-
-		if (!slash) {
-			break;
-		}
-		segment = slash + 1;
-	}
-
-	return true;
-}
-
 qbool DemoExtension_LoadFile(const char *path, byte **data, int *len)
 {
 #ifdef WITH_ZIP
 	size_t unpacked_len;
 	void *loaded;
 
-	if (!demo_extension_zip || !DemoExtension_IsSafePath(path)) {
+	if (!demo_extension_zip || !FS_IsSafeRelativePath(path)) {
 		return false;
 	}
 
