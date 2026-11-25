@@ -196,6 +196,7 @@ void GL_EndDrawSprites(void);
 // 
 void R_RenderDynamicLightmaps(msurface_t *fa, qbool world);
 void R_DrawViewModel(void);
+void R_DrawViewModelEntity(entity_t *ent);
 void R_LightmapFrameInit(void);
 void R_UploadChangedLightmaps(void);
 void R_UploadLightMap(int textureUnit, int lightmapnum);

@@ -626,6 +626,29 @@ void R_AliasSetupLighting(entity_t *ent)
 	}
 }
 
+void R_DrawViewModelEntity(entity_t *ent)
+{
+	switch (ent->model->type) {
+		case mod_alias:
+			// don't support outlining weaponmodel just yet
+			R_DrawAliasModel(ent, false);
+			if (ent->effects) {
+				renderer.DrawAliasModelPowerupShell(ent);
+			}
+			break;
+		case mod_alias3:
+			renderer.DrawAlias3Model(ent, false, false);
+			if (ent->effects) {
+				renderer.DrawAlias3ModelPowerupShell(ent);
+			}
+			renderer.DrawAlias3Model(ent, false, true);
+			break;
+		default:
+			Com_Printf("Not drawing view model of type %i\n", ent->model->type);
+			break;
+	}
+}
+
 void R_DrawViewModel(void)
 {
 	extern cvar_t cl_drawgun;
@@ -674,25 +697,7 @@ void R_DrawViewModel(void)
 		gun.alpha = 0;
 	}
 
-	switch (gun.model->type) {
-		case mod_alias:
-			// don't support outlining weaponmodel just yet
-			R_DrawAliasModel(&gun, false);
-			if (gun.effects) {
-				renderer.DrawAliasModelPowerupShell(&gun);
-			}
-			break;
-		case mod_alias3:
-			renderer.DrawAlias3Model(&gun, false, false);
-			if (gun.effects) {
-				renderer.DrawAlias3ModelPowerupShell(&gun);
-			}
-			renderer.DrawAlias3Model(&gun, false, true);
-			break;
-		default:
-			Com_Printf("Not drawing view model of type %i\n", gun.model->type);
-			break;
-	}
+	R_DrawViewModelEntity(&gun);
 }
 
 void R_InitAliasModelCvars(void)
