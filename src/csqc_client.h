@@ -351,10 +351,11 @@ qbool CSQC_Client_EntTrail(int slot, vec3_t start, vec3_t end, int type);
 // `= #0`, resolved by name at load; these numbers never appear in csprogs). Above
 // the highest module-visible number (742), below CSQC_MAX_BUILTINS (1024).
 #define CSQC_BUILTIN_CHECKBUILTIN	1023
-// `argc` and `getplayerkeyfloat` have no numbered slot; they are only reachable
+// `argc`, `getplayerkeyfloat` and `serverkeyfloat` have no numbered slot; they are only reachable
 // as a `#0` name.
 #define CSQC_BUILTIN_ARGC			1021
 #define CSQC_BUILTIN_GETPLAYERKEYFLOAT	1020
+#define CSQC_BUILTIN_SERVERKEYFLOAT	1019
 // Aborting stub for an unknown `#0` name: calling it fails the module;
 // checkbuiltin still reports 0.
 #define CSQC_BUILTIN_NAMED_UNKNOWN	1022

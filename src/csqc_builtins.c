@@ -2034,6 +2034,27 @@ static void CSQC_Serverkey(void)
 	CSQCVM_SetRetStr((char *)(v ? v : ""));
 }
 
+// float(string key, optional float assumevalue) serverkeyfloat = #0
+// The key as a number; assumevalue, else 0, when it has no value.
+static void CSQC_Serverkeyfloat(void)
+{
+	pr1vm_t *vm = CSQCVM_Active();
+	char *key;
+	char buf[64];
+	const char *v;
+	if (!vm) {
+		return;
+	}
+	key = CSQCVM_Str(OFS_PARM0);
+	v = CSQC_Serverkey_Value(key ? key : "", buf, sizeof(buf));
+	if (v && v[0]) {
+		vm->globals[OFS_RETURN] = (float)strtod(v, NULL);
+	}
+	else {
+		vm->globals[OFS_RETURN] = (vm->argc > 1) ? vm->globals[OFS_PARM1] : 0;
+	}
+}
+
 /*
  void(float sens) setsensitivityscaler = #346
  Temporary mouse sensitivity multiplier (e.g. for zoom).
@@ -4307,6 +4328,7 @@ static const struct
 	{ "checkbuiltin", CSQC_BUILTIN_CHECKBUILTIN },
 	{ "argc", CSQC_BUILTIN_ARGC },
 	{ "getplayerkeyfloat", CSQC_BUILTIN_GETPLAYERKEYFLOAT },
+	{ "serverkeyfloat", CSQC_BUILTIN_SERVERKEYFLOAT },
 	{ NULL, 0 }
 };
 
@@ -7840,6 +7862,7 @@ void CSQCVM_RegisterBuiltins(pr1vm_t *vm)
 	PR1VM_RegisterBuiltin(vm, CSQC_BUILTIN_NAMED_UNKNOWN, (builtin_t)CSQC_Named_Unknown); // #0 unknown name: call aborts
 	PR1VM_RegisterBuiltin(vm, CSQC_BUILTIN_ARGC, (builtin_t)CSQC_Argc); // #0 float() argc
 	PR1VM_RegisterBuiltin(vm, CSQC_BUILTIN_GETPLAYERKEYFLOAT, (builtin_t)CSQC_Getplayerkeyfloat); // #0 getplayerkeyfloat
+	PR1VM_RegisterBuiltin(vm, CSQC_BUILTIN_SERVERKEYFLOAT, (builtin_t)CSQC_Serverkeyfloat); // #0 serverkeyfloat
 	PR1VM_MarkBuiltinStub(vm, CSQC_BUILTIN_NAMED_UNKNOWN); // checkbuiltin reports unresolved names as 0
 
 	// Mark no-op stubs so checkbuiltin/checkextension do not advertise them.
