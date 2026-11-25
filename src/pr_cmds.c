@@ -155,7 +155,7 @@ void PF_min(void)
 		G_FLOAT(OFS_RETURN) = f;
 	}
 	else {
-		Sys_Error("min: must supply at least 2 floats");
+		PR_RunError("min: must supply at least 2 floats");
 	}
 }
 
@@ -178,7 +178,7 @@ void PF_max(void)
 		G_FLOAT(OFS_RETURN) = f;
 	}
 	else {
-		Sys_Error("max: must supply at least 2 floats");
+		PR_RunError("max: must supply at least 2 floats");
 	}
 }
 
