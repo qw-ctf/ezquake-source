@@ -4974,6 +4974,27 @@ static qbool CSQC_Edict_To_Entity(pr1vm_t *vm, int e, entity_t *ent)
 	if ((f = CSQC_Ent_Ofs(vm, e, CSQC_Client_FieldOfs(vm, CSQC_FLD_RENDERFLAGS)))) {
 		int rflags = (int)f[0];
 		if (rflags & 1) {  // CSQCRF_VIEWMODEL
+			// FTE draws it relative to the view (x forward, y left, z up). Place
+			// it from the engine's own gun pose, which already carries bob,
+			// r_viewmodeloffset and the fov fudge (V_AddViewWeapon).
+			centity_t *gun = CL_WeaponModelForView();
+			vec3_t fwd, right, up, o, base;
+
+			VectorCopy(ent->origin, o);
+			AngleVectors(r_refdef.viewangles, fwd, right, up);
+			if (gun && gun->current.modelindex) {
+				VectorCopy(gun->current.origin, base);
+				VectorAdd(ent->angles, gun->current.angles, ent->angles);
+			}
+			else {
+				VectorCopy(r_refdef.vieworg, base);
+				ent->angles[PITCH] -= r_refdef.viewangles[PITCH];
+				ent->angles[YAW] += r_refdef.viewangles[YAW];
+				ent->angles[ROLL] += r_refdef.viewangles[ROLL];
+			}
+			VectorMA(base, o[0], fwd, ent->origin);
+			VectorMA(ent->origin, -o[1], right, ent->origin);
+			VectorMA(ent->origin, o[2], up, ent->origin);
 			ent->renderfx |= RF_WEAPONMODEL;
 		}
 		if (rflags & 32) { // CSQCRF_NOSHADOW
@@ -5015,7 +5036,8 @@ static void CSQC_Add_One_Entity(int e, qbool run_predraw)
 	}
 
 	R_CSQC_BeginCull();
-	if (!R_CSQC_EntityVisible(&ent)) {
+	// A view model is always visible (FTE pvscache.num_leafs = -1).
+	if (!(ent.renderfx & RF_WEAPONMODEL) && !R_CSQC_EntityVisible(&ent)) {
 		return;
 	}
 
