@@ -532,6 +532,8 @@ void Host_InitMemory (int memsize)
 //Can only be called when changing levels!
 void Host_ClearMemory (void)
 {
+	CL_UnmountMapPackage();
+
 	// FIXME, move to CL_ClearState
 	Mod_ClearAll ();
 

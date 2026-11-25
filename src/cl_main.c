@@ -1393,6 +1393,29 @@ void SCR_ClearShownick(void);
 void SCR_ClearTeamInfo(void);
 void SCR_ClearWeaponStats(void);
 
+/*
+ * Unmounts the package of the map whose state is being cleared. Until then the
+ * package stays mounted, also after a disconnect: the client keeps that map's
+ * model list, and vid_restart loads every model on it again by name.
+ *
+ * Alias and sprite models and sounds stay cached by name across maps, so when
+ * there was a package their data is dropped too, to be loaded again from the
+ * files that remain, along with the client's references to those models. A
+ * listen server gets here at the start of SV_SpawnServer, well before the
+ * client state is cleared, and an error in between would otherwise have
+ * CL_Disconnect load them again and fail on a model only the package had.
+ */
+void CL_UnmountMapPackage(void)
+{
+	if (FS_MapPackage_Unmount()) {
+		Mod_FreeAllCachedData();
+		S_FlushSoundData();
+		memset(cl.model_precache, 0, sizeof(cl.model_precache));
+		memset(cl.vw_model_precache, 0, sizeof(cl.vw_model_precache));
+		memset(cl_custommodels, 0, sizeof(cl_custommodels));
+	}
+}
+
 void CL_ClearState (void) 
 {
 	int i;

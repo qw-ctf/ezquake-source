@@ -14165,7 +14165,7 @@
       "default": "1",
       "desc": "Mounts the zip archive appended to a map's .bsp file (an FTE map package) as the lowest-priority search path, from when that map is loaded until the next one is, also after a disconnect. Only textures and skyboxes, models, .lit files and sounds are used from it, and an image or model only when no file of that name is installed in any of its formats.",
       "group-id": "48",
-      "remarks": "Takes effect on the next map load. Maps inside a pk3 are not searched for packages.",
+      "remarks": "Takes effect on the next map load. Maps inside a pk3 are not searched for packages. While enabled, a missing map is downloaded before its sounds and models, so that what its package carries is not requested from the server.",
       "type": "boolean",
       "values": [
         {

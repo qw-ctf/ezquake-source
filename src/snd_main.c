@@ -761,6 +761,41 @@ static void S_StopAllSounds_f(void)
 	S_StopAllSounds();
 }
 
+/*
+ * Frees the data of every known sound, so that each is read from the
+ * filesystem again when it is next precached or started, and stops all
+ * sounds. The mixer, on the audio thread, would itself load the data of a
+ * playing sound whose data is gone, through the hunk the main thread uses, so
+ * no channel may keep a sound.
+ */
+void S_FlushSoundData(void)
+{
+	int i;
+
+	if (!shw) {
+		return;
+	}
+
+	S_LockMixer();
+	for (i = 0; i < MAX_CHANNELS; i++) {
+		channels[i].sfx = NULL;
+	}
+	for (i = 0; i < num_sfx; i++) {
+		Q_free(known_sfx[i].buf);
+	}
+	S_UnlockMixer();
+
+	// S_UpdateAmbientSounds hands these to their channels without loading them,
+	// which would leave that to the mixer
+	if (s_precache.value) {
+		for (i = 0; i < NUM_AMBIENTS; i++) {
+			if (ambient_sfx[i]) {
+				S_LoadSound(ambient_sfx[i]);
+			}
+		}
+	}
+}
+
 void S_StaticSound (sfx_t *sfx, vec3_t origin, float vol, float attenuation)
 {
 	channel_t *ss;

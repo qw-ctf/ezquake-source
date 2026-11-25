@@ -756,6 +756,10 @@ void VWepModel_NextDownload (void)
 	CL_Prespawn ();
 }
 
+// Set by Map_NextDownload when it has checked for the map, so that the map
+// isn't checked or requested a second time with the other models.
+static qbool map_checked;
+
 void Model_NextDownload (void) 
 {
 	int	i;
@@ -766,7 +770,7 @@ void Model_NextDownload (void)
 	{
 		if (!com_serveractive || developer.value)
 			Com_DPrintf ("Checking models...\n");
-		cls.downloadnumber = 1;
+		cls.downloadnumber = map_checked ? 2 : 1;
 	}
 
 	cls.downloadtype = dl_model;
@@ -841,6 +845,32 @@ void Sound_NextDownload (void)
 	cls.downloadtype = dl_model;
 	Model_NextDownload ();
 
+}
+
+/*
+ * With map packages enabled, makes sure the map is there before its sounds
+ * and models are checked, and mounts the package it carries, so that what the
+ * package provides is found instead of requested from the server. Then goes on
+ * with the sounds. A map that can't be had is reported here, once, and left
+ * for CM_LoadMap to fail on, as before.
+ */
+static void Map_NextDownload(void)
+{
+	if (cls.downloadnumber == 0) {
+		map_checked = mod_loadmappackages.integer && cl.model_name[1][0];
+		cls.downloadtype = dl_map;
+		if (map_checked && !CL_CheckOrDownloadFile(cl.model_name[1])) {
+			return; // CL_FinishDownload comes back here
+		}
+	}
+
+	if (map_checked) {
+		FS_MapPackage_Mount(cl.model_name[1]);
+	}
+
+	cls.downloadnumber = 0;
+	cls.downloadtype = dl_sound;
+	Sound_NextDownload();
 }
 
 #ifdef FTE_PEXT_CHUNKEDDOWNLOADS
@@ -1091,6 +1121,9 @@ void CL_RequestNextDownload (void)
 			break;
 		case dl_vwep_model:
 			VWepModel_NextDownload ();
+			break;
+		case dl_map:
+			Map_NextDownload();
 			break;
 		case dl_sound:
 			Sound_NextDownload ();
@@ -1876,13 +1909,13 @@ void CL_ParseModellist (qbool extended)
 				}
 		} while (*str);
 	}
-	// We now get here after having received both soundlist and modellist, but no
-	// sounds have been downloaded yet, we must do that first, when that is finished
-	// it will call for model download 
+	// We now get here after having received both soundlist and modellist, but
+	// nothing has been downloaded yet. Map_NextDownload gets the map first if
+	// map packages are enabled, then the sounds; the models come after those.
 	// FIXME Implement a download queue later on and thus break this long chain of events
 	cls.downloadnumber = 0;
-	cls.downloadtype = dl_sound;
-	Sound_NextDownload();
+	cls.downloadtype = dl_map;
+	Map_NextDownload();
 }
 
 void CL_ParseBaseline (entity_state_t *es)
