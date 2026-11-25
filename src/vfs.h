@@ -106,6 +106,7 @@ extern searchpathfuncs_t packfilefuncs;
 //===========================
 #ifdef WITH_ZIP
 extern searchpathfuncs_t zipfilefuncs;
+void *FSZIP_LoadFromVFS(vfsfile_t *file, const char *desc, qbool (*accept)(const char *name, unsigned long size));
 #endif // WITH_ZIP
 
 //=============================
