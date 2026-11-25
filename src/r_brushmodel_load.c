@@ -1512,6 +1512,17 @@ static qbool ContentsIsLiquid(int contents)
 	}
 }
 
+// Refuses a leaf whose mark surfaces lie outside their lump
+static void Mod_CheckLeafMarksurfaces(model_t *loadmodel, int first_marksurface, int num_marksurfaces)
+{
+	if (first_marksurface < 0 || first_marksurface > loadmodel->nummarksurfaces) {
+		Host_Error("Mod_LoadLeafs: first mark surface invalid (%d vs 0-%d)", first_marksurface, loadmodel->nummarksurfaces);
+	}
+	if (num_marksurfaces < 0 || num_marksurfaces > loadmodel->nummarksurfaces - first_marksurface) {
+		Host_Error("Mod_LoadLeafs: num_marksurfaces invalid (%d + %d vs 0-%d)", first_marksurface, num_marksurfaces, loadmodel->nummarksurfaces);
+	}
+}
+
 static void Mod_LoadLeafs(model_t* loadmodel, lump_t* l, byte* mod_base)
 {
 	dleaf_t *in;
@@ -1544,13 +1555,7 @@ static void Mod_LoadLeafs(model_t* loadmodel, lump_t* l, byte* mod_base)
 
 		first_marksurface = LittleShort(in->firstmarksurface);
 		num_marksurfaces = LittleShort(in->nummarksurfaces);
-
-		if (first_marksurface < 0 || first_marksurface > loadmodel->nummarksurfaces) {
-			Host_Error("Mod_LoadLeafs: first mark surface invalid (%d vs 0-%d)", first_marksurface, loadmodel->nummarksurfaces);
-		}
-		if (num_marksurfaces < 0 || num_marksurfaces > loadmodel->nummarksurfaces - first_marksurface) {
-			Host_Error("Mod_LoadLeafs: num_marksurfaces invalid (%d + %d vs 0-%d)", first_marksurface, num_marksurfaces, loadmodel->nummarksurfaces);
-		}
+		Mod_CheckLeafMarksurfaces(loadmodel, first_marksurface, num_marksurfaces);
 
 		out->firstmarksurface = loadmodel->marksurfaces + first_marksurface;
 		out->nummarksurfaces = num_marksurfaces;
@@ -1598,9 +1603,10 @@ static void Mod_LoadLeafs29a(model_t* loadmodel, lump_t* l, byte* mod_base)
 		p = LittleLong(in->contents);
 		out->contents = p;
 
-		out->firstmarksurface = loadmodel->marksurfaces +
-			LittleLong(in->firstmarksurface);
+		p = LittleLong(in->firstmarksurface);
 		out->nummarksurfaces = LittleLong(in->nummarksurfaces);
+		Mod_CheckLeafMarksurfaces(loadmodel, p, out->nummarksurfaces);
+		out->firstmarksurface = loadmodel->marksurfaces + p;
 
 		p = LittleLong(in->visofs);
 		if (loadmodel->visdata && (p < -1 || p >= loadmodel->visdata_length)) {
@@ -1646,9 +1652,10 @@ static void Mod_LoadLeafsBSP2(model_t* loadmodel, lump_t* l, byte* mod_base)
 		p = LittleLong(in->contents);
 		out->contents = p;
 
-		out->firstmarksurface = loadmodel->marksurfaces +
-			LittleLong(in->firstmarksurface);
+		p = LittleLong(in->firstmarksurface);
 		out->nummarksurfaces = LittleLong(in->nummarksurfaces);
+		Mod_CheckLeafMarksurfaces(loadmodel, p, out->nummarksurfaces);
+		out->firstmarksurface = loadmodel->marksurfaces + p;
 
 		p = LittleLong(in->visofs);
 		if (loadmodel->visdata && (p < -1 || p >= loadmodel->visdata_length)) {
